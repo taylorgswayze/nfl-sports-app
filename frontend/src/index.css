@@ -1,0 +1,136 @@
+/* General resets and mobile-friendly settings */
+html,
+body {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    color: white;
+    text-align: center;
+    padding: 8px;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    background-color: black;
+}
+
+li {
+    list-style: none;
+}
+
+a {
+    color: white;
+}
+
+.app {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+    padding-bottom: 20px;
+}
+
+/* Header styling */
+.header {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.home-button {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #007cba;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.home-button:hover {
+    background-color: #005a87;
+}
+
+/* Week selector styling */
+.week-selector {
+    text-align: left;
+    padding-left: 10px;
+}
+
+.week-selector select {
+    width: 100px;
+    height: 50px;
+    font-size: 1rem;
+    margin-top: 10px;
+    border-radius: 5px;
+}
+
+/* Game card styling */
+.game-card {
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid white;
+    border-radius: 10px;
+    max-width: 800px;
+    background-color: #333;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.team-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Team box */
+.team-box {
+    width: 35%;
+    text-align: center;
+}
+
+.team-logo {
+    width: 60px;
+    height: auto;
+    margin-bottom: 5px;
+}
+
+.team-name {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.win-prob {
+    font-size: 0.9rem;
+    color: lightgray;
+}
+
+/* VS text */
+.vs-text {
+    font-size: 2rem;
+    font-weight: bold;
+    width: 20%;
+    text-align: center;
+}
+
+/* Game info */
+.game-info {
+    margin-top: 10px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+/* Last updated */
+.last-updated {
+    text-align: left;
+    font-style: italic;
+    font-size: 0.9rem;
+}

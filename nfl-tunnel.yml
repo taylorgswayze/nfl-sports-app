@@ -1,0 +1,6 @@
+tunnel: TUNNEL_ID_PLACEHOLDER
+credentials-file: ~/.cloudflared/TUNNEL_ID_PLACEHOLDER.json
+ingress:
+  - hostname: nfl.taylorswayze.com
+    service: http://localhost:8000
+  - service: http_status:404
