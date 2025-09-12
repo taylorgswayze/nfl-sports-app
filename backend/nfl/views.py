@@ -139,11 +139,15 @@ def games(request, week_num=None):
         else:
             # Get current week or default to first week
             try:
-                week = Calendar.objects.get(pk=1)
-            except Calendar.DoesNotExist:
-                week = unique_weeks.first() if unique_weeks else None
+                week = h.current_week()
                 if not week:
-                    return JsonResponse({'error': 'No calendar data available'}, status=404)
+                    week = unique_weeks.first() if unique_weeks else None
+            except Exception as e:
+                logger.warning(f"Error getting current week: {e}")
+                week = unique_weeks.first() if unique_weeks else None
+                
+            if not week:
+                return JsonResponse({'error': 'No calendar data available'}, status=404)
 
         # Get games for the selected week
         games_queryset = Game.objects.filter(week=week).select_related('home_team', 'away_team', 'outcome')

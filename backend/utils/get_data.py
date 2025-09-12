@@ -93,8 +93,8 @@ def update_game(game):
 
 #pass games
 def update_upcoming_games():
-    upcoming_comes = models.Game.obnjects.filter(game_datetime__gt=NOW, game_datetime__lt=NOW + timedelta(days=15))
-    [update_game(x) for x in upcoming_comes]
+    upcoming_games = models.Game.objects.filter(game_datetime__gt=NOW, game_datetime__lt=NOW + timedelta(days=15))
+    [update_game(x) for x in upcoming_games]
 
 
 
