@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { get } from '../api'
 
 function TeamSchedule({ teamId: propTeamId, onBack }) {
   const { id } = useParams()
@@ -24,9 +25,7 @@ function TeamSchedule({ teamId: propTeamId, onBack }) {
 
   const loadSchedule = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/team-schedule/${teamId}/`)
-      if (!response.ok) throw new Error("Failed to fetch team schedule")
-      const data = await response.json()
+      const data = await get(`/team-schedule/${teamId}/`)
       setGames(data.schedule)
       setTeamName(data.team)
     } catch (err) {
@@ -38,11 +37,8 @@ function TeamSchedule({ teamId: propTeamId, onBack }) {
 
   const loadTeamStats = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/teams/${teamId}/stats/?season=${selectedSeason}`)
-      if (response.ok) {
-        const data = await response.json()
-        setTeamStats(data.stats || [])
-      }
+      const data = await get(`/teams/${teamId}/stats/`, { season: selectedSeason })
+      setTeamStats(data.stats || [])
     } catch (err) {
       console.error("Failed to load team stats:", err)
     }
@@ -50,11 +46,8 @@ function TeamSchedule({ teamId: propTeamId, onBack }) {
 
   const loadRoster = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/teams/${teamId}/roster/`)
-      if (response.ok) {
-        const data = await response.json()
-        setRoster(data.roster || [])
-      }
+      const data = await get(`/teams/${teamId}/roster/`)
+      setRoster(data.roster || [])
     } catch (err) {
       console.error("Failed to load roster:", err)
     }
@@ -177,7 +170,7 @@ function TeamSchedule({ teamId: propTeamId, onBack }) {
                   className="player-link"
                   onClick={(e) => { 
                     e.preventDefault(); 
-                    handlePlayerClick(player, positionGroup); 
+                    handlePlayerClick(player, positionGroup);
                   }}
                 >
                   {player.display_name || `${player.first_name} ${player.last_name}`}
