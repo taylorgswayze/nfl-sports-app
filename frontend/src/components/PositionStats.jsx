@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { get } from '../api'
 
 function PositionStats({ position: propPosition, selectedPlayerId: propSelectedPlayerId, onBack }) {
   const { position } = useParams()
@@ -27,10 +28,7 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
     setError(null)
 
     try {
-      const response = await fetch(`http://localhost:8000/position/${currentPosition}/stats/?season=${selectedSeason}`)
-      if (!response.ok) throw new Error("Failed to fetch position stats")
-      
-      const data = await response.json()
+      const data = await get(`/position/${currentPosition}/stats/`, { season: selectedSeason })
       const playersData = data.players || []
       setOriginalPlayers(playersData)
       setPlayers(playersData)
