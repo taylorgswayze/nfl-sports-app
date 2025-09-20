@@ -231,7 +231,7 @@ function TeamSchedule() {
                       <div className="team-box">
                         {game.game_datetime}<br />
                         Week {game.week_num}<br />
-                        {game.is_home ? 'vs' : '@'} {game.opponent}
+                        {game.is_home ? 'vs' : '@'} {game.is_home ? teamName : game.opponent}
                       </div>
                     </div>
                   </li>

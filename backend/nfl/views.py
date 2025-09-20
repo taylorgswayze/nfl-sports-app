@@ -459,14 +459,16 @@ def team_stats(request, team_id):
             }, status=404)
         
         # Try to get real stats from StatTeam model
-        team_stats = StatTeam.objects.filter(team_id=team_id).first()
+        all_team_stats = StatTeam.objects.filter(team_id=team_id)
         
-        if team_stats:
-            # Use real stats if available
-            stats_data = model_to_dict(team_stats)
-            # Remove non-stat fields
-            stats_data.pop('id', None)
-            stats_data.pop('team_id', None)
+        stats_data = {}
+        if all_team_stats.exists():
+            for stat_obj in all_team_stats:
+                # Combine category and stat_name to form a unique key, or just use stat_name if unique enough
+                # For simplicity, let's just use stat_name for now, assuming they are unique across categories for display
+                stats_data[stat_obj.stat_name] = stat_obj.value
+                # You might want to include rank or description here too, depending on frontend needs
+                # For example: stats_data[f'{stat_obj.category}_{stat_obj.stat_name}'] = stat_obj.value
         else:
             # Fallback to mock stats with team-specific variations
             base_stats = {
@@ -494,7 +496,6 @@ def team_stats(request, team_id):
             import random
             random.seed(team_id)  # Consistent variations per team
             
-            stats_data = {}
             for key, value in base_stats.items():
                 if isinstance(value, (int, float)):
                     variation = random.uniform(0.8, 1.2)  # ±20% variation
@@ -515,7 +516,7 @@ def team_stats(request, team_id):
             'season': get_data.CURRENT_YEAR if hasattr(get_data, 'CURRENT_YEAR') else 2025,
             'games_played': games_played,
             'last_updated': format_game_time(None),
-            'data_source': 'database' if team_stats else 'calculated'
+            'data_source': 'database' if all_team_stats.exists() else 'calculated'
         }
         
         return JsonResponse(response_data)

@@ -40,6 +40,7 @@ CRON_CLASSES = [
     'nfl.cron.UpdatePlayerStatsEvery10Minutes',
     'nfl.cron.UpdatePlayerStatsPostGame',
     'nfl.cron.UpdateSeasonData',
+    'nfl.cron.UpdateTeamStats',
 ]
 
 MIDDLEWARE = [

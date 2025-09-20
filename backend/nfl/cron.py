@@ -42,3 +42,10 @@ class UpdateSeasonData(CronJobBase):
 
     def do(self):
         call_command('update_season_data')
+
+class UpdateTeamStats(CronJobBase):
+    schedule = Schedule(run_every_mins=60)
+    code = 'nfl.update_team_stats'
+
+    def do(self):
+        call_command('update_team_stats')
