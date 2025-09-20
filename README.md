@@ -231,4 +231,5 @@ nfl-sports-app/
 3. **API Timeouts:** Check ESPN API availability and rate limits.
 4. **Missing Logos:** Verify team logo files in `frontend/public/logos/`.
 5. **Hardcoded URLs:** Ensure frontend components use relative paths for API calls by using the `get` function from `api.js` instead of hardcoding `http://localhost:8000`.
+6. **Blank Page in Production:** If the application shows a blank page after running `build_frontend.sh`, it's likely an issue with static file serving. When `DEBUG` is `False`, Django doesn't serve static files automatically. The `build_frontend.sh` script places the built frontend files in `backend/staticfiles`, and the production server is configured to serve files from this directory. Ensure that the `start_production.sh` script is used to run the server, as it applies the correct production settings. If you've modified the build process or file locations, ensure that `sports/production_settings.py` and `sports/urls.py` are configured to find the static files.
 

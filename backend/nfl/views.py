@@ -150,7 +150,7 @@ def games(request, week_num=None):
                 return JsonResponse({'error': 'No calendar data available'}, status=404)
 
         # Get games for the selected week
-        games_queryset = Game.objects.filter(week=week).select_related('home_team', 'away_team', 'outcome')
+        games_queryset = Game.objects.filter(week=week).select_related('home_team', 'away_team', 'outcome').order_by('game_datetime')
         
         games_list = []
         for game in games_queryset:

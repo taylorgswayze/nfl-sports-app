@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { gameService } from '../api'
+import { getLogoUrl } from '../utils'
 import './TeamSchedule.css'
 
 const POSITION_GROUPS = {
@@ -216,7 +217,7 @@ function TeamSchedule() {
                     <div className="team-row">
                       <div className="team-box">
                         <a href="#" onClick={(e) => { e.preventDefault(); handleTeamClick(game.opponent_id); }}>
-                          <img className="team-logo" src={`/logos/${game.opponent_logo}`} alt={game.opponent} />
+                          <img className="team-logo" src={getLogoUrl(game.opponent_logo)} alt={game.opponent} />
                         </a>
                         <div className="team-name">
                           <a href="#" onClick={(e) => { e.preventDefault(); handleTeamClick(game.opponent_id); }}>
