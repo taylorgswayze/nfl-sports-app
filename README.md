@@ -1,7 +1,7 @@
 # NFL Sports Information Web Application
 
-**Last Updated:** September 12, 2025 at 10:00 PM EDT  
-**Version:** 1.0.1  
+**Last Updated:** September 15, 2025 at 12:00 PM EDT  
+**Version:** 1.0.2  
 **Status:** Development Ready
 
 ## Project Overview
@@ -79,7 +79,7 @@ nfl-sports-app/
 ### Core Models
 
 **Team**
-- `team_id` (Primary Key): Integer
+- `team_id` (Primary Key): IntegerField
 - `team_name`: CharField
 - `short_name`: CharField
 - `record`: CharField
@@ -176,9 +176,16 @@ nfl-sports-app/
 - `GET /matchup/<event_id>/`: Detailed game matchup information.
 - `GET /teams/<team_id>/roster/`: Team roster with player details.
 - `GET /teams/<team_id>/stats/`: Team season statistics.
-- `GET /position/<position>/stats/`: Position-specific player statistics.
+- `GET /position/<str:position>/stats/`: Position-specific player statistics.
 
 ## Frontend Components
+
+### App.jsx
+- **Purpose:** Main application component that handles routing.
+- **Features:**
+  - Uses `react-router-dom` to define routes for different views.
+  - `GameDisplay`, `TeamSchedule`, and `PositionStats` components are rendered based on the URL.
+  - Wrappers are used to pass URL parameters as props to components.
 
 ### GameDisplay.jsx
 - **Purpose:** Main landing page displaying current week games.
@@ -188,7 +195,7 @@ nfl-sports-app/
   - Win probability display.
   - Team navigation links.
 - **State Management:** Games data, loading states, week selection.
-- **API Integration:** Fetches games data via `gameService`.
+- **API Integration:** Fetches games data.
 
 ### TeamSchedule.jsx
 - **Purpose:** Comprehensive team information view.
@@ -199,7 +206,7 @@ nfl-sports-app/
   - Player links to position statistics.
   - Season selector for historical data.
 - **Navigation:** React Router integration with URL parameters.
-- **API Integration:** Fetches data for schedule, stats, and roster using the `get` function from `api.js`.
+- **API Integration:** Fetches data for schedule, stats, and roster.
 
 ### PositionStats.jsx
 - **Purpose:** Player position statistics and comparisons.
@@ -207,7 +214,7 @@ nfl-sports-app/
     - Displays a table of players for a given position, with sortable columns for various stats.
     - Highlights the selected player.
     - Season selector for historical data.
-- **API Integration:** Fetches position stats using the `get` function from `api.js`.
+- **API Integration:** Fetches position stats.
 
 ### api.js
 - **Purpose:** Centralized API communication.
@@ -215,7 +222,6 @@ nfl-sports-app/
   - Base URL configuration.
   - Error handling and response parsing.
   - A `get` function for making GET requests.
-- **Services:** `gameService` for game-related API calls.
 
 ## Troubleshooting
 
@@ -226,39 +232,3 @@ nfl-sports-app/
 4. **Missing Logos:** Verify team logo files in `frontend/public/logos/`.
 5. **Hardcoded URLs:** Ensure frontend components use relative paths for API calls by using the `get` function from `api.js` instead of hardcoding `http://localhost:8000`.
 
-## AI Agent Research Methodology
-
-**For Future AI Agents Updating This Documentation:**
-
-### Research Process Used
-1. **Recursive Directory Analysis:** Used `fs_read` with depth=3 to map complete project structure
-2. **Key File Identification:** Prioritized Django core files (settings.py, models.py, views.py, urls.py) and React components
-3. **Code Analysis:** Read and analyzed each critical file to understand functionality and relationships
-4. **Architecture Mapping:** Traced data flow from API endpoints through models to frontend components
-5. **Dependency Analysis:** Examined package.json and requirements.txt for technology stack
-6. **Feature Documentation:** Identified user-facing features through component analysis
-
-### Update Instructions for AI Agents
-1. **File Analysis:** Always start with recursive directory scan using `fs_read` operations
-2. **Core Files Priority:** Focus on Django settings, models, views, URLs, and main React components
-3. **Change Detection:** Compare current file contents with existing documentation
-4. **Timestamp Update:** Update the "Last Updated" timestamp at the top of this README
-5. **Version Increment:** Update version number if significant changes are detected
-6. **Structure Validation:** Verify project structure section matches actual directory layout
-7. **Dependency Updates:** Check for new dependencies in package.json and requirements.txt
-8. **Feature Updates:** Document any new API endpoints, components, or functionality discovered
-
-### Timestamp Update Command
-When updating this README, change the timestamp using this format:
-```
-**Last Updated:** [Month] [Day], [Year] at [Time] [Timezone]
-```
-
-### Research Tools Used
-- `fs_read` for file and directory analysis
-- `fs_write` for documentation creation
-- Systematic code review of backend models, views, and frontend components
-- API endpoint mapping through URL configuration analysis
-- Database schema documentation through Django model analysis
-
-This methodology ensures comprehensive project understanding and accurate documentation maintenance.

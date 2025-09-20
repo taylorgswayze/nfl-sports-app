@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Kill any existing cloudflared processes
-pkill cloudflared
+TUNNEL_UUID=$(grep -oP 'tunnel: \K.*' /home/t/projects/nfl-sports-app/sports-info-tunnel.yml)
+if [ ! -z "$TUNNEL_UUID" ]; then
+    cloudflared tunnel stop $TUNNEL_UUID
+fi
 
 # Kill any existing tmux session named "nfl-app"
 tmux kill-session -t nfl-app 2>/dev/null

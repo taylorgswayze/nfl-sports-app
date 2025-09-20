@@ -6,21 +6,48 @@ from django.utils.timezone import now
 CURRENT_YEAR = (datetime.now() - timedelta(days=150)).year
 NOW = now()
 
+def get_espn_api_url(endpoint):
+    return f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/{endpoint}"
 
 def current_week():
+    # Add a 2-day offset to handle week turnover
+    now_offset = NOW + timedelta(days=2)
+    
     try:
+        # Try to find the current week with the offset
         current_week = models.Calendar.objects.filter(
             season=CURRENT_YEAR,
-            start_date__lte=NOW,
-            end_date__gte=NOW
-        )[0]
-
-        # Output the result
+            start_date__lte=now_offset,
+            end_date__gte=now_offset
+        ).latest('start_date')
+        
         print(f"Current schedule week is {current_week.name} of the {current_week.season_type_name}")
         return current_week
 
-    except IndexError:
-        print("No current week found for the specified season and date range.")
+    except models.Calendar.DoesNotExist:
+        # Handle off-season and pre-season logic
+        if 3 <= now_offset.month <= 5:  # March to May
+            # Return the last week of the previous season's post-season
+            last_postseason_week = models.Calendar.objects.filter(
+                season=CURRENT_YEAR - 1,
+                season_type_name='Postseason'
+            ).order_by('-week_num').first()
+            if last_postseason_week:
+                print(f"Current schedule week is {last_postseason_week.name} of the {last_postseason_week.season_type_name}")
+                return last_postseason_week
+
+        elif 6 <= now_offset.month <= 8:  # June to August
+            # Return the first week of the upcoming pre-season
+            first_preseason_week = models.Calendar.objects.filter(
+                season=CURRENT_YEAR,
+                season_type_name='Pre-Season'
+            ).order_by('week_num').first()
+            if first_preseason_week:
+                print(f"Current schedule week is {first_preseason_week.name} of the {first_preseason_week.season_type_name}")
+                return first_preseason_week
+        
+        # If no specific week is found, return the latest available week
+        return models.Calendar.objects.latest('start_date')
 
 
 
@@ -33,7 +60,6 @@ def extract_int(string, kw):
         return int(match.group(1))  # Convert matched group to integer
     else:
         raise ValueError(f"No match found for keyword '{kw}' in string: {string}")
-
 
 def get_team_logo(team_id):
     team_logos = {

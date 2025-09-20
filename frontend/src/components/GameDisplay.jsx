@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { gameService } from '../api'
+import { getLogoUrl } from '../utils'
+import './GameDisplay.css'
 
-function GameDisplay({ onTeamSelect }) {
+function GameDisplay() {
+  const navigate = useNavigate()
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -45,7 +49,7 @@ function GameDisplay({ onTeamSelect }) {
   }
 
   const handleTeamClick = (team_id) => {
-    onTeamSelect(team_id)
+    navigate(`/team/${team_id}`)
   }
 
   return (
@@ -93,7 +97,7 @@ function GameDisplay({ onTeamSelect }) {
                       >
                         <img
                           className="team-logo"
-                          src={`./logos/${game.away_team_logo}`}
+                          src={getLogoUrl(game.away_team_logo)}
                           alt={game.away_team}
                         />
                       </a>
@@ -129,7 +133,7 @@ function GameDisplay({ onTeamSelect }) {
                       >
                         <img
                           className="team-logo"
-                          src={`./logos/${game.home_team_logo}`}
+                          src={getLogoUrl(game.home_team_logo)}
                           alt={game.home_team}
                         />
                       </a>

@@ -224,7 +224,7 @@ def teams(team_id):
 
 def update_athlete_status(athlete_id):
     athlete = Athlete.objects.get(pk=athlete_id)
-    url = f'https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/{athlete.athlete_id}'
+    url = h.get_espn_api_url(f'athletes/{athlete.athlete_id}')
     data = requests.get(url).json()
     data = data['athlete']
     status_id = data['status']['id']

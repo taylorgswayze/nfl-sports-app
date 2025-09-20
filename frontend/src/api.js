@@ -1,8 +1,6 @@
-const API_BASE_URL = "/api";
-
 export async function get(endpoint, params = null) {
   try {
-    let url = `${API_BASE_URL}${endpoint}`;
+    let url = `/api${endpoint}`;
 
     if (params) {
       const queryString = new URLSearchParams();
@@ -38,5 +36,14 @@ export const gameService = {
   fetchGames(weekNum = null) {
     const endpoint = weekNum ? `/games/${weekNum}/` : "/games/"
     return get(endpoint)
+  },
+  fetchTeamSchedule(teamId) {
+    return get(`/team-schedule/${teamId}/`)
+  },
+  fetchTeamStats(teamId, season) {
+    return get(`/teams/${teamId}/stats/`, { season })
+  },
+  fetchTeamRoster(teamId) {
+    return get(`/teams/${teamId}/roster/`)
   },
 };

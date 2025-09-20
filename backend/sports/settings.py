@@ -1,5 +1,6 @@
 
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -10,12 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)wukqz60oq)l+92hqf*6i%%wl$2m0khjp&)62g07cxb@=h*zi='
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-)wukqz60oq)l+92hqf*6i%%wl$2m0khjp&)62g07cxb@=h*zi=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -33,9 +34,12 @@ INSTALLED_APPS = [
     ]
 
 CRON_CLASSES = [
-    'nfl.cron.RefreshDataCronJob',
+    'nfl.cron.RefreshEveryDay',
+    'nfl.cron.RefreshEveryHour',
+    'nfl.cron.RefreshEveryMinute',
     'nfl.cron.UpdatePlayerStatsEvery10Minutes',
     'nfl.cron.UpdatePlayerStatsPostGame',
+    'nfl.cron.UpdateSeasonData',
 ]
 
 MIDDLEWARE = [
@@ -66,9 +70,7 @@ TEMPLATES = [
         },
     },
 ]
-CORS_ALLOWED_ORIGINS = [
-    'https://nfl.taylorswayze.com',
-]
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'https://nfl.taylorswayze.com').split(',')
 WSGI_APPLICATION = 'sports.wsgi.application'
 
 CSRF_TRUSTED_ORIGINS = [
@@ -133,3 +135,36 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs/django.log',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'nfl': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'utils': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
