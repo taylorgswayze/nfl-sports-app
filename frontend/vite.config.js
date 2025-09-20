@@ -8,7 +8,14 @@ export default defineConfig(({ command }) => {
     server: {
       port: 5173,
       host: '0.0.0.0',
-      allowedHosts: ['nfl.taylorswayze.com']
+      allowedHosts: ['nfl.taylorswayze.com'],
+      proxy: {
+        '/api': 'http://localhost:8000',
+        '/static/logos': {
+          target: 'http://localhost:5173',
+          rewrite: (path) => path.replace(/^\/static\/logos/, '/logos')
+        }
+      }
     }
   };
 

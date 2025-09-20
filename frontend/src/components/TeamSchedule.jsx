@@ -38,15 +38,35 @@ function TeamSchedule() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [currentView, setCurrentView] = useState("schedule")
-  const [teamStats, setTeamStats] = useState([])
+  const [teamStats, setTeamStats] = useState({})
   const [roster, setRoster] = useState([])
-  const [selectedSeason, setSelectedSeason] = useState("2024")
+  const [selectedSeason, setSelectedSeason] = useState(null)
+  const [currentSeason, setCurrentSeason] = useState("2025")
 
   useEffect(() => {
     if (teamId) {
       loadSchedule()
+      getCurrentSeason()
     }
   }, [teamId])
+
+  const getCurrentSeason = async () => {
+    try {
+      const data = await gameService.fetchGames()
+      if (data.current_week && data.current_week.season) {
+        const season = data.current_week.season.toString()
+        setCurrentSeason(season)
+        if (selectedSeason === null) {
+          setSelectedSeason(season)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to get current season:", err)
+      if (selectedSeason === null) {
+        setSelectedSeason("2025")
+      }
+    }
+  }
 
   const loadSchedule = async () => {
     try {
@@ -62,8 +82,9 @@ function TeamSchedule() {
 
   const loadTeamStats = async () => {
     try {
-      const data = await gameService.fetchTeamStats(teamId, selectedSeason)
-      setTeamStats(data.stats || [])
+      const season = selectedSeason || currentSeason
+      const data = await gameService.fetchTeamStats(teamId, season)
+      setTeamStats(data.stats || {})
     } catch (err) {
       console.error("Failed to load team stats:", err)
     }
@@ -95,7 +116,7 @@ function TeamSchedule() {
 
   const switchView = async (view) => {
     setCurrentView(view)
-    if (view === 'stats' && teamStats.length === 0) {
+    if (view === 'stats' && Object.keys(teamStats).length === 0) {
       await loadTeamStats()
     } else if (view === 'roster' && roster.length === 0) {
       await loadRoster()
@@ -103,10 +124,116 @@ function TeamSchedule() {
   }
 
   const onSeasonChange = async (e) => {
-    setSelectedSeason(e.target.value)
+    const newSeason = e.target.value
+    setSelectedSeason(newSeason)
     if (currentView === 'stats') {
-      await loadTeamStats()
+      try {
+        const data = await gameService.fetchTeamStats(teamId, newSeason)
+        setTeamStats(data.stats || {})
+      } catch (err) {
+        console.error('Error loading team stats:', err)
+        setTeamStats({})
+      }
     }
+  }
+
+  // Order stats by importance for NFL team analysis
+  const getOrderedStats = (stats) => {
+    console.log('Original stats:', Object.keys(stats))
+    
+    // Deduplicate stats by name, keeping the first occurrence
+    const deduped = {}
+    Object.entries(stats).forEach(([key, stat]) => {
+      const statName = stat.name || key
+      if (!deduped[statName]) {
+        deduped[statName] = [key, stat]
+      }
+    })
+    
+    const statOrder = [
+      // Tier 1: Game-Winning Fundamentals (Most Critical)
+      'TotalPointsPerGame',
+      'TotalPoints',
+      'TurnOverDifferential',
+      'ThirdDownConvPct',
+      'RedzoneScoringPct',
+      
+      // Tier 2: Yards Efficiency & Production (Second Priority)
+      'YardsPerCompletion',
+      'YardsPerPassAttempt',
+      'NetYardsPerPassAttempt',
+      'YardsPerRushAttempt',
+      'TotalYards',
+      'YardsPerGame',
+      'PassingYards',
+      'PassingYardsPerGame',
+      'RushingYards',
+      'RushingYardsPerGame',
+      
+      // Tier 3: Offensive Production
+      'TotalTouchdowns',
+      'PassingTouchdowns',
+      'RushingTouchdowns',
+      'CompletionPct',
+      'QBRating',
+      'QuarterbackRating',
+      
+      // Tier 4: Turnover Details
+      'TotalTakeaways',
+      'TotalGiveaways',
+      'Interceptions',
+      'FumblesRecovered',
+      'FumblesLost',
+      
+      // Tier 5: Defensive Impact
+      'Sacks',
+      'TacklesForLoss',
+      'PassesDefended',
+      'TotalTackles',
+      'SoloTackles',
+      
+      // Tier 6: Situational Performance
+      'RedzoneEfficiencyPct',
+      'FourthDownConvPct',
+      'FirstDowns',
+      'FirstDownsPerGame',
+      
+      // Tier 7: Special Teams
+      'FieldGoalPct',
+      'ExtraPointPct',
+      'NetAvgPuntYards',
+      'YardsPerKickReturn',
+      'YardsPerPuntReturn',
+      
+      // Tier 8: Discipline & Control
+      'TotalPenalties',
+      'TotalPenaltyYards',
+      'PossessionTimeSeconds',
+      
+      // Tier 9: Volume Stats
+      'TotalOffensivePlays',
+      'PassingAttempts',
+      'RushingAttempts',
+      'Completions'
+    ]
+    
+    const orderedEntries = []
+    const remainingStats = { ...deduped }
+    
+    // Add stats in priority order
+    statOrder.forEach(statKey => {
+      if (remainingStats[statKey]) {
+        orderedEntries.push(remainingStats[statKey])
+        delete remainingStats[statKey]
+      }
+    })
+    
+    // Add any remaining stats at the end
+    Object.values(remainingStats).forEach(entry => {
+      orderedEntries.push(entry)
+    })
+    
+    return orderedEntries
   }
 
   const groupRosterByPosition = (roster) => {
@@ -248,15 +375,29 @@ function TeamSchedule() {
         <div className="team-stats">
           <div className="season-selector">
             <label htmlFor="season">Season:</label>
-            <select id="season" value={selectedSeason} onChange={onSeasonChange}>
+            <select id="season" value={selectedSeason || currentSeason} onChange={onSeasonChange}>
+              <option value="2025">2025</option>
               <option value="2024">2024</option>
               <option value="2023">2023</option>
               <option value="2022">2022</option>
             </select>
           </div>
           
-          {teamStats.length > 0 ? (
+          {Object.keys(teamStats).length > 0 ? (
             <div className="stats-table">
+              {(selectedSeason || currentSeason) !== currentSeason && (
+                <div className="historical-data-notice" style={{
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '4px',
+                  padding: '10px',
+                  marginBottom: '15px',
+                  color: '#856404'
+                }}>
+                  <strong>Note:</strong> Historical data for {selectedSeason || currentSeason} may not be available. 
+                  Showing current season ({currentSeason}) data.
+                </div>
+              )}
               <table>
                 <thead>
                   <tr>
@@ -267,12 +408,12 @@ function TeamSchedule() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(teamStats).map(([key, value]) => (
+                  {getOrderedStats(teamStats).map(([key, stat]) => (
                     <tr key={key}>
-                      <td>Team</td>
-                      <td>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                      <td>{value}</td>
-                      <td>N/A</td>
+                      <td>{stat.category || 'Team'}</td>
+                      <td>{stat.name || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                      <td>{stat.value}</td>
+                      <td>{stat.display_rank || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -280,7 +421,7 @@ function TeamSchedule() {
             </div>
           ) : (
             <div className="stats-loading">
-              <p>No team stats available for {selectedSeason} season.</p>
+              <p>No team stats available for {selectedSeason || currentSeason} season.</p>
             </div>
           )}
         </div>

@@ -445,9 +445,69 @@ def team_roster(request, team_id):
         }, status=500)
 
 
+def get_stat_priority_order():
+    """Define stat priority tiers based on NFL analytics importance"""
+    return {
+        # Tier 1: Critical Performance Indicators
+        1: ['totalPointsPerGame', 'totalPoints', 'turnOverDifferential', 'thirdDownConvPct', 
+            'redzoneScoringPct', 'yardsPerCompletion', 'yardsPerPassAttempt', 'totalYards'],
+        
+        # Tier 2: Offensive Efficiency  
+        2: ['netYardsPerPassAttempt', 'yardsPerRushAttempt', 'yardsPerGame', 'passingYardsPerGame',
+            'rushingYardsPerGame', 'netYardsPerGame', 'avgGain'],
+            
+        # Tier 3: Scoring & Red Zone
+        3: ['redzoneEfficiencyPct', 'redzoneTouchdownPct', 'totalTouchdowns', 'fieldGoalPct',
+            'fieldGoalsMade', 'passingTouchdowns', 'rushingTouchdowns'],
+            
+        # Tier 4: Turnovers & Ball Security
+        4: ['interceptions', 'fumblesLost', 'fumblesRecovered', 'totalTakeaways', 'totalGiveaways',
+            'fumbles', 'interceptionPct'],
+            
+        # Tier 5: Third Down & Situational
+        5: ['thirdDownAttempts', 'thirdDownConvs', 'fourthDownConvPct', 'firstDowns',
+            'firstDownsPerGame', 'possessionTimeSeconds'],
+            
+        # Tier 6: Defensive Efficiency
+        6: ['pointsAllowed', 'yardsAllowed', 'sacks', 'totalTackles', 'soloTackles',
+            'tacklesForLoss', 'passesDefended'],
+            
+        # Tier 7: Special Teams
+        7: ['kickReturnYards', 'puntReturnYards', 'netAvgPuntYards', 'yardsPerKickReturn',
+            'yardsPerPuntReturn', 'kickoffReturnYards'],
+            
+        # Tier 8: Discipline & Penalties
+        8: ['totalPenalties', 'totalPenaltyYards'],
+        
+        # Tier 9: Volume Stats
+        9: ['totalOffensivePlays', 'passingAttempts', 'rushingAttempts', 'completions',
+            'receptions', 'receivingTargets', 'gamesPlayed']
+    }
+
+
+def order_stats_by_priority(stats_queryset):
+    """Order stats by priority tiers, then alphabetically within tiers"""
+    priority_tiers = get_stat_priority_order()
+    
+    # Create a mapping of stat names to priority
+    stat_priorities = {}
+    for tier, stat_names in priority_tiers.items():
+        for stat_name in stat_names:
+            stat_priorities[stat_name] = tier
+    
+    # Convert queryset to list and sort
+    stats_list = list(stats_queryset)
+    
+    def get_sort_key(stat_obj):
+        priority = stat_priorities.get(stat_obj.stat_name, 10)  # Default to tier 10 for unknown stats
+        return (priority, stat_obj.stat_name)  # Sort by priority, then alphabetically
+    
+    return sorted(stats_list, key=get_sort_key)
+
+
 @require_http_methods(["GET"])
 def team_stats(request, team_id):
-    """Get season stats for a specific team with enhanced data"""
+    """Get season stats for a specific team with prioritized ordering"""
     try:
         # Validate team exists
         try:
@@ -458,63 +518,81 @@ def team_stats(request, team_id):
                 'message': 'Please provide a valid team ID (1-32)'
             }, status=404)
         
-        # Try to get real stats from StatTeam model
+        # Get real stats from StatTeam model
         all_team_stats = StatTeam.objects.filter(team_id=team_id)
         
-        stats_data = {}
         if all_team_stats.exists():
-            for stat_obj in all_team_stats:
-                # Combine category and stat_name to form a unique key, or just use stat_name if unique enough
-                # For simplicity, let's just use stat_name for now, assuming they are unique across categories for display
-                stats_data[stat_obj.stat_name] = stat_obj.value
-                # You might want to include rank or description here too, depending on frontend needs
-                # For example: stats_data[f'{stat_obj.category}_{stat_obj.stat_name}'] = stat_obj.value
+            # Order stats by priority
+            ordered_stats = order_stats_by_priority(all_team_stats)
+            
+            # Convert to ordered dictionary maintaining priority order
+            stats_data = []
+            for stat_obj in ordered_stats:
+                stats_data.append({
+                    'name': stat_obj.stat_name,
+                    'value': stat_obj.value,
+                    'rank': stat_obj.rank,
+                    'display_rank': stat_obj.display_rank,
+                    'description': stat_obj.description,
+                    'category': stat_obj.category
+                })
         else:
             # Fallback to mock stats with team-specific variations
             base_stats = {
-                'points_per_game': 24.5,
-                'points_allowed_per_game': 18.2,
-                'turnover_differential': 8,
-                'third_down_conversion_pct': 42.3,
-                'third_down_defense_pct': 35.1,
-                'red_zone_efficiency_pct': 58.7,
-                'red_zone_defense_pct': 45.2,
-                'time_of_possession': '31:15',
-                'yards_per_play': 5.8,
-                'opponent_yards_per_play': 4.9,
-                'total_yards_per_game': 365.2,
-                'rushing_yards_per_game': 125.8,
-                'passing_yards_per_game': 239.4,
-                'sacks': 35,
-                'interceptions': 12,
-                'fumbles_recovered': 8,
-                'penalties_per_game': 6.2,
-                'penalty_yards_per_game': 52.1
+                'TotalPointsPerGame': 24.5,
+                'TotalPoints': 416,
+                'TurnOverDifferential': 8,
+                'ThirdDownConvPct': 42.3,
+                'RedzoneScoringPct': 58.7,
+                'YardsPerCompletion': 11.2,
+                'YardsPerPassAttempt': 7.8,
+                'TotalYards': 365.2,
+                'NetYardsPerPassAttempt': 6.9,
+                'YardsPerRushAttempt': 4.2,
+                'YardsPerGame': 365.2,
+                'PassingYardsPerGame': 239.4,
+                'RushingYardsPerGame': 125.8,
+                'PointsAllowedPerGame': 18.2,
+                'YardsAllowedPerGame': 320.1,
+                'ThirdDownDefensePct': 35.1,
+                'PenaltiesPerGame': 6.2,
+                'PenaltyYardsPerGame': 52.1
             }
             
             # Add slight variations based on team_id for more realistic mock data
             import random
-            random.seed(team_id)  # Consistent variations per team
+            random.seed(team_id)
             
-            for key, value in base_stats.items():
-                if isinstance(value, (int, float)):
-                    variation = random.uniform(0.8, 1.2)  # ±20% variation
-                    if isinstance(value, int):
-                        stats_data[key] = int(value * variation)
-                    else:
-                        stats_data[key] = round(value * variation, 1)
-                else:
-                    stats_data[key] = value
-        
-        # Calculate additional derived stats
-        games_played = 17  # Assuming full season
+            # Create ordered stats list following priority system
+            priority_tiers = get_stat_priority_order()
+            stats_data = []
+            
+            for tier in sorted(priority_tiers.keys()):
+                for stat_name in priority_tiers[tier]:
+                    if stat_name in base_stats:
+                        value = base_stats[stat_name]
+                        if isinstance(value, (int, float)):
+                            variation = random.uniform(0.8, 1.2)
+                            if isinstance(value, int):
+                                value = int(value * variation)
+                            else:
+                                value = round(value * variation, 1)
+                        
+                        stats_data.append({
+                            'name': stat_name,
+                            'value': value,
+                            'rank': random.randint(1, 32),
+                            'display_rank': f"{random.randint(1, 32)}",
+                            'description': f"{stat_name} description",
+                            'category': 'General'
+                        })
         
         response_data = {
             'team': team.team_name,
             'team_id': team_id,
             'stats': stats_data,
             'season': get_data.CURRENT_YEAR if hasattr(get_data, 'CURRENT_YEAR') else 2025,
-            'games_played': games_played,
+            'games_played': 17,
             'last_updated': format_game_time(None),
             'data_source': 'database' if all_team_stats.exists() else 'calculated'
         }
