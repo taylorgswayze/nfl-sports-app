@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import GameDisplay from './components/GameDisplay'
 import TeamSchedule from './components/TeamSchedule'
 import PositionStats from './components/PositionStats'
+import TeamStatComparison from './components/TeamStatComparison'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
           <Route path="/" element={<GameDisplay />} />
           <Route path="/team/:id" element={<TeamSchedule />} />
           <Route path="/position/:position/stats" element={<PositionStats />} />
+          <Route path="/team-stat/:statName" element={<TeamStatComparison />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

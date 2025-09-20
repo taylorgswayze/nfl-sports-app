@@ -46,4 +46,7 @@ export const gameService = {
   fetchTeamRoster(teamId) {
     return get(`/teams/${teamId}/roster/`)
   },
+  fetchTeamStatComparison(statName) {
+    return get(`/team-stat/${statName}/`)
+  },
 };

@@ -141,6 +141,29 @@ h1 {
   background-color: #444;
 }
 
+.clickable-stat-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-stat-row td {
+  background-color: #333 !important;
+  color: #007cba !important;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.clickable-stat-row:hover td {
+  background-color: #e3f2fd !important;
+  color: #1976d2 !important;
+  text-decoration: underline;
+  transform: scale(1.02);
+}
+
+.clickable-stat-row:hover {
+  border-left: 3px solid #1976d2;
+}
+
 .roster {
   max-width: 1000px;
   margin: 0 auto;

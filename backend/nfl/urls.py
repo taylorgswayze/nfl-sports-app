@@ -9,5 +9,6 @@ urlpatterns = [
     path('matchup/<int:event_id>/', views.matchup, name='matchup'),  # Game matchup details
     path('teams/<int:team_id>/roster/', views.team_roster, name='team_roster'),  # Team roster
     path('teams/<int:team_id>/stats/', views.team_stats, name='team_stats'),  # Team statistics
+    path('team-stat/<str:stat_name>/', views.team_stat_comparison, name='team_stat_comparison'),  # Team stat comparison
     path('position/<str:position>/stats/', views.position_stats, name='position_stats'),  # Position stats
 ]

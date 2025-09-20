@@ -114,6 +114,12 @@ function TeamSchedule() {
     })
   }
 
+  const handleStatClick = (statName) => {
+    navigate(`/team-stat/${statName}`, { 
+      state: { selectedTeamId: teamId } 
+    })
+  }
+
   const switchView = async (view) => {
     setCurrentView(view)
     if (view === 'stats' && Object.keys(teamStats).length === 0) {
@@ -409,7 +415,11 @@ function TeamSchedule() {
                 </thead>
                 <tbody>
                   {getOrderedStats(teamStats).map(([key, stat]) => (
-                    <tr key={key}>
+                    <tr 
+                      key={key} 
+                      className="clickable-stat-row"
+                      onClick={() => handleStatClick(stat.name || key)}
+                    >
                       <td>{stat.category || 'Team'}</td>
                       <td>{stat.name || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
                       <td>{stat.value}</td>

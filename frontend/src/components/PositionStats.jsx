@@ -13,7 +13,7 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
   const [originalPlayers, setOriginalPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [selectedSeason, setSelectedSeason] = useState("2024")
+  const [selectedSeason, setSelectedSeason] = useState("2025")
   const [keyStats, setKeyStats] = useState([])
   const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'asc' })
 
@@ -112,6 +112,7 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
           value={selectedSeason} 
           onChange={(e) => setSelectedSeason(e.target.value)}
         >
+          <option value="2025">2025</option>
           <option value="2024">2024</option>
           <option value="2023">2023</option>
           <option value="2022">2022</option>
