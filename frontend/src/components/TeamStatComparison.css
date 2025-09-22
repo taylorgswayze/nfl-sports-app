@@ -12,12 +12,21 @@
 }
 
 .team-stat-table {
-  margin: 32px auto;
-  max-width: 900px;
+  margin: 16px auto;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (min-width: 768px) {
+  .team-stat-table {
+    margin: 32px auto;
+    max-width: 900px;
+  }
 }
 
 .team-stat-table table {
   width: 100%;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
@@ -27,50 +36,48 @@
     0 8px 32px rgba(0, 0, 0, 0.3),
     0 2px 8px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .team-stat-table table {
+    font-size: 15px;
+  }
 }
 
 .team-stat-table th {
   background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
-  padding: 20px 16px;
+  padding: 12px 8px;
   text-align: left;
   font-weight: 600;
   color: #e0e0e0;
-  font-size: 14px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.team-stat-table th:first-child {
-  border-top-left-radius: 16px;
-}
-
-.team-stat-table th:last-child {
-  border-top-right-radius: 16px;
+@media (min-width: 768px) {
+  .team-stat-table th {
+    padding: 20px 16px;
+    font-size: 14px;
+  }
 }
 
 .team-stat-table td {
-  padding: 16px;
+  padding: 12px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   background-color: rgba(26, 26, 26, 0.8);
   color: #f0f0f0;
   transition: all 0.2s ease;
-  font-size: 15px;
+  font-size: 12px;
 }
 
-.team-stat-table tbody tr {
-  transition: all 0.3s ease;
-}
-
-.team-stat-table tbody tr:hover {
-  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.team-stat-table tbody tr:hover td {
-  background-color: transparent;
-  color: #ffffff;
+@media (min-width: 768px) {
+  .team-stat-table td {
+    padding: 16px;
+    font-size: 15px;
+  }
 }
 
 .highlighted-team {

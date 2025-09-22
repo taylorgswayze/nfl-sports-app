@@ -177,10 +177,11 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
 
       <style jsx>{`
         .app {
-          max-width: 1200px;
+          max-width: 768px;
           margin: 0 auto;
           padding: 20px;
           font-family: Arial, sans-serif;
+          box-sizing: border-box;
         }
 
         .header {
@@ -237,7 +238,7 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
 
         .stats-table {
           width: 100%;
-          max-width: 900px;
+          max-width: 100%;
           margin: 0 auto 32px auto;
           border-collapse: separate;
           border-spacing: 0;
@@ -248,60 +249,50 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
             0 8px 32px rgba(0, 0, 0, 0.3),
             0 2px 8px rgba(0, 0, 0, 0.2),
             inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          font-size: 11px;
+        }
+
+        @media (min-width: 768px) {
+          .stats-table {
+            max-width: 900px;
+            font-size: 15px;
+          }
         }
 
         .stats-table th {
-          padding: 20px 16px;
+          padding: 12px 6px;
           text-align: center;
           background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
           font-weight: 600;
           color: #e0e0e0;
-          font-size: 14px;
+          font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .stats-table th:first-child {
-          border-top-left-radius: 16px;
-        }
-
-        .stats-table th:last-child {
-          border-top-right-radius: 16px;
-        }
-
-        .sortable {
-          cursor: pointer;
-          user-select: none;
-        }
-
-        .sortable:hover {
-          background: linear-gradient(135deg, #3a3a3a, #2f2f2f);
+        @media (min-width: 768px) {
+          .stats-table th {
+            padding: 20px 16px;
+            font-size: 14px;
+          }
         }
 
         .stats-table td {
-          padding: 20px 16px;
+          padding: 12px 6px;
           text-align: center;
           background-color: rgba(26, 26, 26, 0.8);
           color: #f0f0f0;
           border-bottom: 1px solid rgba(255, 255, 255, 0.05);
           transition: all 0.2s ease;
-          font-size: 15px;
+          font-size: 11px;
         }
 
-        .stats-table tbody tr {
-          transition: all 0.3s ease;
-        }
-
-        .stats-table tbody tr:hover {
-          background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .stats-table tbody tr:hover td {
-          background-color: transparent;
-          color: #ffffff;
+        @media (min-width: 768px) {
+          .stats-table td {
+            padding: 20px 16px;
+            font-size: 15px;
+          }
         }
 
         .player-name {

@@ -1,8 +1,9 @@
 .app {
-  max-width: 1000px;
+  max-width: 768px;
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
+  box-sizing: border-box;
 }
 
 .header {
@@ -84,7 +85,7 @@ h1 {
 
 .roster table.roster-table {
   width: 100%;
-  max-width: 900px;
+  max-width: 100%;
   margin: 0 auto 24px auto;
   border-collapse: separate;
   border-spacing: 0;
@@ -95,55 +96,55 @@ h1 {
     0 6px 20px rgba(0, 0, 0, 0.25),
     0 2px 6px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .roster table.roster-table {
+    max-width: 900px;
+    font-size: 14px;
+  }
 }
 
 .roster table.roster-table th {
-  padding: 16px 12px;
+  padding: 12px 8px;
   text-align: center;
   background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
   font-weight: 600;
   color: #e0e0e0;
-  font-size: 13px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.roster table.roster-table th:first-child {
-  border-top-left-radius: 12px;
-}
-
-.roster table.roster-table th:last-child {
-  border-top-right-radius: 12px;
+@media (min-width: 768px) {
+  .roster table.roster-table th {
+    padding: 16px 12px;
+    font-size: 13px;
+  }
 }
 
 .roster table.roster-table td {
-  padding: 14px 12px;
+  padding: 10px 8px;
   text-align: center;
   background-color: rgba(26, 26, 26, 0.8);
   color: #f0f0f0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: all 0.2s ease;
-  font-size: 14px;
+  font-size: 12px;
 }
 
-.roster table.roster-table tbody tr {
-  transition: all 0.3s ease;
-}
-
-.roster table.roster-table tbody tr:hover {
-  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
-  transform: translateY(-1px);
-}
-
-.roster table.roster-table tbody tr:hover td {
-  background-color: transparent;
-  color: #ffffff;
+@media (min-width: 768px) {
+  .roster table.roster-table td {
+    padding: 14px 12px;
+    font-size: 14px;
+  }
 }
 
 .stats-table {
   width: 100%;
-  max-width: 900px;
+  max-width: 100%;
   margin: 0 auto 32px auto;
   border-collapse: separate;
   border-spacing: 0;
@@ -154,92 +155,65 @@ h1 {
     0 8px 32px rgba(0, 0, 0, 0.3),
     0 2px 8px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .stats-table {
+    max-width: 900px;
+    font-size: 15px;
+  }
 }
 
 .stats-table th {
-  padding: 20px 16px;
+  padding: 12px 8px;
   text-align: center;
   background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
   font-weight: 600;
   color: #e0e0e0;
-  font-size: 14px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
 }
 
-.stats-table th:nth-child(1) { width: 20%; }
-.stats-table th:nth-child(2) { width: 40%; }
-.stats-table th:nth-child(3) { width: 25%; }
-.stats-table th:nth-child(4) { width: 15%; }
-
-.stats-table th:first-child {
-  border-top-left-radius: 16px;
-}
-
-.stats-table th:last-child {
-  border-top-right-radius: 16px;
+@media (min-width: 768px) {
+  .stats-table th {
+    padding: 20px 16px;
+    font-size: 14px;
+  }
 }
 
 .stats-table td {
-  padding: 20px 16px;
+  padding: 12px 8px;
   text-align: center;
   background-color: rgba(26, 26, 26, 0.8);
   color: #f0f0f0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
-  font-size: 15px;
+  font-size: 12px;
 }
 
-.stats-table td:nth-child(1) { width: 20%; }
-.stats-table td:nth-child(2) { width: 40%; }
-.stats-table td:nth-child(3) { width: 25%; }
-.stats-table td:nth-child(4) { width: 15%; }
-
-.stats-table tbody tr {
-  transition: all 0.3s ease;
-}
-
-.stats-table tbody tr:hover {
-  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.stats-table tbody tr:hover td {
-  background-color: transparent;
-  color: #ffffff;
-}
-
-.clickable-stat-row {
-  cursor: pointer;
-  transition: all 0.3s ease;
+@media (min-width: 768px) {
+  .stats-table td {
+    padding: 20px 16px;
+    font-size: 15px;
+  }
 }
 
 .clickable-stat-row td {
   background-color: transparent !important;
   color: #4fc3f7 !important;
   font-weight: 500;
-  padding: 20px 16px;
+  padding: 12px 8px;
   text-align: center;
 }
 
-.clickable-stat-row td:nth-child(2) {
-  font-weight: 600;
-}
-
-.clickable-stat-row:hover {
-  background: linear-gradient(135deg, rgba(79, 195, 247, 0.15), rgba(33, 150, 243, 0.1)) !important;
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 25px rgba(79, 195, 247, 0.2),
-    0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.clickable-stat-row:hover td {
-  color: #81d4fa !important;
-  text-shadow: 0 0 8px rgba(79, 195, 247, 0.3);
+@media (min-width: 768px) {
+  .clickable-stat-row td {
+    padding: 20px 16px;
+  }
 }
 
 .roster {
