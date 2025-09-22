@@ -55,7 +55,7 @@ function GameDisplay() {
   return (
     <div className="app">
       <div className="header">
-        <h1>Games for Week {selectedWeek?.name || 'Loading...'}</h1>
+        <h1>Games for {selectedWeek?.name || 'Loading...'}</h1>
       </div>
 
       <div className="week-selector">

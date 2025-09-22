@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Table Alignment Test</title>
+    <style>
+        .stats-table {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto 32px auto;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                0 2px 8px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .stats-table th {
+            padding: 20px 16px;
+            text-align: left;
+            background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+            font-weight: 600;
+            color: #e0e0e0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .stats-table th:first-child {
+            border-top-left-radius: 16px;
+        }
+
+        .stats-table th:last-child {
+            border-top-right-radius: 16px;
+        }
+
+        .stats-table td {
+            padding: 20px 16px;
+            text-align: left;
+            background-color: rgba(26, 26, 26, 0.8);
+            color: #f0f0f0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+            font-size: 15px;
+        }
+
+        .stats-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .stats-table tbody tr:hover {
+            background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .stats-table tbody tr:hover td {
+            background-color: transparent;
+            color: #ffffff;
+        }
+
+        body {
+            background: #0a0a0a;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modern Table Styling - Column Alignment Fixed</h1>
+    
+    <table class="stats-table">
+        <thead>
+            <tr>
+                <th>Statistic</th>
+                <th>Value</th>
+                <th>Rank</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Total Yards</td>
+                <td>5,847</td>
+                <td>3rd</td>
+                <td>Total offensive yards gained</td>
+            </tr>
+            <tr>
+                <td>Passing Yards</td>
+                <td>4,123</td>
+                <td>5th</td>
+                <td>Yards gained through passing</td>
+            </tr>
+            <tr>
+                <td>Rushing Yards</td>
+                <td>1,724</td>
+                <td>12th</td>
+                <td>Yards gained through rushing</td>
+            </tr>
+            <tr>
+                <td>Points Scored</td>
+                <td>412</td>
+                <td>2nd</td>
+                <td>Total points scored this season</td>
+            </tr>
+            <tr>
+                <td>Turnovers</td>
+                <td>18</td>
+                <td>8th</td>
+                <td>Total turnovers committed</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="color: #ccc; text-align: center; margin-top: 40px;">
+        The column headers and data are now properly aligned with matching padding (20px 16px).
+        <br>
+        This fixes the misalignment issue you were experiencing in the team stats view.
+    </p>
+</body>
+</html>

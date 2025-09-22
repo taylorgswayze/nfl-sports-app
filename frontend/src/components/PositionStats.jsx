@@ -237,21 +237,37 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
 
         .stats-table {
           width: 100%;
+          max-width: 900px;
+          margin: 0 auto 32px auto;
           border-collapse: separate;
           border-spacing: 0;
-          background-color: #333;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          border: 2px solid white;
+          background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            0 2px 8px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
         .stats-table th {
-          padding: 12px 8px;
+          padding: 20px 16px;
           text-align: center;
-          border: 2px solid white;
-          background-color: #f5f5f5;
-          font-weight: bold;
-          color: #333;
+          background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+          font-weight: 600;
+          color: #e0e0e0;
           font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stats-table th:first-child {
+          border-top-left-radius: 16px;
+        }
+
+        .stats-table th:last-child {
+          border-top-right-radius: 16px;
         }
 
         .sortable {
@@ -260,16 +276,32 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
         }
 
         .sortable:hover {
-          background-color: #e0e0e0;
+          background: linear-gradient(135deg, #3a3a3a, #2f2f2f);
         }
 
         .stats-table td {
-          padding: 12px 8px;
+          padding: 20px 16px;
           text-align: center;
-          border: 2px solid white;
-          background-color: #333;
-          color: white;
-          font-size: 14px;
+          background-color: rgba(26, 26, 26, 0.8);
+          color: #f0f0f0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.2s ease;
+          font-size: 15px;
+        }
+
+        .stats-table tbody tr {
+          transition: all 0.3s ease;
+        }
+
+        .stats-table tbody tr:hover {
+          background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .stats-table tbody tr:hover td {
+          background-color: transparent;
+          color: #ffffff;
         }
 
         .player-name {
@@ -278,13 +310,25 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
         }
 
         .highlighted-player td {
-          background-color: #007cba !important;
-          color: white;
-          font-weight: bold;
+          background-color: rgba(79, 195, 247, 0.25) !important;
+          color: #81d4fa !important;
+          font-weight: 600;
         }
 
-        .stats-table tr:hover td:not(.highlighted-player td) {
-          background-color: #444;
+        .highlighted-player {
+          background: linear-gradient(135deg, rgba(79, 195, 247, 0.25), rgba(33, 150, 243, 0.15)) !important;
+          border-left: 4px solid #4fc3f7;
+        }
+
+        .highlighted-player:hover {
+          background: linear-gradient(135deg, rgba(79, 195, 247, 0.35), rgba(33, 150, 243, 0.25)) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(79, 195, 247, 0.3), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .highlighted-player:hover td {
+          color: #b3e5fc !important;
+          text-shadow: 0 0 8px rgba(79, 195, 247, 0.4);
         }
 
         .stats-loading {

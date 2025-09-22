@@ -84,84 +84,162 @@ h1 {
 
 .roster table.roster-table {
   width: 100%;
-  max-width: 800px;
-  margin: 0 auto 20px auto;
+  max-width: 900px;
+  margin: 0 auto 24px auto;
   border-collapse: separate;
-  border-spacing: 2px;
-  background-color: #333;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-spacing: 0;
+  background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .roster table.roster-table th {
-  padding: 12px;
+  padding: 16px 12px;
   text-align: center;
-  border: 2px solid white;
-  background-color: #f5f5f5;
-  font-weight: bold;
-  color: #333;
+  background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+  font-weight: 600;
+  color: #e0e0e0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.roster table.roster-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.roster table.roster-table th:last-child {
+  border-top-right-radius: 12px;
 }
 
 .roster table.roster-table td {
-  padding: 12px;
+  padding: 14px 12px;
   text-align: center;
-  border: 2px solid white;
-  background-color: #333;
-  color: white;
+  background-color: rgba(26, 26, 26, 0.8);
+  color: #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.roster table.roster-table tbody tr {
+  transition: all 0.3s ease;
+}
+
+.roster table.roster-table tbody tr:hover {
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
+  transform: translateY(-1px);
+}
+
+.roster table.roster-table tbody tr:hover td {
+  background-color: transparent;
+  color: #ffffff;
 }
 
 .stats-table {
   width: 100%;
-  max-width: 800px;
-  margin: 0 auto 20px auto;
+  max-width: 900px;
+  margin: 0 auto 32px auto;
   border-collapse: separate;
   border-spacing: 0;
-  background-color: #333;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  border: 2px solid white;
+  background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .stats-table th {
-  padding: 12px;
+  padding: 20px 16px;
   text-align: center;
-  border: 2px solid white;
-  background-color: #f5f5f5;
-  font-weight: bold;
-  color: #333;
+  background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+  font-weight: 600;
+  color: #e0e0e0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.stats-table th:nth-child(1) { width: 20%; }
+.stats-table th:nth-child(2) { width: 40%; }
+.stats-table th:nth-child(3) { width: 25%; }
+.stats-table th:nth-child(4) { width: 15%; }
+
+.stats-table th:first-child {
+  border-top-left-radius: 16px;
+}
+
+.stats-table th:last-child {
+  border-top-right-radius: 16px;
 }
 
 .stats-table td {
-  padding: 12px;
+  padding: 20px 16px;
   text-align: center;
-  border: 2px solid white;
-  background-color: #333;
-  color: white;
+  background-color: rgba(26, 26, 26, 0.8);
+  color: #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+  font-size: 15px;
 }
 
-.stats-table tr:hover td, .roster-table tr:hover td {
-  background-color: #444;
+.stats-table td:nth-child(1) { width: 20%; }
+.stats-table td:nth-child(2) { width: 40%; }
+.stats-table td:nth-child(3) { width: 25%; }
+.stats-table td:nth-child(4) { width: 15%; }
+
+.stats-table tbody tr {
+  transition: all 0.3s ease;
+}
+
+.stats-table tbody tr:hover {
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.stats-table tbody tr:hover td {
+  background-color: transparent;
+  color: #ffffff;
 }
 
 .clickable-stat-row {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .clickable-stat-row td {
-  background-color: #333 !important;
-  color: #007cba !important;
-  text-decoration: underline;
-  font-weight: bold;
+  background-color: transparent !important;
+  color: #4fc3f7 !important;
+  font-weight: 500;
+  padding: 20px 16px;
+  text-align: center;
 }
 
-.clickable-stat-row:hover td {
-  background-color: #e3f2fd !important;
-  color: #1976d2 !important;
-  text-decoration: underline;
-  transform: scale(1.02);
+.clickable-stat-row td:nth-child(2) {
+  font-weight: 600;
 }
 
 .clickable-stat-row:hover {
-  border-left: 3px solid #1976d2;
+  background: linear-gradient(135deg, rgba(79, 195, 247, 0.15), rgba(33, 150, 243, 0.1)) !important;
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(79, 195, 247, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.clickable-stat-row:hover td {
+  color: #81d4fa !important;
+  text-shadow: 0 0 8px rgba(79, 195, 247, 0.3);
 }
 
 .roster {
@@ -170,30 +248,43 @@ h1 {
 }
 
 .position-super-group {
-  margin-bottom: 40px;
+  margin-bottom: 48px;
+  background: linear-gradient(145deg, rgba(20, 20, 20, 0.6), rgba(30, 30, 30, 0.4));
+  border-radius: 20px;
+  padding: 32px 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .super-group-title {
-  color: #007cba;
-  font-size: 24px;
+  color: #4fc3f7;
+  font-size: 28px;
   text-align: center;
-  margin-bottom: 25px;
-  padding-bottom: 10px;
-  border-bottom: 3px solid #007cba;
-  font-weight: bold;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid rgba(79, 195, 247, 0.3);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
 }
 
 .position-group {
-  margin-bottom: 30px;
+  margin-bottom: 32px;
 }
 
 .position-group h3 {
-  color: white;
-  margin-bottom: 15px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid #666;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.8), rgba(35, 35, 35, 0.6));
+  border-radius: 8px;
   text-align: center;
   font-size: 18px;
+  font-weight: 600;
+  border-left: 4px solid #4fc3f7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .stats-loading, .roster-loading {
