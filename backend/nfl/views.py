@@ -1,17 +1,11 @@
-import requests
-from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.forms.models import model_to_dict
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from django.db import models
-from .models import Calendar, Team, Game, Athlete, Outcome, StatTeam, Calendar, SeasonStatistic
-import json
+from .models import Calendar, Team, Game, Athlete, Outcome, StatTeam, SeasonStatistic
 import utils.get_data as get_data
 import utils.helpers as h
-import utils.test as t
 from datetime import timedelta, datetime
-import time
 import logging
 
 # Set up logging
@@ -205,40 +199,6 @@ def games(request, week_num=None):
             'error': 'Internal server error while fetching games',
             'message': str(e) if hasattr(e, 'message') else str(e)
         }, status=500)
-
-
-def teams(team_id):
-    team = Team.objects.get(pk=team_id)
-    players = Athlete.objects.filter(team_id=team_id, status='Active').order_by('position')
-    athletes = [{
-        'first_name': x.first_name,
-        'last_name': x.last_name,
-        'position': x.position,
-        'status': x.status,
-    } for x in players]
-
-    [print(f'{x.first_name} {x.last_name}, {x.position}, {x.status}') for x in players]
-
-    return JsonResponse(athletes)
-
-
-def update_athlete_status(athlete_id):
-    athlete = Athlete.objects.get(pk=athlete_id)
-    url = h.get_espn_api_url(f'athletes/{athlete.athlete_id}')
-    data = requests.get(url).json()
-    data = data['athlete']
-    status_id = data['status']['id']
-    status = data['status']['name']
-    injuries = data['injuries']
-    Athlete.objects.update_or_create(
-            athlete_id=athlete.athlete_id,
-            defaults={
-                'status_id': status_id,
-                'status': status,
-                'injuries': injuries
-            }
-        )
-    print(f"{data['fullName']}: {data['status']}")
 
 
 @require_http_methods(["GET"])
@@ -858,8 +818,3 @@ def position_stats(request, position):
             'message': str(e),
             'position': position
         }, status=500)
-
-
-#post_season = Calendar.objects.filter(season_type_id=3, week_num=3)[0]
-#post_season_games = Game.objects.filter(week=post_season)
-#[get_data.single_game_probs(x) for x in post_season_games]
