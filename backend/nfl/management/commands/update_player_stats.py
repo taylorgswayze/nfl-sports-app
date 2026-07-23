@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from nfl.models import Game, Athlete, SeasonStatistic
 from nfl.management.commands.fetch_player_stats import Command as FetchStatsCommand
+import utils.helpers as h
 
 class Command(BaseCommand):
     help = "Update player stats for active/recent games"
@@ -43,9 +44,10 @@ class Command(BaseCommand):
         fetch_command = FetchStatsCommand()
         updated_count = 0
         
+        season = h.current_season()
         for athlete in athletes:
             try:
-                if fetch_command.fetch_athlete_stats(athlete, 2025):  # Current season
+                if fetch_command.fetch_athlete_stats(athlete, season):
                     updated_count += 1
                     self.stdout.write(f"✓ {athlete.display_name or f'{athlete.first_name} {athlete.last_name}'}")
             except Exception as e:

@@ -1,10 +1,5 @@
-from datetime import datetime, timedelta
-from django.utils.timezone import now
 from django.core.management.base import BaseCommand
-from utils import helpers  # Adjusted import
-
-CURRENT_YEAR = (datetime.now() - timedelta(days=150)).year
-NOW = now()
+from utils import helpers
 
 class Command(BaseCommand):
     help = "Return current week in season"

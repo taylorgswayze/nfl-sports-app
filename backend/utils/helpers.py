@@ -1,52 +1,55 @@
 import re
 from nfl import models
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils.timezone import now
 
-CURRENT_YEAR = (datetime.now() - timedelta(days=150)).year
 
 def get_espn_api_url(endpoint):
     return f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/{endpoint}"
 
-def current_week():
+
+def current_season():
+    """Return the current NFL season year, computed AT CALL TIME.
+
+    Prefers the Calendar table (a week covering "now", or the most recently
+    started week). Falls back to date math: a season is labeled by its
+    starting year and we treat June 1 as the rollover point, so e.g.
+    Feb 2026 still belongs to the 2025 season.
+    """
+    now_dt = now()
+    week = models.Calendar.objects.filter(
+        start_date__lte=now_dt, end_date__gte=now_dt, season__isnull=False
+    ).order_by('-start_date').first()
+    if week:
+        return week.season
+    # Date-math fallback (also decides between seasons when the calendar
+    # only covers other years): season year flips on ~June 1.
+    return (now_dt - timedelta(days=151)).year
+
+
+def current_week(season=None):
+    """Return the Calendar row for the current week, computed AT CALL TIME."""
+    season = season or current_season()
     # Add a 2-day offset to handle week turnover
     now_offset = now() + timedelta(days=2)
-    
+
     try:
         # Try to find the current week with the offset
-        current_week = models.Calendar.objects.filter(
-            season=CURRENT_YEAR,
+        return models.Calendar.objects.filter(
+            season=season,
             start_date__lte=now_offset,
             end_date__gte=now_offset
         ).latest('start_date')
-        
-        print(f"Current schedule week is {current_week.name} of the {current_week.season_type_name}")
-        return current_week
 
     except models.Calendar.DoesNotExist:
-        # Handle off-season and pre-season logic
-        if 3 <= now_offset.month <= 5:  # March to May
-            # Return the last week of the previous season's post-season
-            last_postseason_week = models.Calendar.objects.filter(
-                season=CURRENT_YEAR - 1,
-                season_type_name='Postseason'
-            ).order_by('-week_num').first()
-            if last_postseason_week:
-                print(f"Current schedule week is {last_postseason_week.name} of the {last_postseason_week.season_type_name}")
-                return last_postseason_week
-
-        elif 6 <= now_offset.month <= 8:  # June to August
-            # Return the first week of the upcoming pre-season
-            first_preseason_week = models.Calendar.objects.filter(
-                season=CURRENT_YEAR,
-                season_type_name='Pre-Season'
-            ).order_by('week_num').first()
-            if first_preseason_week:
-                print(f"Current schedule week is {first_preseason_week.name} of the {first_preseason_week.season_type_name}")
-                return first_preseason_week
-        
-        # If no specific week is found, return the latest available week
-        return models.Calendar.objects.latest('start_date')
+        # Off-season: fall back to the last week of the season that most
+        # recently started, else the first upcoming week.
+        last_started = models.Calendar.objects.filter(
+            start_date__lte=now_offset
+        ).order_by('-start_date').first()
+        if last_started:
+            return last_started
+        return models.Calendar.objects.order_by('start_date').first()
 
 
 

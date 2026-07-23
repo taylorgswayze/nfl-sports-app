@@ -103,7 +103,8 @@ def games(request, week_num=None):
     """Get games data with improved error handling and week filtering"""
     try:
         # Get all weeks for the current season
-        unique_weeks = Calendar.objects.filter(season=get_data.CURRENT_YEAR).order_by('end_date')
+        season = h.current_season()
+        unique_weeks = Calendar.objects.filter(season=season).order_by('end_date')
         unique_weeks_data = [{
             'name': week.name,
             'details': week.details,
@@ -119,12 +120,12 @@ def games(request, week_num=None):
         if week_num:
             try:
                 week = Calendar.objects.filter(
-                    season=get_data.CURRENT_YEAR, 
+                    season=season,
                     week_num=week_num
                 ).first()
                 if not week:
                     return JsonResponse({
-                        'error': f'Week {week_num} not found for season {get_data.CURRENT_YEAR}',
+                        'error': f'Week {week_num} not found for season {season}',
                         'available_weeks': [w['week_num'] for w in unique_weeks_data]
                     }, status=404)
             except Exception as e:
@@ -551,7 +552,7 @@ def team_stats(request, team_id):
             'team': team.team_name,
             'team_id': team_id,
             'stats': stats_data,
-            'season': get_data.CURRENT_YEAR if hasattr(get_data, 'CURRENT_YEAR') else 2025,
+            'season': h.current_season(),
             'games_played': 17,
             'last_updated': format_game_time(None),
             'data_source': 'database' if all_team_stats.exists() else 'calculated'
@@ -621,7 +622,7 @@ def team_stat_comparison(request, stat_name):
             'stat_name': stat_name,
             'teams': team_stats,
             'total_teams': len(team_stats),
-            'season': get_data.CURRENT_YEAR if hasattr(get_data, 'CURRENT_YEAR') else 2025,
+            'season': h.current_season(),
             'last_updated': format_game_time(None)
         }
         
@@ -640,7 +641,7 @@ def team_stat_comparison(request, stat_name):
 def position_stats(request, position):
     """Get stats for all players of a specific position with ranking"""
     try:
-        season = request.GET.get('season', get_data.CURRENT_YEAR if hasattr(get_data, 'CURRENT_YEAR') else 2024)
+        season = request.GET.get('season', h.current_season())
         
         # Position mapping and key stats (based on ESPN API order and NFL standards)
         position_mappings = {

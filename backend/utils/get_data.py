@@ -1,22 +1,15 @@
-from django.http import HttpResponse
 from django.db.models import Q
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import json
 import pytz
 from django.utils import timezone
 from datetime import timedelta, datetime
-import sys
-import os
 from nfl import models
 import utils.helpers as h
 import logging
 
 logger = logging.getLogger(__name__)
-
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_root)
 
 # Define a retry strategy
 retry_strategy = Retry(
@@ -34,39 +27,60 @@ session = requests.Session()
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
-CURRENT_YEAR = int(str(datetime.today() - timedelta(days=140))[:4])
-CURRENT_WEEK = h.current_week()
-NOW = datetime.today()
 BASE_URL = 'https://sports.core.api.espn.com/v2/sports/football/leagues'
+
+# ESPN uses these team ids as placeholders for undetermined (e.g. playoff)
+# matchups.
+TBD_TEAM_IDS = {31, 32}
+
+
+def map_game_status(state, completed=False):
+    """Map an ESPN status state ('pre'/'in'/'post') to Game.status."""
+    if state == 'post' or completed:
+        return models.Game.STATUS_FINAL
+    if state == 'in':
+        return models.Game.STATUS_IN
+    return models.Game.STATUS_SCHEDULED
+
+
+def get_team_for_game(team_id):
+    """Resolve a team id from an ESPN payload, creating a TBD placeholder row
+    for ESPN's placeholder ids if it does not exist yet."""
+    team_id = int(team_id)
+    try:
+        return models.Team.objects.get(pk=team_id)
+    except models.Team.DoesNotExist:
+        if team_id in TBD_TEAM_IDS:
+            team, _ = models.Team.objects.update_or_create(
+                team_id=team_id, defaults={'team_name': 'TBD', 'short_name': 'TBD'})
+            return team
+        raise
 
 
 def get_teams_from_espn(season=None):
-    if season:
-        season = season
-    else:
-        season = CURRENT_YEAR
-    [models.Team.objects.update_or_create(team_id=x, team_name='TBD', short_name='TBD') for x in [31,32]]
-    url = f'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams?limit=50'
+    season = season or h.current_season()
+    url = f'{BASE_URL}/nfl/seasons/{season}/teams?limit=50'
     logger.info(f"Fetching teams from {url}")
     data = session.get(url).json()
     for x in data['items']:
         team_id = h.extract_int(x['$ref'], 'teams')
-        url = f'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams/{team_id}'
+        url = f'{BASE_URL}/nfl/seasons/{season}/teams/{team_id}'
         logger.info(f"Fetching team from {url}")
         team = session.get(url).json()
-        team_name = team['displayName']
-        short_name = team['abbreviation']
-        team, created = models.Team.objects.update_or_create(team_id=team_id, team_name=team_name, short_name=short_name)
+        team, created = models.Team.objects.update_or_create(
+            team_id=team_id,
+            defaults={
+                'team_name': team['displayName'],
+                'short_name': team['abbreviation'],
+            })
         print(f'{team}: {created}')
-
-    return HttpResponse(models.Team.objects.all())
 
 
 def get_games_from_espn(week=None):
     if week:
         weeks_to_update = [week]
     else:
-        weeks_to_update = models.Calendar.objects.filter(end_date__gte=NOW)
+        weeks_to_update = models.Calendar.objects.filter(end_date__gte=timezone.now())
 
     for w in weeks_to_update:
         url = f'{BASE_URL}/nfl/seasons/{w.season}/types/{w.season_type_id}/weeks/{w.week_num}/events'
@@ -74,7 +88,7 @@ def get_games_from_espn(week=None):
         games = session.get(url).json()
         for x in games['items']:
             event_id = h.extract_int(x['$ref'], 'events')
-            url = f'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/{event_id}'
+            url = f'{BASE_URL}/nfl/events/{event_id}'
             logger.info(f"Fetching event from {url}")
             event = session.get(url).json()
             short_name = event['shortName']
@@ -88,58 +102,68 @@ def get_games_from_espn(week=None):
             home_team_id = h.extract_int(home_team_url, 'teams')
             away_team_id = h.extract_int(away_team_url, 'teams')
 
-            print(home_team_id, away_team_id)
             models.Game.objects.update_or_create(
-                event_id = event_id,
-                week_num = w.week_num,
-                season = w.season,
-                game_datetime = event['date'],
-                short_name = short_name,
-                home_team = models.Team.objects.get(pk=home_team_id),
-                away_team = models.Team.objects.get(pk=away_team_id)
-        )
+                event_id=event_id,
+                defaults={
+                    'week_num': w.week_num,
+                    'season': w.season,
+                    'season_type_id': w.season_type_id,
+                    'week': w,
+                    'game_datetime': event['date'],
+                    'short_name': short_name,
+                    'home_team': get_team_for_game(home_team_id),
+                    'away_team': get_team_for_game(away_team_id),
+                })
 
             print(f'Updated/Created data for {short_name}; {w.name} in {w.season_type_name}')
 
-#update a game object with latest info
+
+#update a game object with latest info (kickoff, teams, score, status)
 def update_game(game):
     try:
         url = f'https://cdn.espn.com/core/nfl/game?xhr=1&gameId={game.event_id}'
         logger.info(f"Fetching game data from {url}")
         response = session.get(url)
-        logger.info(f"Response status code: {response.status_code}")
         data = response.json()
         data = data.get('gamepackageJSON')
         competition = data['header']['competitions'][0]
         game.game_datetime = competition['date']
         if competition['competitors'][0]['homeAway'] == 'home':
-            home_id =  competition['competitors'][0]['id']
-            away_id =  competition['competitors'][1]['id']
+            home, away = competition['competitors'][0], competition['competitors'][1]
         else:
-            away_id =  competition['competitors'][0]['id']
-            home_id =  competition['competitors'][1]['id']
-        game.home_team = models.Team.objects.get(team_id=home_id)
-        game.away_team = models.Team.objects.get(team_id=away_id)
-        print(f'Updated {game}, {game.game_datetime}')
+            away, home = competition['competitors'][0], competition['competitors'][1]
+        game.home_team = get_team_for_game(home['id'])
+        game.away_team = get_team_for_game(away['id'])
+        status_type = competition.get('status', {}).get('type', {})
+        game.status = map_game_status(status_type.get('state'), status_type.get('completed', False))
+        if home.get('score') not in (None, ''):
+            game.home_score = int(home['score'])
+        if away.get('score') not in (None, ''):
+            game.away_score = int(away['score'])
+        print(f'Updated {game}, {game.game_datetime} [{game.status}]')
         game.save()
     except Exception as e:
         logger.error(f"An error occurred during update_game for game {game.event_id}: {e}")
 
 
-#pass games
 def update_upcoming_games():
-    upcoming_games = models.Game.objects.filter(game_datetime__gt=NOW, game_datetime__lt=NOW + timedelta(days=15))
-    [update_game(x) for x in upcoming_games]
+    """Refresh games in a window around now: upcoming games (kickoff moves,
+    TBD resolution) plus recent/unfinished games so final scores land."""
+    now_dt = timezone.now()
+    games = models.Game.objects.filter(
+        Q(game_datetime__gt=now_dt - timedelta(days=3), game_datetime__lt=now_dt + timedelta(days=15)) |
+        Q(game_datetime__lte=now_dt, game_datetime__gt=now_dt - timedelta(days=30),
+          status__in=[models.Game.STATUS_SCHEDULED, models.Game.STATUS_IN])
+    )
+    [update_game(x) for x in games]
 
 
 
 
 
 def week_num_odds(week_num=None):
-    if week_num:
-        week_num = week_num
-    else:
-        week_num = CURRENT_WEEK.week_num
+    if not week_num:
+        week_num = h.current_week().week_num
     games = models.Game.objects.filter(week_num=week_num)
     num = 0
     for x in games:
@@ -238,10 +262,12 @@ def get_athletes_from_espn(team_id):
                 defaults = {
                     'first_name': a['firstName'],
                     'last_name': a['lastName'],
+                    'display_name': a.get('displayName'),
                     'team': team,
                     'jersey': a.get('jersey', None),
                     'position': a['position']['name'],
                     'position_id': a['position']['id'],
+                    'position_abbreviation': a['position'].get('abbreviation'),
                     'age': a.get('age', None),
                     'weight': a.get('weight', None) ,
                     'height': a.get('height', None) ,
@@ -290,9 +316,9 @@ def should_update(game):
         return False
 
 
-def team_stats(team_id):
-    base_url = f'{BASE_URL}/nfl/seasons/{CURRENT_YEAR}/types/2/teams'
-    url = f'{base_url}/{team_id}/statistics'
+def team_stats(team_id, season=None):
+    season = season or h.current_season()
+    url = f'{BASE_URL}/nfl/seasons/{season}/types/2/teams/{team_id}/statistics'
     logger.info(f"Fetching team stats from {url}")
     data = session.get(url).json()
     if not data.get('splits') or data.get('splits').get('category'):
@@ -306,26 +332,27 @@ def team_stats(team_id):
                 if stat.get('name'):
                     models.StatTeam.objects.update_or_create(
                         team_id = team,
+                        season = season,
                         stat_name = stat['name'],
                         category = cat,
                         defaults = {
-                        'team_id': team,
                         'value': stat['value'],
                         'rank': stat.get('rank', None),
                         'display_rank': stat.get('rankDisplayValue', 'n/a'),
                         'description': stat['description']
 
                     })
-                    print(team, stat['name'], stat['value'])
+    print(f'Updated {season} stats for {team}')
 
 
-def get_team_records():
+def get_team_records(season=None):
+    season = season or h.current_season()
     teams = models.Team.objects.all()
     for x in teams:
-        url = f'{BASE_URL}/nfl/seasons/{CURRENT_YEAR}/types/2/teams/{x.team_id}/record'
+        url = f'{BASE_URL}/nfl/seasons/{season}/types/2/teams/{x.team_id}/record'
         logger.info(f"Fetching team records from {url}")
         data = session.get(url).json()
-        if data['items']:
+        if data.get('items'):
             record = data['items'][0].get('displayValue', '-')
             x.record = record
             x.last_updated = timezone.now()
@@ -343,26 +370,32 @@ def update_odds_cron():
 
 
 def update_probs_cron():
-    probs_to_update = models.Game.objects.filter(week_num__gte=CURRENT_WEEK.week_num)
+    week = h.current_week()
+    probs_to_update = models.Game.objects.filter(
+        season=week.season, week_num__gte=week.week_num)
     for x in probs_to_update:
         single_game_probs(x)
 
 
-def current_schedule():
-    url = f'https://cdn.espn.com/core/nfl/schedule?xhr=1&year={CURRENT_YEAR}'
-    logger.info(f"Fetching current schedule from {url}")
+def current_schedule(season=None):
+    """Fetch a season's calendar and upsert it keyed on
+    (season, season_type_id, week_num) — never on week name, which collides
+    across seasons and season types."""
+    season = season or h.current_season()
+    url = f'https://cdn.espn.com/core/nfl/schedule?xhr=1&year={season}'
+    logger.info(f"Fetching schedule calendar from {url}")
     calendar = (session.get(url).json())['content']['calendar']
     for x in calendar:
-        if int(x['value']) == 2 or int(x['value']) == 3:
+        if int(x['value']) in (2, 3):
             season_type = x['label']
             for y in x['entries']:
                 models.Calendar.objects.update_or_create(
-                    name = y['alternateLabel'],
+                    season = season,
+                    season_type_id = int(x['value']),
+                    week_num = int(y['value']),
                     defaults = {
+                        'name': y['alternateLabel'],
                         'details': y['detail'],
-                        'week_num': y['value'],
-                        'season': CURRENT_YEAR,
-                        'season_type_id': x['value'],
                         'season_type_name': season_type,
                         'start_date': y['startDate'],
                         'end_date': y['endDate'],
