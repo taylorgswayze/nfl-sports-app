@@ -1,6 +1,8 @@
 from django.http import HttpResponse
 from django.db.models import Q
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 import pytz
 from django.utils import timezone
@@ -16,6 +18,22 @@ logger = logging.getLogger(__name__)
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
+# Define a retry strategy
+retry_strategy = Retry(
+    total=3,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "OPTIONS"],
+    backoff_factor=1
+)
+
+# Create an adapter with the retry strategy
+adapter = HTTPAdapter(max_retries=retry_strategy)
+
+# Create a session and mount the adapter
+session = requests.Session()
+session.mount("https://", adapter)
+session.mount("http://", adapter)
+
 CURRENT_YEAR = int(str(datetime.today() - timedelta(days=140))[:4])
 CURRENT_WEEK = h.current_week()
 NOW = datetime.today()
@@ -30,12 +48,12 @@ def get_teams_from_espn(season=None):
     [models.Team.objects.update_or_create(team_id=x, team_name='TBD', short_name='TBD') for x in [31,32]]
     url = f'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams?limit=50'
     logger.info(f"Fetching teams from {url}")
-    data = requests.get(url).json()
+    data = session.get(url).json()
     for x in data['items']:
         team_id = h.extract_int(x['$ref'], 'teams')
         url = f'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams/{team_id}'
         logger.info(f"Fetching team from {url}")
-        team = requests.get(url).json()
+        team = session.get(url).json()
         team_name = team['displayName']
         short_name = team['abbreviation']
         team, created = models.Team.objects.update_or_create(team_id=team_id, team_name=team_name, short_name=short_name)
@@ -53,12 +71,12 @@ def get_games_from_espn(week=None):
     for w in weeks_to_update:
         url = f'{BASE_URL}/nfl/seasons/{w.season}/types/{w.season_type_id}/weeks/{w.week_num}/events'
         logger.info(f"Fetching games from {url}")
-        games = requests.get(url).json()
+        games = session.get(url).json()
         for x in games['items']:
             event_id = h.extract_int(x['$ref'], 'events')
             url = f'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/{event_id}'
             logger.info(f"Fetching event from {url}")
-            event = requests.get(url).json()
+            event = session.get(url).json()
             short_name = event['shortName']
             if event['competitions'][0]['competitors'][0]['homeAway'] == 'home':
                 home_team_url = event['competitions'][0]['competitors'][0]['team']['$ref']
@@ -88,7 +106,7 @@ def update_game(game):
     try:
         url = f'https://cdn.espn.com/core/nfl/game?xhr=1&gameId={game.event_id}'
         logger.info(f"Fetching game data from {url}")
-        response = requests.get(url)
+        response = session.get(url)
         logger.info(f"Response status code: {response.status_code}")
         data = response.json()
         data = data.get('gamepackageJSON')
@@ -127,7 +145,7 @@ def week_num_odds(week_num=None):
     for x in games:
         url = f'{BASE_URL}/nfl/events/{x.event_id}/competitions/{x.event_id}/odds'
         logger.info(f"Fetching odds from {url}")
-        data = requests.get(url).json()
+        data = session.get(url).json()
         if len(data['items']) > 0:
             if data['items'][0].get('details'):
                 spread_display = data['items'][0]['details']
@@ -137,14 +155,14 @@ def week_num_odds(week_num=None):
                             defaults={
                                 'spread_display': spread_display,
                                 'spread': spread,
-                                'last_updated': timezone.make_aware(NOW)
+                                'last_updated': timezone.now()
                             }
                         )
                 num += 1
 
         url = f'{BASE_URL}/nfl/events/{x.event_id}/competitions/{x.event_id}/powerindex/{x.home_team.team_id}'
         logger.info(f"Fetching power index from {url}")
-        data = requests.get(url).json()
+        data = session.get(url).json()
         if data.get('stats'):
             pred_diff = float(data['stats'][0]['value'])
             home_win_prob = float(data['stats'][1]['value'])
@@ -155,6 +173,7 @@ def week_num_odds(week_num=None):
                                 'pred_diff': pred_diff,
                                 'home_win_prob': home_win_prob,
                                 'away_win_prob': away_win_prob,
+                                'last_updated': timezone.now()
                             }
                         )
 
@@ -165,7 +184,7 @@ def single_game_odds(game):
     try:
         url = f'{BASE_URL}/nfl/events/{game.event_id}/competitions/{game.event_id}/odds'
         logger.info(f"Fetching odds from {url}")
-        response = requests.get(url)
+        response = session.get(url)
         logger.info(f"Response status code: {response.status_code}")
         data = response.json()
         if len(data['items']) > 0:
@@ -177,7 +196,7 @@ def single_game_odds(game):
                                 defaults={
                                     'spread_display': spread_display,
                                     'spread': spread,
-                                    'last_updated': timezone.make_aware(NOW)
+                                    'last_updated': timezone.now()
                                 }
                             )
                 print(f'Updated odds for {game.short_name}')
@@ -188,7 +207,7 @@ def single_game_odds(game):
 def single_game_probs(game):
     url = f'{BASE_URL}/nfl/events/{game.event_id}/competitions/{game.event_id}/powerindex/{game.home_team.team_id}'
     logger.info(f"Fetching power index from {url}")
-    response = requests.get(url)
+    response = session.get(url)
     logger.info(f"Response status code: {response.status_code}")
     logger.info(f"Response content: {response.text}")
     data = response.json()
@@ -202,17 +221,16 @@ def single_game_probs(game):
                                 'pred_diff': pred_diff,
                                 'home_win_prob': home_win_prob,
                                 'away_win_prob': away_win_prob,
-                                'last_updated': timezone.make_aware(NOW)
+                                'last_updated': timezone.now()
                             }
                         )
-
 
 
 def get_athletes_from_espn(team_id):
     team = models.Team.objects.get(pk=team_id)
     url = f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster?limit=200'
     logger.info(f"Fetching athletes from {url}")
-    data = requests.get(url).json()
+    data = session.get(url).json()
     for group in data['athletes']:
         for a in group['items']:
             player = models.Athlete.objects.update_or_create(
@@ -276,7 +294,7 @@ def team_stats(team_id):
     base_url = f'{BASE_URL}/nfl/seasons/{CURRENT_YEAR}/types/2/teams'
     url = f'{base_url}/{team_id}/statistics'
     logger.info(f"Fetching team stats from {url}")
-    data = requests.get(url).json()
+    data = session.get(url).json()
     if not data.get('splits') or data.get('splits').get('category'):
             return
     data = data['splits']['categories']
@@ -306,7 +324,7 @@ def get_team_records():
     for x in teams:
         url = f'{BASE_URL}/nfl/seasons/{CURRENT_YEAR}/types/2/teams/{x.team_id}/record'
         logger.info(f"Fetching team records from {url}")
-        data = requests.get(url).json()
+        data = session.get(url).json()
         if data['items']:
             record = data['items'][0].get('displayValue', '-')
             x.record = record
@@ -317,10 +335,11 @@ def get_team_records():
 
 
 def update_odds_cron():
-    odds_to_update = models.Game.objects.filter(week_num=CURRENT_WEEK.week_num)
-    for x in odds_to_update:
-        single_game_odds(x)
-        print(f'Updated {x}')
+    future_games = models.Game.objects.filter(game_datetime__gt=timezone.now())
+    for game in future_games:
+        single_game_odds(game)
+        single_game_probs(game)
+        print(f'Updated odds and probabilities for {game}')
 
 
 def update_probs_cron():
@@ -332,7 +351,7 @@ def update_probs_cron():
 def current_schedule():
     url = f'https://cdn.espn.com/core/nfl/schedule?xhr=1&year={CURRENT_YEAR}'
     logger.info(f"Fetching current schedule from {url}")
-    calendar = (requests.get(url).json())['content']['calendar']
+    calendar = (session.get(url).json())['content']['calendar']
     for x in calendar:
         if int(x['value']) == 2 or int(x['value']) == 3:
             season_type = x['label']
@@ -349,3 +368,10 @@ def current_schedule():
                         'end_date': y['endDate'],
                     }
                 )
+
+def update_future_game_odds_and_probs():
+    future_games = models.Game.objects.filter(game_datetime__gt=timezone.now())
+    for game in future_games:
+        single_game_odds(game)
+        single_game_probs(game)
+        print(f'Updated odds and probabilities for {game}')

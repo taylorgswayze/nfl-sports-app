@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Kill any existing cloudflared processes
-TUNNEL_UUID=$(grep -oP 'tunnel: \K.*' /home/t/projects/nfl-sports-app/sports-info-tunnel.yml)
-if [ ! -z "$TUNNEL_UUID" ]; then
-    cloudflared tunnel stop $TUNNEL_UUID
-fi
+pkill -f "cloudflared tunnel --config /home/t/projects/nfl-sports-app/sports-info-tunnel.yml"
 
 # Kill any existing tmux session named "nfl-app"
 tmux kill-session -t nfl-app 2>/dev/null
+
+# Kill the specific backend process
+pkill -f "manage.py runserver 8001"
 
 # Create a new detached tmux session named "nfl-app"
 tmux new-session -d -s nfl-app
@@ -16,7 +16,7 @@ tmux new-session -d -s nfl-app
 tmux split-window -h
 
 # Send commands to the first pane (backend)
-tmux send-keys -t nfl-app:0.0 'export DJANGO_SETTINGS_MODULE=sports.production_settings && source venv/bin/activate && python backend/manage.py runserver 8001' C-m
+tmux send-keys -t nfl-app:0.0 'cd /home/t/projects/nfl-sports-app/ && export DJANGO_SETTINGS_MODULE=sports.production_settings && source venv/bin/activate && python backend/manage.py runserver 8001' C-m
 
 # Send commands to the second pane (tunnel)
 tmux send-keys -t nfl-app:0.1 'cloudflared tunnel --config /home/t/projects/nfl-sports-app/sports-info-tunnel.yml run' C-m

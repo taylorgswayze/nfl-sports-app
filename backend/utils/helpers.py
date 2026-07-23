@@ -4,14 +4,13 @@ from datetime import datetime, timedelta
 from django.utils.timezone import now
 
 CURRENT_YEAR = (datetime.now() - timedelta(days=150)).year
-NOW = now()
 
 def get_espn_api_url(endpoint):
     return f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/{endpoint}"
 
 def current_week():
     # Add a 2-day offset to handle week turnover
-    now_offset = NOW + timedelta(days=2)
+    now_offset = now() + timedelta(days=2)
     
     try:
         # Try to find the current week with the offset

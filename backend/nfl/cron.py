@@ -49,3 +49,10 @@ class UpdateTeamStats(CronJobBase):
 
     def do(self):
         call_command('update_team_stats')
+
+class UpdateFutureOdds(CronJobBase):
+    schedule = Schedule(run_every_mins=60)
+    code = 'nfl.update_future_odds'
+
+    def do(self):
+        call_command('update_future_odds')
