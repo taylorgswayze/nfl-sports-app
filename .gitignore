@@ -77,3 +77,8 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+
+# Logs and DB backups
+backend/logs/
+*.log.*
+db.sqlite3.bak*
