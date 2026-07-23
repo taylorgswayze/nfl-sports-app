@@ -21,19 +21,35 @@ class Calendar(models.Model):
     start_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
 
+    class Meta:
+        unique_together = ['season', 'season_type_id', 'week_num']
+
     def __str__(self):
         return f'{self.name}: {self.details} during {self.season_type_name}'
 
 
 class Game(models.Model):
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_IN = 'in'
+    STATUS_FINAL = 'final'
+    STATUS_CHOICES = [
+        (STATUS_SCHEDULED, 'Scheduled'),
+        (STATUS_IN, 'In Progress'),
+        (STATUS_FINAL, 'Final'),
+    ]
+
     event_id = models.IntegerField(unique=True, primary_key=True)
     short_name = models.CharField(max_length=100, null=True)
     game_datetime = models.DateTimeField()
     season = models.IntegerField()
     week_num = models.IntegerField()
+    season_type_id = models.IntegerField(default=2)  # 2=regular season, 3=postseason
     home_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='home_games')
     away_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='away_games')
     week = models.ForeignKey(Calendar, on_delete=models.CASCADE, related_name='games_for_week', null=True)
+    home_score = models.IntegerField(null=True)
+    away_score = models.IntegerField(null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_SCHEDULED)
 
     def __str__(self):
         return f'{self.home_team} vs {self.away_team}'
@@ -112,6 +128,7 @@ class GameStatistic(models.Model):
 
 class StatTeam(models.Model):
     team_id = models.ForeignKey(Team, on_delete=models.CASCADE)
+    season = models.IntegerField()
     category = models.CharField(max_length=50, null=True)
     stat_name = models.CharField(max_length=50, null=True)
     value = models.FloatField(null=True)
@@ -122,7 +139,7 @@ class StatTeam(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['team_id', 'category', 'stat_name'],
-                name='unique_team_category_stat'
+                fields=['team_id', 'season', 'category', 'stat_name'],
+                name='unique_team_season_category_stat'
             )
         ]
