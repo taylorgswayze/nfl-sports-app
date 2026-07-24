@@ -1,0 +1,596 @@
+<!--
+  GRIDIRON DESK — Mock 2 "ALMANAC, NIGHT EDITION"
+  The same almanac print language reprinted on dark press-room stock.
+  Not an inversion: bone ink on warm near-black paper, pale hairlines,
+  lifted (not recessed) panels, the stadium green brightened one step.
+  No glow anywhere; every instrument stays a thin inked stroke.
+
+  PALETTE
+    - -paper      #161814  warm ink-slate page (green-grey near-black)
+    - -paper-deep #20231D  lifted dark stock (thead, hover, FINAL entry)
+    - -ink        #EDE9DD  primary print: warm bone white
+    - -ink-soft   #A9A491  secondary print (labels, small print)
+    - -rule       rgba(237,233,221,.22)  hairline rules (pale ink, low alpha)
+    - -rule-soft  rgba(237,233,221,.10)  faint rules / baseline grid
+    - -green      #4DB47F  single accent: stadium green, one step brighter
+    - team hues appear ONLY inside the two-letter monogram chips; dark
+      plate colors (navy, purple, forest) brightened one step and every
+      chip carries a pale keyline so the plate holds on dark stock
+
+  TYPE ROLES (unchanged from the day edition)
+    - Body / labels / small print: workhorse text serif —
+      intended: Charter; stack: Charter, "Bitstream Charter", "Sitka Text",
+      Cambria, Georgia, serif
+    - Figures / headers / folios: strong tight grotesque —
+      intended: Helvetica Neue Bold; stack: "Helvetica Neue", Helvetica,
+      Arial, "Liberation Sans", sans-serif. ALL numerals tabular (tnum).
+    - Utility (timestamp): ui-monospace stack
+
+  SIGNATURE ELEMENT
+    The almanac folio system, unchanged: printed folio headers with a
+    rule, page-corner tick and folio number; footnote marks (* league
+    leader, † model edge) resolve at the page foot. Solid-ink areas
+    (SEC chips, FINAL flag) knock out to bone plates with page-dark type.
+-->
+<title>Gridiron Desk — Almanac, Week 8 — Night Edition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --paper:#161814;
+    --paper-deep:#20231D;
+    --ink:#EDE9DD;
+    --ink-soft:#A9A491;
+    --rule:rgba(237,233,221,.22);
+    --rule-soft:rgba(237,233,221,.10);
+    --green:#4DB47F;
+    --serif:Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+    --grot:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --bl:28px; /* baseline unit */
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:var(--serif);
+    font-size:15px;
+    line-height:1.5;
+    color:var(--ink);
+    background-color:var(--paper);
+    /* the visible baseline grid, now pale ink on dark stock */
+    background-image:repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--bl) - 1px),
+      rgba(237,233,221,.05) calc(var(--bl) - 1px),
+      rgba(237,233,221,.05) var(--bl));
+  }
+  .num{font-family:var(--grot);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  a{color:var(--green)}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  .page{max-width:1148px;margin:0 auto;padding:28px 32px 56px}
+
+  /* ---------------- masthead ---------------- */
+  .plate{border-bottom:1px solid var(--rule);padding-bottom:6px;
+    display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .plate .vol{font-family:var(--grot);font-size:10px;font-weight:700;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft)}
+  .plate .stamp{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-soft)}
+  .plate .stamp b{color:var(--ink);font-weight:700}
+
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;
+    gap:24px;flex-wrap:wrap;padding:22px 0 18px}
+  .brand h1{font-family:var(--grot);font-weight:800;font-size:46px;line-height:.96;
+    letter-spacing:-.025em;text-transform:uppercase}
+  .brand h1 .desk{color:var(--green)}
+  .brand p{font-size:14px;font-style:italic;color:var(--ink-soft);margin-top:6px}
+
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ctl{font-family:var(--grot);font-weight:700;font-size:12px;letter-spacing:.1em;
+    border:1px solid var(--ink);background:var(--paper);padding:7px 12px 6px;
+    display:inline-flex;align-items:center;gap:8px;color:var(--ink)}
+  .ctl:hover{background:var(--paper-deep)}
+  .ctl .lbl{font-size:9px;letter-spacing:.2em;color:var(--ink-soft);font-weight:700}
+  .ctl .car{font-size:9px;color:var(--ink-soft)}
+  .weekset{display:inline-flex;border:1px solid var(--ink);background:var(--paper)}
+  .weekset button{font-family:var(--grot);font-weight:700;font-size:14px;line-height:1;
+    width:32px;padding:7px 0 6px;color:var(--ink)}
+  .weekset button:hover{background:var(--paper-deep)}
+  .weekset .cur{font-family:var(--grot);font-weight:800;font-size:12px;letter-spacing:.14em;
+    padding:8px 14px 6px;border-left:1px solid var(--ink);border-right:1px solid var(--ink);
+    align-self:center}
+  .rule-double{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink);height:6px}
+
+  /* ---------------- folio system (signature) ---------------- */
+  .folio{margin:56px 0 0;position:relative;border-bottom:1.5px solid var(--ink);
+    padding-bottom:6px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .folio::after{ /* page-corner tick */
+    content:"";position:absolute;right:0;top:100%;width:16px;height:8px;
+    border-right:1.5px solid var(--ink)}
+  .folio .sec{font-family:var(--grot);font-weight:800;font-size:12px;letter-spacing:.16em;
+    color:var(--paper);background:var(--ink);padding:3px 8px 2px}
+  .folio .title{font-family:var(--grot);font-weight:800;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase}
+  .folio .cont{font-family:var(--grot);font-weight:700;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--ink-soft)}
+  .folio .sep{color:var(--rule);font-family:var(--grot)}
+  .folio .pg{margin-left:auto;font-family:var(--grot);font-weight:700;font-size:11px;
+    letter-spacing:.12em;color:var(--ink-soft)}
+  .folio-note{font-size:13px;font-style:italic;color:var(--ink-soft);margin:8px 0 20px}
+
+  /* ---------------- slate ---------------- */
+  .slate{display:grid;grid-template-columns:repeat(3,1fr);
+    border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
+  .entry{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);
+    padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
+  /* the completed game prints on lifted stock: the night edition's hero */
+  .entry.final{background:var(--paper-deep)}
+  .entry-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    border-bottom:1px solid var(--rule-soft);padding-bottom:8px}
+  .entry-no{font-family:var(--grot);font-weight:800;font-size:11px;letter-spacing:.08em;
+    font-variant-numeric:tabular-nums}
+  .entry-time{font-family:var(--grot);font-weight:700;font-size:10.5px;letter-spacing:.14em;
+    color:var(--ink-soft);text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .final-flag{font-family:var(--grot);font-weight:800;font-size:10px;letter-spacing:.18em;
+    background:var(--ink);color:var(--paper);padding:2px 7px 1px}
+
+  .matchup{display:grid;grid-template-columns:1fr auto;column-gap:12px;row-gap:9px;
+    align-items:center}
+  .trow{display:flex;align-items:center;gap:9px;min-width:0}
+  .chip{flex:none;width:27px;height:27px;border-radius:2px;display:inline-flex;
+    align-items:center;justify-content:center;font-family:var(--grot);font-weight:800;
+    font-size:10.5px;letter-spacing:.04em;color:#fff;
+    background:var(--c1,#333);border-bottom:3px solid var(--c2,#999);
+    box-shadow:0 0 0 1px rgba(237,233,221,.28)} /* pale keyline, not a glow */
+  .chip.darktext{color:#191712}
+  .tname{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tname b{font-weight:700}
+  .tname .at{font-style:italic;color:var(--ink-soft);margin-right:2px;font-size:13px}
+  .dots{flex:1;min-width:12px;border-bottom:1px dotted rgba(237,233,221,.45);
+    margin:0 2px;height:.72em}
+  .trec{font-family:var(--grot);font-weight:700;font-size:13px;color:var(--ink-soft);
+    font-variant-numeric:tabular-nums}
+  .fig{text-align:right;min-width:64px}
+  .fig .flbl{display:block;font-family:var(--grot);font-weight:700;font-size:8.5px;
+    letter-spacing:.2em;color:var(--ink-soft)}
+  .fig .fval{font-family:var(--grot);font-weight:800;font-size:15px;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums}
+  .fig .fval.win{font-size:21px}
+  .fig .fval.lose{font-size:21px;color:var(--ink-soft);font-weight:700}
+
+  /* win probability: inked gauge with needle tick — thin pale strokes */
+  .prob{margin-top:auto}
+  .prob-labels{display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:5px}
+  .prob-labels .cap{font-family:var(--grot);font-weight:700;font-size:8.5px;
+    letter-spacing:.22em;color:var(--ink-soft)}
+  .pl{font-family:var(--grot);font-weight:800;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .pl.home{color:var(--green)}
+  .gauge{position:relative;height:9px;margin-top:8px;
+    background:linear-gradient(to right,var(--ink) 0 var(--split),var(--green) var(--split) 100%)}
+  .gauge .scale{position:absolute;left:0;right:0;bottom:100%;height:4px;
+    background-image:linear-gradient(to right,var(--rule) 1px,transparent 1px);
+    background-size:25% 100%;border-right:1px solid var(--rule)}
+  .gauge .needle{position:absolute;top:-6px;bottom:-3px;left:var(--split);
+    width:2px;margin-left:-1px;background:var(--ink)}
+  .gauge .needle::before{content:"";position:absolute;top:-3px;left:-2px;
+    border-left:3px solid transparent;border-right:3px solid transparent;
+    border-top:4px solid var(--ink)}
+
+  .edge{align-self:flex-start;font-family:var(--grot);font-weight:800;font-size:10px;
+    letter-spacing:.14em;color:var(--green);border:1px solid var(--green);
+    padding:3px 8px 2px;font-variant-numeric:tabular-nums}
+  .edge .dag{font-family:var(--serif);margin-right:4px}
+
+  /* completed game: printed box-score line */
+  .linescore{width:100%;border-collapse:collapse;margin-top:2px}
+  .linescore caption{text-align:left;font-family:var(--grot);font-weight:700;font-size:8.5px;
+    letter-spacing:.22em;color:var(--ink-soft);padding-bottom:5px}
+  .linescore th,.linescore td{font-family:var(--grot);font-size:12px;padding:3px 0;
+    font-variant-numeric:tabular-nums;text-align:right}
+  .linescore th:not(:first-child),.linescore td:not(:first-child){width:36px}
+  .linescore th{font-weight:700;color:var(--ink-soft);font-size:10px;letter-spacing:.1em;
+    border-bottom:1px solid var(--ink)}
+  .linescore th:first-child,.linescore td:first-child{text-align:left}
+  .linescore td:last-child,.linescore th:last-child{font-weight:800;
+    border-left:1px solid var(--rule);padding-left:10px}
+  .linescore tr.won td{font-weight:800}
+  .linescore td{border-bottom:1px solid var(--rule-soft)}
+  .linescore tr:last-child td{border-bottom:0}
+  .closing,.note{font-size:12.5px;font-style:italic;color:var(--ink-soft);margin-top:9px}
+  .note{margin-top:0}
+  .closing .num{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink)}
+
+  /* ---------------- leaders table ---------------- */
+  .tablewrap{overflow-x:auto;border-top:1px solid var(--rule);border-left:1px solid var(--rule);
+    border-right:1px solid var(--rule)}
+  table.stats{width:100%;min-width:620px;border-collapse:collapse}
+  .stats th,.stats td{padding:9px 14px;text-align:right;white-space:nowrap}
+  .stats th:first-child,.stats td:first-child,
+  .stats th:nth-child(2),.stats td:nth-child(2){text-align:left}
+  .stats thead th{font-family:var(--grot);font-weight:800;font-size:10.5px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink);
+    background:var(--paper-deep);border-bottom:2px solid var(--ink)}
+  .stats thead th .was{display:block;font-family:var(--mono);font-weight:400;font-size:9px;
+    letter-spacing:0;text-transform:none;color:var(--ink-soft);margin-top:1px}
+  .stats thead th button{font-family:inherit;font-weight:inherit;font-size:inherit;
+    letter-spacing:inherit;text-transform:inherit;display:inline-flex;align-items:center;gap:5px;
+    padding:1px 2px}
+  .stats thead th.sorted button{color:var(--green);box-shadow:0 2px 0 var(--green)}
+  .sort-car{font-size:8px}
+  .stats tbody td{border-bottom:1px solid var(--rule-soft);font-size:14px;
+    font-variant-numeric:tabular-nums}
+  .stats tbody td.n{font-family:var(--grot);font-weight:600}
+  .stats tbody tr:hover td{background:var(--paper-deep)}
+  .stats td.player{font-weight:700}
+  .stats td.team{font-family:var(--grot);font-weight:700;font-size:12px;color:var(--ink-soft);
+    letter-spacing:.06em}
+  .stats tr.leader td{background:rgba(77,180,127,.12);border-bottom:1px solid var(--green)}
+  .stats tr.leader td.player .mark{color:var(--green);font-weight:800;margin-left:2px}
+  .stats td.sortcol{font-weight:800}
+
+  /* ---------------- footnotes & colophon ---------------- */
+  .footnotes{margin-top:26px;border-top:1px solid var(--ink);padding-top:10px;max-width:640px}
+  .footnotes p{font-size:12.5px;color:var(--ink-soft);padding-left:14px;text-indent:-14px;
+    margin-bottom:4px}
+  .footnotes .mark{color:var(--green);font-weight:700}
+  .footnotes .src{font-family:var(--mono);font-size:11px;margin-top:8px;text-indent:0;
+    padding-left:0}
+  .colophon{margin-top:56px;border-top:3px solid var(--ink);padding-top:8px;
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .colophon span{font-family:var(--grot);font-weight:700;font-size:10px;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft)}
+
+  @media (max-width:1024px){
+    .slate{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:680px){
+    .page{padding:20px 16px 40px}
+    .brand h1{font-size:34px}
+    .slate{grid-template-columns:1fr}
+    .masthead{padding:18px 0 14px}
+    .folio{margin-top:42px}
+    .folio .cont{display:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{transition:none!important;animation:none!important}
+  }
+</style>
+
+<div class="page">
+
+  <!-- SEC 1 · masthead -->
+  <div class="plate">
+    <span class="vol">Sec 1 — Masthead &amp; Index — Vol. II, No. 8 — Night Ed.</span>
+    <span class="stamp">UPDATED <b>Sun 13:02 ET</b></span>
+  </div>
+
+  <header class="masthead">
+    <div class="brand">
+      <h1>Gridiron<br><span class="desk">Desk</span></h1>
+      <p>The weekly record of the professional game, set in figures.</p>
+    </div>
+    <div class="controls">
+      <button class="ctl" type="button" aria-haspopup="listbox" aria-label="Season, 2026 selected">
+        <span class="lbl">SEASON</span> <span class="num">2026</span> <span class="car">&#9662;</span>
+      </button>
+      <button class="ctl" type="button" aria-haspopup="listbox"
+        aria-label="View schedule by team">
+        <span class="lbl">BY TEAM</span> <span>SCHEDULES</span> <span class="car">&#9662;</span>
+      </button>
+      <div class="weekset" role="group" aria-label="Week">
+        <button type="button" aria-label="Previous week">&#8249;</button>
+        <span class="cur num">WEEK 8</span>
+        <button type="button" aria-label="Next week">&#8250;</button>
+      </div>
+    </div>
+  </header>
+  <div class="rule-double" role="presentation"></div>
+
+  <!-- SEC 2 · week 8 slate -->
+  <section aria-labelledby="sec2">
+    <header class="folio">
+      <span class="sec">SEC 2</span>
+      <span class="title" id="sec2">Week 8 Slate</span>
+      <span class="sep">&mdash;</span>
+      <span class="cont">2026 Season</span>
+      <span class="pg num">p. 08</span>
+    </header>
+    <p class="folio-note">Six games, entered in kickoff order. Lines are closing where final.
+      Probabilities are the Desk model&rsquo;s.</p>
+
+    <div class="slate">
+
+      <!-- 8.01 FINAL -->
+      <article class="entry final">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.01</span>
+          <span class="final-flag">FINAL</span>
+          <span class="entry-time">Thu &middot; 8:15 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#3F32A6;--c2:#C29A21">BA</span>
+            <span class="tname">Baltimore <b>Ravens</b></span>
+            <span class="dots"></span><span class="trec">5-2</span>
+          </div>
+          <div class="fig"><span class="fval win num">27</span></div>
+          <div class="trow">
+            <span class="chip darktext" style="--c1:#FB4F14;--c2:#191712">CI</span>
+            <span class="tname"><span class="at">at</span> Cincinnati <b>Bengals</b></span>
+            <span class="dots"></span><span class="trec">4-3</span>
+          </div>
+          <div class="fig"><span class="fval lose num">24</span></div>
+        </div>
+        <table class="linescore">
+          <caption>BOX SCORE</caption>
+          <thead><tr><th scope="col">TEAM</th><th scope="col">1</th><th scope="col">2</th>
+            <th scope="col">3</th><th scope="col">4</th><th scope="col">T</th></tr></thead>
+          <tbody>
+            <tr class="won"><td>BAL</td><td>7</td><td>10</td><td>3</td><td>7</td><td>27</td></tr>
+            <tr><td>CIN</td><td>7</td><td>3</td><td>7</td><td>7</td><td>24</td></tr>
+          </tbody>
+        </table>
+        <p class="closing">Closed <span class="num">BAL -1.5</span> &middot;
+          <span class="num">O/U 46.5</span> &middot; kickoff prob.
+          <span class="num">51/49</span> BAL.</p>
+      </article>
+
+      <!-- 8.02 -->
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.02</span>
+          <span class="entry-time">Sun &middot; 1:00 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#2E5247;--c2:#FFB612">GB</span>
+            <span class="tname">Green Bay <b>Packers</b></span>
+            <span class="dots"></span><span class="trec">5-2</span>
+          </div>
+          <div class="fig"><span class="flbl">LINE</span><span class="fval num">GB -2.5</span></div>
+          <div class="trow">
+            <span class="chip" style="--c1:#24466F;--c2:#C83803">CH</span>
+            <span class="tname"><span class="at">at</span> Chicago <b>Bears</b></span>
+            <span class="dots"></span><span class="trec">3-4</span>
+          </div>
+          <div class="fig"><span class="flbl">TOTAL</span><span class="fval num">O/U 41.5</span></div>
+        </div>
+        <p class="note">Green Bay has covered four straight in Chicago.</p>
+        <div class="prob">
+          <div class="prob-labels">
+            <span class="pl away">GB 58%</span>
+            <span class="cap">WIN PROBABILITY</span>
+            <span class="pl home">CHI 42%</span>
+          </div>
+          <div class="gauge" style="--split:58%" role="img"
+            aria-label="Win probability: Green Bay 58 percent, Chicago 42 percent">
+            <span class="scale"></span><span class="needle"></span>
+          </div>
+        </div>
+        <span class="edge"><span class="dag">&dagger;</span>MODEL: CHI +1.6</span>
+      </article>
+
+      <!-- 8.03 -->
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.03</span>
+          <span class="entry-time">Sun &middot; 4:05 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#C11414;--c2:#B3995D">SF</span>
+            <span class="tname">San Francisco <b>49ers</b></span>
+            <span class="dots"></span><span class="trec">5-2</span>
+          </div>
+          <div class="fig"><span class="flbl">LINE</span><span class="fval num">SF -4.5</span></div>
+          <div class="trow">
+            <span class="chip" style="--c1:#0B3D73;--c2:#69BE28">SE</span>
+            <span class="tname"><span class="at">at</span> Seattle <b>Seahawks</b></span>
+            <span class="dots"></span><span class="trec">4-3</span>
+          </div>
+          <div class="fig"><span class="flbl">TOTAL</span><span class="fval num">O/U 44.0</span></div>
+        </div>
+        <p class="note">Seattle is 5-1 to the under at home this season.</p>
+        <div class="prob">
+          <div class="prob-labels">
+            <span class="pl away">SF 63%</span>
+            <span class="cap">WIN PROBABILITY</span>
+            <span class="pl home">SEA 37%</span>
+          </div>
+          <div class="gauge" style="--split:63%" role="img"
+            aria-label="Win probability: San Francisco 63 percent, Seattle 37 percent">
+            <span class="scale"></span><span class="needle"></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8.04 -->
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.04</span>
+          <span class="entry-time">Sun &middot; 4:25 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#E31837;--c2:#FFB81C">KC</span>
+            <span class="tname">Kansas City <b>Chiefs</b></span>
+            <span class="dots"></span><span class="trec">5-2</span>
+          </div>
+          <div class="fig"><span class="flbl">LINE</span><span class="fval num">BUF -3.5</span></div>
+          <div class="trow">
+            <span class="chip" style="--c1:#1F52BE;--c2:#C60C30">BU</span>
+            <span class="tname"><span class="at">at</span> Buffalo <b>Bills</b></span>
+            <span class="dots"></span><span class="trec">6-1</span>
+          </div>
+          <div class="fig"><span class="flbl">TOTAL</span><span class="fval num">O/U 47.5</span></div>
+        </div>
+        <p class="note">Buffalo is 4-0 at home; Kansas City 3-1 away.</p>
+        <div class="prob">
+          <div class="prob-labels">
+            <span class="pl away">KC 46%</span>
+            <span class="cap">WIN PROBABILITY</span>
+            <span class="pl home">BUF 54%</span>
+          </div>
+          <div class="gauge" style="--split:46%" role="img"
+            aria-label="Win probability: Kansas City 46 percent, Buffalo 54 percent">
+            <span class="scale"></span><span class="needle"></span>
+          </div>
+        </div>
+        <span class="edge"><span class="dag">&dagger;</span>MODEL: KC +2.1</span>
+      </article>
+
+      <!-- 8.05 -->
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.05</span>
+          <span class="entry-time">Sun &middot; 8:20 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#23477E;--c2:#9AA6AB">DA</span>
+            <span class="tname">Dallas <b>Cowboys</b></span>
+            <span class="dots"></span><span class="trec">4-3</span>
+          </div>
+          <div class="fig"><span class="flbl">LINE</span><span class="fval num">PHI -6.0</span></div>
+          <div class="trow">
+            <span class="chip" style="--c1:#0E6B76;--c2:#A5ACAF">PH</span>
+            <span class="tname"><span class="at">at</span> Philadelphia <b>Eagles</b></span>
+            <span class="dots"></span><span class="trec">6-1</span>
+          </div>
+          <div class="fig"><span class="flbl">TOTAL</span><span class="fval num">O/U 45.5</span></div>
+        </div>
+        <p class="note">Philadelphia has won six straight in the series.</p>
+        <div class="prob">
+          <div class="prob-labels">
+            <span class="pl away">DAL 32%</span>
+            <span class="cap">WIN PROBABILITY</span>
+            <span class="pl home">PHI 68%</span>
+          </div>
+          <div class="gauge" style="--split:32%" role="img"
+            aria-label="Win probability: Dallas 32 percent, Philadelphia 68 percent">
+            <span class="scale"></span><span class="needle"></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8.06 -->
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-no">No. 8.06</span>
+          <span class="entry-time">Mon &middot; 8:15 PM ET</span>
+        </div>
+        <div class="matchup">
+          <div class="trow">
+            <span class="chip" style="--c1:#0076B6;--c2:#B0B7BC">DE</span>
+            <span class="tname">Detroit <b>Lions</b></span>
+            <span class="dots"></span><span class="trec">6-1</span>
+          </div>
+          <div class="fig"><span class="flbl">LINE</span><span class="fval num">DET -3.0</span></div>
+          <div class="trow">
+            <span class="chip" style="--c1:#6337A6;--c2:#FFC62F">MI</span>
+            <span class="tname"><span class="at">at</span> Minnesota <b>Vikings</b></span>
+            <span class="dots"></span><span class="trec">4-3</span>
+          </div>
+          <div class="fig"><span class="flbl">TOTAL</span><span class="fval num">O/U 48.5</span></div>
+        </div>
+        <p class="note">Winner takes sole possession of the division lead.</p>
+        <div class="prob">
+          <div class="prob-labels">
+            <span class="pl away">DET 57%</span>
+            <span class="cap">WIN PROBABILITY</span>
+            <span class="pl home">MIN 43%</span>
+          </div>
+          <div class="gauge" style="--split:57%" role="img"
+            aria-label="Win probability: Detroit 57 percent, Minnesota 43 percent">
+            <span class="scale"></span><span class="needle"></span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- SEC 3 · position leaders -->
+  <section aria-labelledby="sec3">
+    <header class="folio">
+      <span class="sec">SEC 3</span>
+      <span class="title" id="sec3">Position Leaders &mdash; QB</span>
+      <span class="sep">&mdash;</span>
+      <span class="cont">Weeks 1&ndash;7</span>
+      <span class="pg num">p. 09</span>
+    </header>
+    <p class="folio-note">Raw feed keys are translated to printed labels; the mono line under
+      each header names its source key. Sorted by passing yards.</p>
+
+    <div class="tablewrap">
+      <table class="stats">
+        <thead>
+          <tr>
+            <th scope="col">Player</th>
+            <th scope="col">Team</th>
+            <th scope="col">CMP%<span class="was">completionPct</span></th>
+            <th scope="col" class="sorted" aria-sort="descending">
+              <button type="button">YDS <span class="sort-car">&#9660;</span></button>
+              <span class="was">passYards</span>
+            </th>
+            <th scope="col">TD<span class="was">passTD</span></th>
+            <th scope="col">INT<span class="was">interceptions</span></th>
+            <th scope="col">RTG<span class="was">passerRating</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="leader">
+            <td class="player">J. Allen<span class="mark">*</span></td>
+            <td class="team">BUF</td>
+            <td class="n">68.9</td>
+            <td class="n sortcol">2,104</td>
+            <td class="n">18</td>
+            <td class="n">3</td>
+            <td class="n">112.4</td>
+          </tr>
+          <tr>
+            <td class="player">P. Mahomes</td><td class="team">KC</td>
+            <td class="n">67.2</td><td class="n sortcol">2,041</td>
+            <td class="n">16</td><td class="n">5</td><td class="n">104.8</td>
+          </tr>
+          <tr>
+            <td class="player">J. Goff</td><td class="team">DET</td>
+            <td class="n">70.1</td><td class="n sortcol">1,988</td>
+            <td class="n">15</td><td class="n">6</td><td class="n">101.5</td>
+          </tr>
+          <tr>
+            <td class="player">B. Purdy</td><td class="team">SF</td>
+            <td class="n">69.0</td><td class="n sortcol">1,893</td>
+            <td class="n">13</td><td class="n">5</td><td class="n">103.9</td>
+          </tr>
+          <tr>
+            <td class="player">J. Hurts</td><td class="team">PHI</td>
+            <td class="n">65.4</td><td class="n sortcol">1,876</td>
+            <td class="n">14</td><td class="n">4</td><td class="n">102.1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footnotes">
+      <p><span class="mark">*</span> League leader, passer rating
+        (<span class="num">112.4</span>), weeks 1&ndash;7; minimum
+        <span class="num">150</span> attempts.</p>
+      <p><span class="mark">&dagger;</span> Model edge: the Desk model&rsquo;s line differs
+        from the market by the figure shown.</p>
+      <p class="src">Data: ESPN public API &mdash; refreshed hourly.</p>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>Gridiron Desk &mdash; Almanac, Night Edition</span>
+    <span>Week 8 of 18</span>
+    <span>pp. 08&ndash;09</span>
+  </footer>
+
+</div>
+</content>
+</invoke>

@@ -1,0 +1,989 @@
+<!--
+  GRIDIRON DESK - Mock 3 "Trading Desk"
+  The odds terminal: lines, probabilities, and model edges rendered like a
+  professional trading workstation.
+
+  PALETTE
+    - -bg-0      #14181F  page graphite
+    - -bg-1      #1A1F28  panel slate
+    - -bg-2      #212836  row slate
+    - -bg-3      #2A3342  raised / hover slate
+    - -line      #303A4B  hairline
+    - -ink       #DDE3EC  primary ink
+    - -ink-dim   #939EB0  secondary ink
+    - -ink-faint #6E7A8C  label ink
+    - -amber     #F0A832  signal (model edge) - the only hue to hunt for
+    - -green     #4CC38A  settle / cover
+    - -red       #E5654E  loss / miss
+    - bar slates -away-bar #4D5D78 / -home-bar #2C3648 (probability depth)
+
+  TYPE ROLES
+    - Figures (all numerals, odds, timestamps): intended Berkeley Mono;
+      system stack ui-monospace / SF Mono / Menlo / Consolas, tabular-nums.
+    - Labels & headers: intended Sohne Schmal (compact grotesque caps);
+      system stack Avenir Next Condensed / Arial Narrow / Helvetica Neue,
+      uppercase, tracked.
+
+  SIGNATURE ELEMENT
+    The EDGE GAP: on each probability depth bar the market line is a crisp
+    light boundary and the model's fair line is a tick; where they diverge
+    the gap between them fills amber with a mono annotation ("+2.1 EDGE").
+    The same amber tick motif marks the brand and section headers.
+-->
+<title>GRIDIRON DESK - Week 8 Terminal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg-0: #14181F;
+    --bg-1: #1A1F28;
+    --bg-2: #212836;
+    --bg-3: #2A3342;
+    --line: #303A4B;
+    --line-soft: #262E3C;
+    --ink: #DDE3EC;
+    --ink-dim: #939EB0;
+    --ink-faint: #6E7A8C;
+    --amber: #F0A832;
+    --amber-dim: #B37E28;
+    --green: #4CC38A;
+    --red: #E5654E;
+    --away-bar: #4D5D78;
+    --home-bar: #2C3648;
+    --market-line: #AFBCCE;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --caps: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { background: var(--bg-0); }
+
+  body {
+    background: var(--bg-0);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.45;
+    padding-bottom: 46px; /* room for status bar */
+  }
+
+  .num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .cap {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 600;
+  }
+
+  a { color: var(--ink-dim); }
+
+  :focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* ------------------------------------------------ header / week bar */
+
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-1);
+  }
+
+  .masthead .wrap {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-height: 54px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 6px;
+  }
+
+  /* amber tick mark: the brand wears the signature element */
+  .brand-tick {
+    width: 3px;
+    height: 20px;
+    background: var(--amber);
+    display: inline-block;
+  }
+
+  .brand-name {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.14em;
+    color: var(--ink);
+  }
+
+  .brand-name span { color: var(--ink-dim); font-weight: 500; }
+
+  .selectors {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .sel {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .sel > * {
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 0.06em;
+  }
+
+  .sel .lbl {
+    color: var(--ink-faint);
+    border-right: 1px solid var(--line);
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+
+  .sel button { color: var(--ink-dim); border-left: 1px solid var(--line-soft); }
+  .sel button:first-of-type { border-left: none; border-right: 1px solid var(--line-soft); }
+  .sel button:hover { color: var(--amber); background: var(--bg-3); }
+
+  .sync {
+    margin-left: auto;
+    color: var(--ink-dim);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .sync b { color: var(--ink); font-weight: 500; }
+
+  /* ------------------------------------------------ section headers */
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 28px 0 12px;
+  }
+
+  .section-head::before {
+    content: "";
+    align-self: center;
+    width: 3px;
+    height: 14px;
+    background: var(--amber);
+  }
+
+  .section-head h2 {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: var(--ink);
+  }
+
+  .section-head .meta {
+    color: var(--ink-faint);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .section-head .rule {
+    flex: 1;
+    border-top: 1px solid var(--line-soft);
+    align-self: center;
+  }
+
+  /* ------------------------------------------------ slate grid */
+
+  .slate {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg-1);
+    overflow: hidden;
+  }
+
+  .grid-cols {
+    display: grid;
+    grid-template-columns: 78px minmax(170px, 1.15fr) 44px 64px 58px 48px minmax(230px, 1.35fr) 138px;
+    column-gap: 14px;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  .slate-head {
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-2);
+    min-height: 30px;
+  }
+
+  .slate-head .h {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    color: var(--ink-faint);
+    padding: 7px 0;
+    white-space: nowrap;
+  }
+  .slate-head .h.r { text-align: right; }
+
+  .game {
+    grid-template-rows: auto auto;
+    row-gap: 5px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+    border-bottom: 1px solid var(--line-soft);
+    position: relative;
+  }
+  .game:last-child { border-bottom: none; }
+  .game:hover { background: var(--bg-2); }
+
+  .c-ko { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  .c-team-a { grid-column: 2; grid-row: 1; }
+  .c-team-h { grid-column: 2; grid-row: 2; }
+  .c-rec-a { grid-column: 3; grid-row: 1; }
+  .c-rec-h { grid-column: 3; grid-row: 2; }
+  .c-sp-a { grid-column: 4; grid-row: 1; }
+  .c-sp-h { grid-column: 4; grid-row: 2; }
+  .c-ou { grid-column: 5; grid-row: 1 / 3; align-self: center; }
+  .c-pct-a { grid-column: 6; grid-row: 1; }
+  .c-pct-h { grid-column: 6; grid-row: 2; }
+  .c-bar { grid-column: 7; grid-row: 1 / 3; align-self: center; }
+  .c-edge { grid-column: 8; grid-row: 1 / 3; align-self: center; justify-self: end; text-align: right; }
+
+  .c-ko .day {
+    display: block;
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+  }
+  .c-ko .time { display: block; font-size: 12px; color: var(--ink); letter-spacing: 0.02em; white-space: nowrap; }
+
+  .team-cell { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+  .chip {
+    flex: none;
+    width: 24px;
+    height: 20px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .team-name .city {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: var(--ink);
+  }
+  .team-name .nick {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 12.5px;
+    font-weight: 400;
+    letter-spacing: 0.07em;
+    color: var(--ink-dim);
+  }
+
+  .rec { font-size: 12px; color: var(--ink-dim); text-align: right; }
+
+  .sp { font-size: 12.5px; text-align: right; color: var(--ink); white-space: nowrap; }
+  .sp.dog { color: var(--ink-dim); }
+
+  .c-ou { text-align: center; }
+  .c-ou .k {
+    display: block;
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+  }
+  .c-ou .v { font-size: 12.5px; color: var(--ink); }
+
+  /* column header already names O/U on desktop; label shows only on phone */
+  @media (min-width: 781px) { .c-ou .k { display: none; } }
+
+  .pct { font-size: 12.5px; text-align: right; color: var(--ink); }
+  .pct.minor { color: var(--ink-dim); }
+
+  /* ---------------- the depth bar + edge gap (signature) ---------------- */
+
+  .depth {
+    position: relative;
+    height: 14px;
+    background: var(--home-bar);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+
+  .depth .away-fill {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    background: var(--away-bar);
+  }
+
+  .depth .market {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--market-line);
+  }
+
+  .depth .model-tick {
+    position: absolute;
+    top: -6px; bottom: -6px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--ink-faint);
+  }
+
+  .depth .gap-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--amber);
+  }
+
+  .edged .depth .model-tick {
+    background: var(--amber);
+    top: -8px; bottom: -8px;
+    width: 3px;
+    margin-left: -1.5px;
+  }
+
+  .edge-note {
+    position: absolute;
+    bottom: calc(100% + 7px);
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    white-space: nowrap;
+  }
+
+  .bar-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .edged { background: linear-gradient(90deg, transparent 55%, rgba(240, 168, 50, 0.045)); }
+
+  .edge-tag {
+    display: inline-block;
+    border: 1px solid var(--amber-dim);
+    color: var(--amber);
+    background: rgba(240, 168, 50, 0.07);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+  }
+
+  .inline-tag { color: var(--ink-faint); font-size: 11px; letter-spacing: 0.1em; }
+
+  /* ---------------- settled game ---------------- */
+
+  .game.final .team-name .city,
+  .game.final .team-name .nick,
+  .game.final .rec { color: var(--ink-faint); }
+  .game.final .chip { filter: saturate(0.35) brightness(0.75); }
+  .game.final .sp { color: var(--ink-faint); }
+
+  .badge-final {
+    display: inline-block;
+    margin-top: 3px;
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    background: var(--bg-3);
+    border-radius: 2px;
+    padding: 1px 6px;
+  }
+
+  .score { font-size: 15px; font-weight: 700; text-align: right; }
+  .score.win { color: var(--ink); }
+  .score.loss { color: var(--ink-faint); }
+
+  .settle-strip {
+    height: 14px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--bg-2) 0 6px,
+      var(--bg-3) 6px 12px
+    );
+    position: relative;
+  }
+
+  .settle-note {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .settle-note .res-w { color: var(--green); }
+  .settle-note .res-l { color: var(--red); }
+  .settle-note .res-meta { color: var(--ink-faint); }
+
+  .pl-tag {
+    display: inline-block;
+    border: 1px solid rgba(76, 195, 138, 0.45);
+    color: var(--green);
+    background: rgba(76, 195, 138, 0.07);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+  }
+
+  /* ------------------------------------------------ leaders table */
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg-1);
+    overflow: hidden;
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    min-width: 620px;
+  }
+
+  th, td { padding: 8px 14px; white-space: nowrap; }
+
+  thead th {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    color: var(--ink-faint);
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+  }
+  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+
+  thead th.sortable button {
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: var(--amber);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+  }
+  thead th.sortable .arrow { font-size: 8px; }
+
+  tbody td {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line-soft);
+    text-align: right;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child, tbody td:nth-child(2) { text-align: left; }
+  tbody td:nth-child(2) { color: var(--ink-dim); }
+  tbody tr:hover td { background: var(--bg-2); }
+
+  td.col-yds { color: var(--ink); font-weight: 700; }
+
+  tr.leader td { background: rgba(240, 168, 50, 0.05); }
+  tr.leader td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+  tr.leader:hover td { background: rgba(240, 168, 50, 0.08); }
+
+  .leader-flag {
+    font-family: var(--caps);
+    text-transform: uppercase;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--amber);
+    margin-left: 8px;
+  }
+
+  .tbl-chip {
+    width: 22px; height: 18px;
+    font-size: 9.5px;
+    margin-right: 2px;
+    vertical-align: -4px;
+  }
+
+  .footnote {
+    padding: 8px 14px 26px;
+    color: var(--ink-faint);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ------------------------------------------------ status bar */
+
+  .statusbar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #10141B;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    z-index: 10;
+  }
+  .statusbar .wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .statusbar .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    flex: none;
+  }
+  .statusbar .sep { color: var(--line); }
+  .statusbar b { color: var(--ink); font-weight: 500; }
+
+  @media (hover: hover) {
+    .game, tbody tr td, .sel button { transition: background-color 120ms linear, color 120ms linear; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+
+  /* ------------------------------------------------ phone (<= 780px) */
+
+  @media (max-width: 780px) {
+    .sync { margin-left: 0; width: 100%; }
+
+    .statusbar { font-size: 10px; letter-spacing: 0.03em; }
+    .statusbar .wrap { gap: 5px; padding-left: 12px; padding-right: 12px; min-height: 26px; }
+
+    .slate-head { display: none; }
+
+    .grid-cols.game {
+      grid-template-columns: minmax(0, 1fr) 44px 62px 44px;
+      grid-template-rows: auto auto auto auto auto;
+      row-gap: 7px;
+      padding-top: 13px;
+      padding-bottom: 13px;
+    }
+
+    .c-ko { grid-column: 1; grid-row: 1; align-self: center; display: flex; align-items: baseline; gap: 8px; }
+    .c-edge { grid-column: 2 / 5; grid-row: 1; align-self: center; }
+    .c-team-a { grid-column: 1; grid-row: 2; }
+    .c-rec-a  { grid-column: 2; grid-row: 2; }
+    .c-sp-a   { grid-column: 3; grid-row: 2; }
+    .c-pct-a  { grid-column: 4; grid-row: 2; }
+    .c-team-h { grid-column: 1; grid-row: 3; }
+    .c-rec-h  { grid-column: 2; grid-row: 3; }
+    .c-sp-h   { grid-column: 3; grid-row: 3; }
+    .c-pct-h  { grid-column: 4; grid-row: 3; }
+    .c-bar { grid-column: 1 / 4; grid-row: 4; align-self: center; margin-top: 10px; }
+    .c-ou  { grid-column: 4; grid-row: 4; align-self: start; margin-top: 4px; text-align: right; }
+
+    .badge-final { margin-top: 0; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand-tick" aria-hidden="true"></span>
+      <span class="brand-name">Gridiron <span>Desk</span></span>
+    </div>
+    <nav class="selectors" aria-label="Season and week">
+      <span class="sel">
+        <span class="lbl">Season</span>
+        <span class="num" aria-current="true">2026</span>
+      </span>
+      <span class="sel">
+        <button type="button" aria-label="Previous week">&#8249;</button>
+        <span class="num">WEEK 8</span>
+        <button type="button" aria-label="Next week">&#8250;</button>
+      </span>
+    </nav>
+    <p class="sync num">SYNC <b>Sun 13:02 ET</b></p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============================== game slate ============================== -->
+  <div class="section-head">
+    <h2>Game Slate</h2>
+    <span class="meta num">6 GAMES &middot; LINES: CONSENSUS CLOSE</span>
+    <span class="rule" aria-hidden="true"></span>
+  </div>
+
+  <section class="slate" aria-label="Week 8 games">
+    <div class="grid-cols slate-head" aria-hidden="true">
+      <span class="h">Kickoff</span>
+      <span class="h">Instrument</span>
+      <span class="h r">Rec</span>
+      <span class="h r">Line</span>
+      <span class="h" style="text-align:center">O/U</span>
+      <span class="h r">Win%</span>
+      <span class="h">Probability &middot; market | model</span>
+      <span class="h r">Edge</span>
+    </div>
+
+    <!-- KC @ BUF : flagged, model edge KC +2.1 -->
+    <article class="grid-cols game edged" aria-label="Kansas City at Buffalo">
+      <div class="c-ko">
+        <span class="day">Sun</span>
+        <span class="time num">4:25 PM</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#E31837;color:#FFD98F">KC</span>
+        <span class="team-name"><span class="city">Kansas City</span> <span class="nick">Chiefs</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#00338D;color:#FFB9C4">BU</span>
+        <span class="team-name"><span class="city">Buffalo</span> <span class="nick">Bills</span></span>
+      </div>
+      <span class="c-rec-a rec num">5-2</span>
+      <span class="c-rec-h rec num">6-1</span>
+      <span class="c-sp-a sp dog num">+3.5</span>
+      <span class="c-sp-h sp num">-3.5</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">47.5</span></div>
+      <span class="c-pct-a pct minor num">46%</span>
+      <span class="c-pct-h pct num">54%</span>
+      <div class="c-bar">
+        <div class="depth" role="img" aria-label="Market gives Kansas City 46 percent; model fair line 48.1 percent, a 2.1 point edge on Kansas City">
+          <span class="away-fill" style="width:46%"></span>
+          <span class="gap-fill" style="left:46%;width:2.1%"></span>
+          <span class="market" style="left:46%"></span>
+          <span class="model-tick" style="left:48.1%"></span>
+          <span class="edge-note" style="left:48.1%">+2.1 EDGE</span>
+        </div>
+        <div class="bar-scale"><span>KC</span><span>BUF</span></div>
+      </div>
+      <div class="c-edge"><span class="edge-tag num">MODEL: KC +2.1</span></div>
+    </article>
+
+    <!-- DAL @ PHI -->
+    <article class="grid-cols game" aria-label="Dallas at Philadelphia">
+      <div class="c-ko">
+        <span class="day">Sun</span>
+        <span class="time num">8:20 PM</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#041E42;color:#B9C2CC">DA</span>
+        <span class="team-name"><span class="city">Dallas</span> <span class="nick">Cowboys</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#004C54;color:#C7CFD2">PH</span>
+        <span class="team-name"><span class="city">Philadelphia</span> <span class="nick">Eagles</span></span>
+      </div>
+      <span class="c-rec-a rec num">4-3</span>
+      <span class="c-rec-h rec num">6-1</span>
+      <span class="c-sp-a sp dog num">+6.0</span>
+      <span class="c-sp-h sp num">-6.0</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">44.5</span></div>
+      <span class="c-pct-a pct minor num">32%</span>
+      <span class="c-pct-h pct num">68%</span>
+      <div class="c-bar">
+        <div class="depth" role="img" aria-label="Market gives Dallas 32 percent; model agrees with the line">
+          <span class="away-fill" style="width:32%"></span>
+          <span class="market" style="left:32%"></span>
+          <span class="model-tick" style="left:32.4%"></span>
+        </div>
+        <div class="bar-scale"><span>DAL</span><span>PHI</span></div>
+      </div>
+      <div class="c-edge"><span class="inline-tag num">IN LINE</span></div>
+    </article>
+
+    <!-- GB @ CHI -->
+    <article class="grid-cols game" aria-label="Green Bay at Chicago">
+      <div class="c-ko">
+        <span class="day">Sun</span>
+        <span class="time num">1:00 PM</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#203731;color:#FFB612">GB</span>
+        <span class="team-name"><span class="city">Green Bay</span> <span class="nick">Packers</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#0B162A;color:#F28B60">CH</span>
+        <span class="team-name"><span class="city">Chicago</span> <span class="nick">Bears</span></span>
+      </div>
+      <span class="c-rec-a rec num">5-2</span>
+      <span class="c-rec-h rec num">3-4</span>
+      <span class="c-sp-a sp num">-2.5</span>
+      <span class="c-sp-h sp dog num">+2.5</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">41.5</span></div>
+      <span class="c-pct-a pct num">58%</span>
+      <span class="c-pct-h pct minor num">42%</span>
+      <div class="c-bar">
+        <div class="depth" role="img" aria-label="Market gives Green Bay 58 percent; model agrees with the line">
+          <span class="away-fill" style="width:58%"></span>
+          <span class="market" style="left:58%"></span>
+          <span class="model-tick" style="left:57.6%"></span>
+        </div>
+        <div class="bar-scale"><span>GB</span><span>CHI</span></div>
+      </div>
+      <div class="c-edge"><span class="inline-tag num">IN LINE</span></div>
+    </article>
+
+    <!-- BAL @ CIN : FINAL, settled -->
+    <article class="grid-cols game final" aria-label="Baltimore at Cincinnati, final, Baltimore 27 Cincinnati 24">
+      <div class="c-ko">
+        <span class="day">Thu</span>
+        <span class="badge-final">Final</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#241773;color:#D9C27A">BA</span>
+        <span class="team-name"><span class="city">Baltimore</span> <span class="nick">Ravens</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#FB4F14;color:#1A1208">CI</span>
+        <span class="team-name"><span class="city">Cincinnati</span> <span class="nick">Bengals</span></span>
+      </div>
+      <span class="c-rec-a rec num">6-1</span>
+      <span class="c-rec-h rec num">4-3</span>
+      <span class="c-sp-a sp num">-1.5</span>
+      <span class="c-sp-h sp dog num">+1.5</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">46.5</span></div>
+      <span class="c-pct-a score win num">27</span>
+      <span class="c-pct-h score loss num">24</span>
+      <div class="c-bar">
+        <div class="settle-strip" aria-hidden="true"></div>
+        <div class="settle-note num">
+          <span class="res-w">BAL -1.5 &rarr; W BY 3 &middot; COVER</span>
+          <span class="res-meta">U 46.5 (51)</span>
+        </div>
+      </div>
+      <div class="c-edge"><span class="pl-tag num">SETTLED +1.0u</span></div>
+    </article>
+
+    <!-- SF @ SEA -->
+    <article class="grid-cols game" aria-label="San Francisco at Seattle">
+      <div class="c-ko">
+        <span class="day">Sun</span>
+        <span class="time num">4:05 PM</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#AA0000;color:#E5CE9C">SF</span>
+        <span class="team-name"><span class="city">San Francisco</span> <span class="nick">49ers</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#002244;color:#8FD65A">SE</span>
+        <span class="team-name"><span class="city">Seattle</span> <span class="nick">Seahawks</span></span>
+      </div>
+      <span class="c-rec-a rec num">5-2</span>
+      <span class="c-rec-h rec num">4-3</span>
+      <span class="c-sp-a sp num">-4.5</span>
+      <span class="c-sp-h sp dog num">+4.5</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">43.5</span></div>
+      <span class="c-pct-a pct num">63%</span>
+      <span class="c-pct-h pct minor num">37%</span>
+      <div class="c-bar">
+        <div class="depth" role="img" aria-label="Market gives San Francisco 63 percent; model agrees with the line">
+          <span class="away-fill" style="width:63%"></span>
+          <span class="market" style="left:63%"></span>
+          <span class="model-tick" style="left:63.3%"></span>
+        </div>
+        <div class="bar-scale"><span>SF</span><span>SEA</span></div>
+      </div>
+      <div class="c-edge"><span class="inline-tag num">IN LINE</span></div>
+    </article>
+
+    <!-- DET @ MIN : flagged, model edge MIN +1.4 -->
+    <article class="grid-cols game edged" aria-label="Detroit at Minnesota">
+      <div class="c-ko">
+        <span class="day">Mon</span>
+        <span class="time num">8:15 PM</span>
+      </div>
+      <div class="c-team-a team-cell">
+        <span class="chip" style="background:#0076B6;color:#EAF3F8">DE</span>
+        <span class="team-name"><span class="city">Detroit</span> <span class="nick">Lions</span></span>
+      </div>
+      <div class="c-team-h team-cell">
+        <span class="chip" style="background:#4F2683;color:#FFC62F">MI</span>
+        <span class="team-name"><span class="city">Minnesota</span> <span class="nick">Vikings</span></span>
+      </div>
+      <span class="c-rec-a rec num">6-1</span>
+      <span class="c-rec-h rec num">5-2</span>
+      <span class="c-sp-a sp num">-3.0</span>
+      <span class="c-sp-h sp dog num">+3.0</span>
+      <div class="c-ou"><span class="k">O/U</span><span class="v num">49.0</span></div>
+      <span class="c-pct-a pct num">57%</span>
+      <span class="c-pct-h pct minor num">43%</span>
+      <div class="c-bar">
+        <div class="depth" role="img" aria-label="Market gives Detroit 57 percent; model fair line 55.6 percent, a 1.4 point edge on Minnesota">
+          <span class="away-fill" style="width:55.6%"></span>
+          <span class="gap-fill" style="left:55.6%;width:1.4%"></span>
+          <span class="model-tick" style="left:55.6%"></span>
+          <span class="market" style="left:57%"></span>
+          <span class="edge-note" style="left:55.6%">+1.4 EDGE</span>
+        </div>
+        <div class="bar-scale"><span>DET</span><span>MIN</span></div>
+      </div>
+      <div class="c-edge"><span class="edge-tag num">MODEL: MIN +1.4</span></div>
+    </article>
+  </section>
+
+  <!-- ============================== leaders table ============================== -->
+  <div class="section-head">
+    <h2>Position Leaders &mdash; QB</h2>
+    <span class="meta num">WEEK 1-7 &middot; MIN 150 ATT</span>
+    <span class="rule" aria-hidden="true"></span>
+  </div>
+
+  <section class="panel" aria-label="Quarterback leaders, weeks 1 through 7">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Player</th>
+            <th scope="col">Team</th>
+            <th scope="col">Cmp%</th>
+            <th scope="col" class="sortable" aria-sort="descending">
+              <button type="button">Yds <span class="arrow" aria-hidden="true">&#9660;</span></button>
+            </th>
+            <th scope="col">TD</th>
+            <th scope="col">Int</th>
+            <th scope="col">Rtg</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="leader">
+            <td>P. Mahomes<span class="leader-flag">League Leader</span></td>
+            <td><span class="chip tbl-chip" style="background:#E31837;color:#FFD98F">KC</span> Kansas City</td>
+            <td>68.4</td>
+            <td class="col-yds">2,112</td>
+            <td>18</td>
+            <td>4</td>
+            <td>108.6</td>
+          </tr>
+          <tr>
+            <td>J. Goff</td>
+            <td><span class="chip tbl-chip" style="background:#0076B6;color:#EAF3F8">DE</span> Detroit</td>
+            <td>70.2</td>
+            <td class="col-yds">2,045</td>
+            <td>16</td>
+            <td>4</td>
+            <td>106.9</td>
+          </tr>
+          <tr>
+            <td>J. Allen</td>
+            <td><span class="chip tbl-chip" style="background:#00338D;color:#FFB9C4">BU</span> Buffalo</td>
+            <td>66.1</td>
+            <td class="col-yds">1,987</td>
+            <td>17</td>
+            <td>5</td>
+            <td>104.2</td>
+          </tr>
+          <tr>
+            <td>B. Purdy</td>
+            <td><span class="chip tbl-chip" style="background:#AA0000;color:#E5CE9C">SF</span> San Francisco</td>
+            <td>69.0</td>
+            <td class="col-yds">1,934</td>
+            <td>13</td>
+            <td>5</td>
+            <td>102.4</td>
+          </tr>
+          <tr>
+            <td>J. Hurts</td>
+            <td><span class="chip tbl-chip" style="background:#004C54;color:#C7CFD2">PH</span> Philadelphia</td>
+            <td>65.3</td>
+            <td class="col-yds">1,876</td>
+            <td>14</td>
+            <td>3</td>
+            <td>101.8</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="footnote num">DATA: ESPN PUBLIC API &middot; REFRESHED HOURLY &middot; MODEL FAIR LINES RECALC ON SYNC</p>
+
+</main>
+
+<footer class="statusbar">
+  <div class="wrap">
+    <span class="dot" aria-hidden="true"></span>
+    <span>FEED: <b>ESPN</b></span>
+    <span class="sep">|</span>
+    <span>LAST SYNC <b>13:02:41 ET</b></span>
+    <span class="sep">|</span>
+    <span><b>272</b> GAMES</span>
+    <span class="sep">|</span>
+    <span>2026 <b>WK8</b></span>
+  </div>
+</footer>

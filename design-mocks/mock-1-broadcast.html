@@ -1,0 +1,654 @@
+<!--
+  GRIDIRON DESK — Design mock 1: "BROADCAST"
+  A prime-time TV graphics package for a personal NFL info app.
+
+  PALETTE
+    --field   #0c1120  studio-dark navy-charcoal page field
+    --field-hi #131b2e field wash (radial, top of page)
+    --panel   #161f31  glassy lower-third card panel (used at ~92% alpha)
+    --slab    #212b40  neutral score-bug slab fill
+    --line    rgba(255,255,255,.09)  hairline panel borders
+    --ink     #eef2f8  primary text
+    --mut     #9aa5ba  secondary / meta text
+    --gold    #ffb224  accent 1: brand, model-edge, leader, sort state
+    --red     #c9202c  accent 2: FINAL / status
+    + per-team hue pairs (text-safe display variants) used only on
+      monogram chips, accent bars and probability splits.
+
+  TYPE ROLES
+    Display (teams, headings): intended United Sans / Halcom / Industry;
+      system stack "Arial Narrow" bold, condensed uppercase.
+    Numerals (score bugs): intended Industry Black Italic;
+      system "Arial Black" skewed -8deg, tabular figures.
+    Meta / body: clean grotesque — Helvetica Neue / Arial.
+    Utility mono (timestamps, footnotes): ui-monospace stack.
+
+  SIGNATURE ELEMENT
+    The score-bug numeral slab: one consistent angled-edge chip
+    (parallelogram clip-path, matched cut angle everywhere) carries every
+    number on screen — betting lines, O/U, win percentages, records,
+    final scores, and all table figures — so the whole app reads as a
+    single broadcast graphics package. Win probability is a hard
+    two-color split bar with an angled seam and a notched 50% center tick.
+
+  Motion: one subtle sheen sweep across the brand slab on load only;
+  fully suppressed under prefers-reduced-motion. No glow, no bloom.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRIDIRON DESK — Week 8</title>
+<style>
+  :root{
+    --field:#0c1120;
+    --field-hi:#131b2e;
+    --panel:rgba(22,31,49,.92);
+    --slab:#212b40;
+    --slab-quiet:rgba(255,255,255,.055);
+    --line:rgba(255,255,255,.09);
+    --ink:#eef2f8;
+    --mut:#9aa5ba;
+    --gold:#ffb224;
+    --gold-ink:#191204;
+    --red:#c9202c;
+    --display:"Arial Narrow","Helvetica Neue Condensed","Liberation Sans Narrow","Ubuntu Condensed","DejaVu Sans Condensed",Arial,sans-serif;
+    --numeral:"Arial Black","Archivo Black","Liberation Sans",Arial,sans-serif;
+    --meta:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --cut:7px; /* the one slab angle, reused everywhere */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--field)}
+  body{
+    font-family:var(--meta);
+    color:var(--ink);
+    background:
+      radial-gradient(1300px 640px at 50% -12%, var(--field-hi), var(--field) 70%);
+    min-height:100vh;
+    overflow-x:clip;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:0 28px 64px}
+
+  /* ---------- signature: the score-bug slab ---------- */
+  .bug{
+    position:relative;
+    display:inline-flex;align-items:center;justify-content:center;gap:.45em;
+    background:var(--slab);
+    clip-path:polygon(var(--cut) 0,100% 0,calc(100% - var(--cut)) 100%,0 100%);
+    padding:3px 13px;
+    font-family:var(--numeral);font-weight:900;font-size:14px;line-height:1.45;
+    color:var(--ink);letter-spacing:.02em;white-space:nowrap;
+  }
+  .bug .n{
+    display:inline-block;transform:skewX(-8deg);
+    font-variant-numeric:tabular-nums;
+  }
+  .bug--gold{background:var(--gold);color:var(--gold-ink)}
+  .bug--red{background:var(--red);color:#fff;letter-spacing:.08em}
+  .bug--quiet{background:var(--slab-quiet)}
+  .bug--big{font-size:23px;padding:4px 16px;--cut:10px}
+  .bug--dim .n{color:var(--mut)}
+
+  /* ---------- header / week bar ---------- */
+  header{
+    display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+    padding:22px 0 18px;border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand-bug{
+    position:relative;overflow:hidden;
+    background:var(--gold);color:var(--gold-ink);
+    clip-path:polygon(9px 0,100% 0,calc(100% - 9px) 100%,0 100%);
+    padding:7px 18px 6px;
+    font-family:var(--display);font-weight:700;font-size:22px;
+    letter-spacing:.06em;text-transform:uppercase;line-height:1;
+  }
+  .brand-bug em{font-style:normal;font-weight:400}
+  .brand-bug::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.5) 50%,transparent 70%);
+    transform:translateX(-130%);
+    animation:sheen 1.1s ease .6s 1 both;
+    pointer-events:none;
+  }
+  @keyframes sheen{to{transform:translateX(130%)}}
+  .brand-sub{
+    font-family:var(--display);text-transform:uppercase;letter-spacing:.22em;
+    font-size:11px;color:var(--mut);
+  }
+  .weekbar{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
+  .season{
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    letter-spacing:.1em;font-size:13px;color:var(--ink);
+    background:var(--slab-quiet);border:1px solid var(--line);
+    clip-path:none;border-radius:0;
+    padding:8px 14px;cursor:pointer;
+  }
+  .season b{color:var(--gold);font-weight:700}
+  .wk{
+    display:flex;align-items:stretch;border:1px solid var(--line);
+    background:var(--slab-quiet);
+  }
+  .wk button{
+    background:none;border:0;color:var(--mut);cursor:pointer;
+    font-family:var(--numeral);font-size:13px;padding:8px 13px;line-height:1;
+  }
+  .wk button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+  .wk-label{
+    display:flex;align-items:center;padding:0 16px;
+    font-family:var(--display);font-weight:700;font-size:15px;
+    letter-spacing:.14em;text-transform:uppercase;
+    border-left:1px solid var(--line);border-right:1px solid var(--line);
+  }
+  .stamp{
+    font-family:var(--mono);font-size:12px;color:var(--mut);
+    letter-spacing:.02em;
+  }
+  .stamp::before{
+    content:"";display:inline-block;width:7px;height:7px;background:var(--gold);
+    margin-right:8px;transform:skewX(-8deg);
+  }
+
+  /* ---------- section eyebrows ---------- */
+  .eyebrow{
+    display:flex;align-items:center;gap:14px;
+    margin:34px 0 18px;
+  }
+  .eyebrow h2{
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    font-size:16px;letter-spacing:.18em;
+  }
+  .eyebrow .rule{flex:1;height:1px;background:var(--line)}
+  .eyebrow .rule::before{
+    content:"";display:block;width:46px;height:3px;background:var(--gold);
+    transform:translateY(-1px) skewX(-30deg);
+  }
+  .eyebrow .count{font-family:var(--mono);font-size:11px;color:var(--mut);letter-spacing:.08em}
+
+  /* ---------- game slate ---------- */
+  .slate{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+  }
+  .card{
+    position:relative;
+    display:flex;flex-direction:column;
+    background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(255,255,255,0) 38%),var(--panel);
+    border:1px solid var(--line);
+    clip-path:polygon(0 0,calc(100% - 26px) 0,100% 26px,100% 100%,0 100%);
+    padding:14px 18px 16px;
+  }
+  .card::after{ /* home-color sliver along the diagonal cut */
+    content:"";position:absolute;top:10px;right:-6px;width:38px;height:3px;
+    background:var(--home);transform:rotate(45deg);
+  }
+  .card-top{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding-bottom:10px;margin-bottom:6px;border-bottom:1px solid var(--line);
+  }
+  .ko{
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    font-size:12.5px;letter-spacing:.14em;color:var(--mut);
+  }
+  .ko b{color:var(--ink);font-weight:700}
+
+  .team{display:flex;align-items:center;gap:10px;padding:8px 0}
+  .team + .team{border-top:1px dashed rgba(255,255,255,.06)}
+  .cbar{width:4px;height:24px;background:var(--tc);flex:none}
+  .mg{
+    flex:none;width:32px;height:25px;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--mgbg);color:var(--mgfg);
+    border:1px solid rgba(255,255,255,.16);
+    clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);
+    font-family:var(--display);font-weight:700;font-size:12.5px;letter-spacing:.05em;
+  }
+  .tname{
+    font-family:var(--display);text-transform:uppercase;line-height:1.05;
+    min-width:0;
+  }
+  .tname .city{display:block;font-size:10.5px;letter-spacing:.16em;color:var(--mut);font-weight:400}
+  .tname .nick{display:block;font-size:17px;letter-spacing:.05em;font-weight:700}
+  .tail{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .rec{font-size:12px;padding:2px 10px;color:var(--mut)}
+  .score{font-size:21px;padding:3px 14px;--cut:9px}
+  .score--win{background:var(--gold);color:var(--gold-ink)}
+
+  .odds{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    margin-top:11px;
+  }
+  .odds .lbl{
+    font-family:var(--display);text-transform:uppercase;font-size:10px;
+    letter-spacing:.18em;color:var(--mut);
+  }
+  .model{
+    margin-left:auto;
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--gold);color:var(--gold);
+    background:rgba(255,178,36,.07);
+    clip-path:polygon(var(--cut) 0,100% 0,calc(100% - var(--cut)) 100%,0 100%);
+    padding:3px 12px;
+    font-family:var(--numeral);font-weight:900;font-size:11.5px;
+  }
+  .model::before{content:"";width:6px;height:6px;background:var(--gold);transform:skewX(-8deg)}
+  .model .n{display:inline-block;transform:skewX(-8deg);font-variant-numeric:tabular-nums}
+
+  /* win probability: hard two-color split, notched center */
+  .prob{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:13px}
+  .prob .pbug{font-size:13px;padding:2px 11px}
+  .prob .pbug .who{
+    font-family:var(--display);font-weight:700;font-size:11px;color:var(--mut);
+    transform:skewX(-8deg);
+  }
+  .bar{
+    position:relative;flex:1;height:13px;min-width:60px;
+    background:var(--slab);
+    clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);
+  }
+  .bar .a,.bar .h{position:absolute;top:0;bottom:0}
+  .bar .a{
+    left:0;width:calc(var(--p) + 5px);background:var(--tca);
+    clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%);
+  }
+  .bar .h{
+    left:calc(var(--p) - 4px);right:0;background:var(--tch);
+    clip-path:polygon(9px 0,100% 0,100% 100%,0 100%);
+  }
+  .bar .notch{ /* 50% center tick */
+    position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;
+    background:rgba(238,242,248,.85);
+    transform:translateX(-50%) skewX(-8deg);
+  }
+  .bar .notch::after{
+    content:"";position:absolute;top:0;left:-3px;
+    border-left:4px solid transparent;border-right:4px solid transparent;
+    border-top:4px solid rgba(238,242,248,.85);
+  }
+
+  /* final card */
+  .card--final .card-top{border-bottom-color:rgba(201,32,44,.35)}
+  .settle{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    margin-top:auto;padding-top:11px;border-top:1px solid var(--line);
+  }
+  .settle .lbl{
+    font-family:var(--display);text-transform:uppercase;font-size:10px;
+    letter-spacing:.18em;color:var(--mut);
+  }
+  .settle .bug{font-size:11.5px;padding:2px 10px}
+  .tick{color:var(--gold)}
+
+  /* ---------- data zone ---------- */
+  .datazone{
+    background:linear-gradient(160deg,rgba(255,255,255,.035),rgba(255,255,255,0) 45%),var(--panel);
+    border:1px solid var(--line);
+    clip-path:polygon(0 0,calc(100% - 26px) 0,100% 26px,100% 100%,0 100%);
+    padding:18px 20px 14px;
+  }
+  .dz-head{
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    padding-bottom:12px;border-bottom:1px solid var(--line);
+  }
+  .dz-head h3{
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    font-size:15px;letter-spacing:.14em;
+  }
+  .dz-head .range{font-family:var(--mono);font-size:11px;color:var(--mut);letter-spacing:.06em}
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:640px}
+  th,td{padding:9px 10px;text-align:right;white-space:nowrap}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  thead th{
+    font-family:var(--display);font-weight:700;text-transform:uppercase;
+    font-size:11px;letter-spacing:.16em;color:var(--mut);
+    border-bottom:1px solid var(--line);
+  }
+  thead th .sort{
+    background:none;border:0;cursor:pointer;padding:0;
+    font:inherit;letter-spacing:inherit;color:var(--gold);
+  }
+  thead th .sort .arr{font-size:9px;vertical-align:1px}
+  tbody tr{border-bottom:1px solid rgba(255,255,255,.05)}
+  tbody tr:last-child{border-bottom:0}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  td{font-size:13.5px}
+  td .bug{min-width:4.6em;justify-content:flex-end;font-size:12.5px;padding:2px 10px}
+  td .bug.w3{min-width:3.2em}
+  .player{display:flex;align-items:center;gap:9px;font-weight:500;letter-spacing:.01em}
+  .mg--sm{width:27px;height:21px;font-size:11px}
+  .lead-tag{
+    font-family:var(--display);font-weight:700;font-size:9.5px;letter-spacing:.14em;
+    color:var(--gold-ink);background:var(--gold);
+    clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);
+    padding:2px 8px;text-transform:uppercase;
+  }
+  tr.leader{background:rgba(255,178,36,.06);box-shadow:inset 3px 0 0 var(--gold)}
+  tr.leader:hover{background:rgba(255,178,36,.09)}
+  tr.leader td .bug--gold{color:var(--gold-ink)}
+  .foot{
+    display:flex;gap:18px;flex-wrap:wrap;
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;color:var(--mut);letter-spacing:.03em;
+  }
+
+  /* ---------- a11y + responsive ---------- */
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){
+    .brand-bug::after{animation:none;display:none}
+  }
+  @media (max-width:1120px){
+    .slate{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:740px){
+    .wrap{padding:0 14px 48px}
+    .slate{grid-template-columns:1fr}
+    header{gap:12px}
+    .weekbar{margin-left:0;width:100%;justify-content:space-between}
+    .stamp{width:100%}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-bug">Gridiron<em>&nbsp;Desk</em></div>
+      <div class="brand-sub">NFL intelligence desk</div>
+    </div>
+    <div class="weekbar">
+      <button class="season" type="button" aria-label="Season, 2026 selected"><b>2026</b> season</button>
+      <div class="wk" role="group" aria-label="Week selector">
+        <button type="button" aria-label="Previous week">&#9668;</button>
+        <span class="wk-label">Week 8</span>
+        <button type="button" aria-label="Next week">&#9658;</button>
+      </div>
+      <span class="stamp">LAST UPDATE&nbsp; SUN 13:02 ET</span>
+    </div>
+  </header>
+
+  <div class="eyebrow">
+    <h2>Week 8 slate</h2>
+    <span class="count">6 GAMES &middot; 1 FINAL</span>
+    <span class="rule"></span>
+  </div>
+
+  <section class="slate" aria-label="Week 8 games">
+
+    <!-- BAL @ CIN — FINAL -->
+    <article class="card card--final" style="--home:#fb4f14">
+      <div class="card-top">
+        <span class="ko">Thu &middot; <b>8:15 PM</b> ET</span>
+        <span class="bug bug--red"><span class="n">FINAL</span></span>
+      </div>
+      <div class="team" style="--tc:#6b4fc4">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#241773;--mgfg:#e8c25a">BA</span>
+        <span class="tname"><span class="city">Baltimore</span><span class="nick">Ravens</span></span>
+        <span class="tail">
+          <span class="bug bug--quiet rec"><span class="n">5-2</span></span>
+          <span class="bug score score--win"><span class="n">27</span></span>
+        </span>
+      </div>
+      <div class="team" style="--tc:#fb4f14">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#fb4f14;--mgfg:#141414">CI</span>
+        <span class="tname"><span class="city">Cincinnati</span><span class="nick">Bengals</span></span>
+        <span class="tail">
+          <span class="bug bug--quiet rec"><span class="n">4-3</span></span>
+          <span class="bug score bug--dim"><span class="n">24</span></span>
+        </span>
+      </div>
+      <div class="settle">
+        <span class="lbl">Closed</span>
+        <span class="bug bug--quiet"><span class="n">BAL -1.5</span></span>
+        <span class="bug bug--quiet"><span class="n">O/U 44.5</span></span>
+        <span class="lbl">Result</span>
+        <span class="bug bug--quiet"><span class="n"><span class="tick">&#10003;</span> BAL COVER</span></span>
+        <span class="bug bug--quiet"><span class="n">OVER 51</span></span>
+      </div>
+    </article>
+
+    <!-- KC @ BUF -->
+    <article class="card" style="--home:#2a56c6">
+      <div class="card-top">
+        <span class="ko">Sun &middot; <b>4:25 PM</b> ET</span>
+      </div>
+      <div class="team" style="--tc:#e31837">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#e31837;--mgfg:#ffe6ba">KC</span>
+        <span class="tname"><span class="city">Kansas City</span><span class="nick">Chiefs</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">5-2</span></span></span>
+      </div>
+      <div class="team" style="--tc:#2a56c6">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#00338d;--mgfg:#ffffff">BU</span>
+        <span class="tname"><span class="city">Buffalo</span><span class="nick">Bills</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">6-1</span></span></span>
+      </div>
+      <div class="odds">
+        <span class="lbl">Line</span>
+        <span class="bug"><span class="n">BUF -3.5</span></span>
+        <span class="lbl">Total</span>
+        <span class="bug"><span class="n">O/U 47.5</span></span>
+        <span class="model" role="note" aria-label="Model edge: Kansas City plus 2.1 versus the line"><span class="n">MODEL: KC +2.1</span></span>
+      </div>
+      <div class="prob" aria-label="Win probability: Kansas City 54 percent, Buffalo 46 percent">
+        <span class="bug pbug"><span class="who">KC</span><span class="n">54%</span></span>
+        <span class="bar" style="--p:54%;--tca:#e31837;--tch:#2a56c6">
+          <span class="a"></span><span class="h"></span><span class="notch"></span>
+        </span>
+        <span class="bug pbug"><span class="n">46%</span><span class="who">BUF</span></span>
+      </div>
+    </article>
+
+    <!-- DAL @ PHI -->
+    <article class="card" style="--home:#2a8189">
+      <div class="card-top">
+        <span class="ko">Sun &middot; <b>8:20 PM</b> ET</span>
+      </div>
+      <div class="team" style="--tc:#8d9bad">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#0a2342;--mgfg:#b9c4d2">DA</span>
+        <span class="tname"><span class="city">Dallas</span><span class="nick">Cowboys</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">3-4</span></span></span>
+      </div>
+      <div class="team" style="--tc:#2a8189">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#004c54;--mgfg:#c4ccd0">PH</span>
+        <span class="tname"><span class="city">Philadelphia</span><span class="nick">Eagles</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">6-1</span></span></span>
+      </div>
+      <div class="odds">
+        <span class="lbl">Line</span>
+        <span class="bug"><span class="n">PHI -6.0</span></span>
+        <span class="lbl">Total</span>
+        <span class="bug"><span class="n">O/U 45.5</span></span>
+      </div>
+      <div class="prob" aria-label="Win probability: Dallas 32 percent, Philadelphia 68 percent">
+        <span class="bug pbug"><span class="who">DAL</span><span class="n">32%</span></span>
+        <span class="bar" style="--p:32%;--tca:#8d9bad;--tch:#2a8189">
+          <span class="a"></span><span class="h"></span><span class="notch"></span>
+        </span>
+        <span class="bug pbug"><span class="n">68%</span><span class="who">PHI</span></span>
+      </div>
+    </article>
+
+    <!-- GB @ CHI -->
+    <article class="card" style="--home:#e0561c">
+      <div class="card-top">
+        <span class="ko">Sun &middot; <b>1:00 PM</b> ET</span>
+      </div>
+      <div class="team" style="--tc:#3a8a55">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#203731;--mgfg:#ffb612">GB</span>
+        <span class="tname"><span class="city">Green Bay</span><span class="nick">Packers</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">4-3</span></span></span>
+      </div>
+      <div class="team" style="--tc:#e0561c">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#0b162a;--mgfg:#e0561c">CH</span>
+        <span class="tname"><span class="city">Chicago</span><span class="nick">Bears</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">4-3</span></span></span>
+      </div>
+      <div class="odds">
+        <span class="lbl">Line</span>
+        <span class="bug"><span class="n">GB -2.5</span></span>
+        <span class="lbl">Total</span>
+        <span class="bug"><span class="n">O/U 43.5</span></span>
+        <span class="model" role="note" aria-label="Model edge: Chicago plus 1.8 versus the line"><span class="n">MODEL: CHI +1.8</span></span>
+      </div>
+      <div class="prob" aria-label="Win probability: Green Bay 58 percent, Chicago 42 percent">
+        <span class="bug pbug"><span class="who">GB</span><span class="n">58%</span></span>
+        <span class="bar" style="--p:58%;--tca:#3a8a55;--tch:#e0561c">
+          <span class="a"></span><span class="h"></span><span class="notch"></span>
+        </span>
+        <span class="bug pbug"><span class="n">42%</span><span class="who">CHI</span></span>
+      </div>
+    </article>
+
+    <!-- SF @ SEA -->
+    <article class="card" style="--home:#69be28">
+      <div class="card-top">
+        <span class="ko">Sun &middot; <b>4:05 PM</b> ET</span>
+      </div>
+      <div class="team" style="--tc:#d11a1a">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#aa0000;--mgfg:#e6c88c">SF</span>
+        <span class="tname"><span class="city">San Francisco</span><span class="nick">49ers</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">5-2</span></span></span>
+      </div>
+      <div class="team" style="--tc:#69be28">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#002244;--mgfg:#69be28">SE</span>
+        <span class="tname"><span class="city">Seattle</span><span class="nick">Seahawks</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">4-3</span></span></span>
+      </div>
+      <div class="odds">
+        <span class="lbl">Line</span>
+        <span class="bug"><span class="n">SF -4.5</span></span>
+        <span class="lbl">Total</span>
+        <span class="bug"><span class="n">O/U 46.0</span></span>
+      </div>
+      <div class="prob" aria-label="Win probability: San Francisco 63 percent, Seattle 37 percent">
+        <span class="bug pbug"><span class="who">SF</span><span class="n">63%</span></span>
+        <span class="bar" style="--p:63%;--tca:#d11a1a;--tch:#69be28">
+          <span class="a"></span><span class="h"></span><span class="notch"></span>
+        </span>
+        <span class="bug pbug"><span class="n">37%</span><span class="who">SEA</span></span>
+      </div>
+    </article>
+
+    <!-- DET @ MIN -->
+    <article class="card" style="--home:#7a4bc0">
+      <div class="card-top">
+        <span class="ko">Mon &middot; <b>8:15 PM</b> ET</span>
+      </div>
+      <div class="team" style="--tc:#1d8fd6">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#0076b6;--mgfg:#ffffff">DE</span>
+        <span class="tname"><span class="city">Detroit</span><span class="nick">Lions</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">6-1</span></span></span>
+      </div>
+      <div class="team" style="--tc:#7a4bc0">
+        <span class="cbar"></span>
+        <span class="mg" style="--mgbg:#4f2683;--mgfg:#ffc62f">MN</span>
+        <span class="tname"><span class="city">Minnesota</span><span class="nick">Vikings</span></span>
+        <span class="tail"><span class="bug bug--quiet rec"><span class="n">5-2</span></span></span>
+      </div>
+      <div class="odds">
+        <span class="lbl">Line</span>
+        <span class="bug"><span class="n">DET -3.0</span></span>
+        <span class="lbl">Total</span>
+        <span class="bug"><span class="n">O/U 49.5</span></span>
+      </div>
+      <div class="prob" aria-label="Win probability: Detroit 57 percent, Minnesota 43 percent">
+        <span class="bug pbug"><span class="who">DET</span><span class="n">57%</span></span>
+        <span class="bar" style="--p:57%;--tca:#1d8fd6;--tch:#7a4bc0">
+          <span class="a"></span><span class="h"></span><span class="notch"></span>
+        </span>
+        <span class="bug pbug"><span class="n">43%</span><span class="who">MIN</span></span>
+      </div>
+    </article>
+
+  </section>
+
+  <div class="eyebrow">
+    <h2>Position leaders</h2>
+    <span class="count">QUARTERBACKS &middot; WEEKS 1&ndash;7</span>
+    <span class="rule"></span>
+  </div>
+
+  <section class="datazone" aria-label="Quarterback leaders, weeks 1 to 7">
+    <div class="dz-head">
+      <h3>Passing — QB</h3>
+      <span class="range">SORTED BY YDS &middot; DESC</span>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Player</th>
+            <th scope="col">Team</th>
+            <th scope="col">CMP%</th>
+            <th scope="col" aria-sort="descending">
+              <button class="sort" type="button" aria-label="Yards, sorted descending. Activate to reverse sort">YDS <span class="arr">&#9660;</span></button>
+            </th>
+            <th scope="col">TD</th>
+            <th scope="col">INT</th>
+            <th scope="col">RTG</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="leader">
+            <td><span class="player">P. Mahomes <span class="lead-tag">League leader</span></span></td>
+            <td><span class="mg mg--sm" style="--mgbg:#e31837;--mgfg:#ffe6ba">KC</span></td>
+            <td><span class="bug bug--quiet"><span class="n">68.9</span></span></td>
+            <td><span class="bug bug--gold"><span class="n">2,048</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">17</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">3</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">112.8</span></span></td>
+          </tr>
+          <tr>
+            <td><span class="player">J. Allen</span></td>
+            <td><span class="mg mg--sm" style="--mgbg:#00338d;--mgfg:#ffffff">BU</span></td>
+            <td><span class="bug bug--quiet"><span class="n">66.2</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">1,914</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">15</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">4</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">104.7</span></span></td>
+          </tr>
+          <tr>
+            <td><span class="player">J. Goff</span></td>
+            <td><span class="mg mg--sm" style="--mgbg:#0076b6;--mgfg:#ffffff">DE</span></td>
+            <td><span class="bug bug--quiet"><span class="n">70.1</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">1,876</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">13</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">2</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">107.9</span></span></td>
+          </tr>
+          <tr>
+            <td><span class="player">J. Hurts</span></td>
+            <td><span class="mg mg--sm" style="--mgbg:#004c54;--mgfg:#c4ccd0">PH</span></td>
+            <td><span class="bug bug--quiet"><span class="n">65.4</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">1,811</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">14</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">5</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">99.3</span></span></td>
+          </tr>
+          <tr>
+            <td><span class="player">B. Purdy</span></td>
+            <td><span class="mg mg--sm" style="--mgbg:#aa0000;--mgfg:#e6c88c">SF</span></td>
+            <td><span class="bug bug--quiet"><span class="n">69.5</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">1,769</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">12</span></span></td>
+            <td><span class="bug bug--quiet w3"><span class="n">3</span></span></td>
+            <td><span class="bug bug--quiet"><span class="n">105.1</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="foot">
+      <span>Data: ESPN public API - refreshed hourly</span>
+      <span>Labels translated from API keys: completionPct &rarr; CMP%, passerRating &rarr; RTG</span>
+    </div>
+  </section>
+</div>
