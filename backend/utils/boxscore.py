@@ -8,6 +8,8 @@ Shared by the backfill commands and the recurring player-stats cron job.
 """
 import logging
 
+from django.db import transaction
+
 from nfl import models
 from utils import get_data
 
@@ -84,39 +86,42 @@ def ingest_boxscore(game):
     stats_written = 0
     athletes_created = 0
 
-    for block in team_blocks:
-        team_id = int(block['team']['id'])
-        team = models.Team.objects.filter(pk=team_id).first()
-        if game.home_team_id == team_id:
-            opponent = game.away_team.short_name
-        elif game.away_team_id == team_id:
-            opponent = game.home_team.short_name
-        else:
-            opponent = None
+    # One transaction per game: per-row autocommit costs ~50ms each on the
+    # Pi's SD card, which dominated the whole backfill runtime.
+    with transaction.atomic():
+        for block in team_blocks:
+            team_id = int(block['team']['id'])
+            team = models.Team.objects.filter(pk=team_id).first()
+            if game.home_team_id == team_id:
+                opponent = game.away_team.short_name
+            elif game.away_team_id == team_id:
+                opponent = game.home_team.short_name
+            else:
+                opponent = None
 
-        for category in block.get('statistics', []):
-            cat_name = category.get('name', 'general')
-            keys = category.get('keys') or []
-            for entry in category.get('athletes', []):
-                stats = entry.get('stats') or []
-                if not stats or 'athlete' not in entry:
-                    continue
-                athlete, created = get_or_create_athlete(entry['athlete'], team)
-                athletes_created += int(created)
-                for key, value in zip(keys, stats):
-                    for stat_name, display in split_stat(key, value):
-                        models.GameStatistic.objects.update_or_create(
-                            athlete=athlete,
-                            event_id=str(game.event_id),
-                            category_name=cat_name,
-                            stat_name=stat_name,
-                            defaults={
-                                'stat_value': to_number(display),
-                                'stat_display_value': display,
-                                'game_date': game.game_datetime.date(),
-                                'opponent': opponent,
-                            }
-                        )
-                        stats_written += 1
+            for category in block.get('statistics', []):
+                cat_name = category.get('name', 'general')
+                keys = category.get('keys') or []
+                for entry in category.get('athletes', []):
+                    stats = entry.get('stats') or []
+                    if not stats or 'athlete' not in entry:
+                        continue
+                    athlete, created = get_or_create_athlete(entry['athlete'], team)
+                    athletes_created += int(created)
+                    for key, value in zip(keys, stats):
+                        for stat_name, display in split_stat(key, value):
+                            models.GameStatistic.objects.update_or_create(
+                                athlete=athlete,
+                                event_id=str(game.event_id),
+                                category_name=cat_name,
+                                stat_name=stat_name,
+                                defaults={
+                                    'stat_value': to_number(display),
+                                    'stat_display_value': display,
+                                    'game_date': game.game_datetime.date(),
+                                    'opponent': opponent,
+                                }
+                            )
+                            stats_written += 1
 
     return stats_written, athletes_created
