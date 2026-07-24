@@ -33,9 +33,12 @@ export async function get(endpoint, params = null) {
 }
 
 export const gameService = {
-  fetchGames(weekNum = null) {
+  fetchGames(weekNum = null, season = null) {
     const endpoint = weekNum ? `/games/${weekNum}/` : "/games/"
-    return get(endpoint)
+    return get(endpoint, season ? { season } : null)
+  },
+  fetchSeasons() {
+    return get("/seasons/")
   },
   fetchTeamSchedule(teamId) {
     return get(`/team-schedule/${teamId}/`)

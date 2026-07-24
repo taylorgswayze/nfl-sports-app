@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { get } from '../api'
+import { Masthead, Folio, Footnotes, Colophon } from './Almanac'
 
-function PositionStats({ position: propPosition, selectedPlayerId: propSelectedPlayerId, onBack }) {
+function PositionStats({ position: propPosition, selectedPlayerId: propSelectedPlayerId }) {
   const { position } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -10,7 +11,6 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
   const selectedPlayerId = propSelectedPlayerId || location.state?.selectedPlayerId
 
   const [players, setPlayers] = useState([])
-  const [originalPlayers, setOriginalPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedSeason, setSelectedSeason] = useState("2025")
@@ -29,10 +29,9 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
 
     try {
       const data = await get(`/position/${currentPosition}/stats/`, { season: selectedSeason })
-      const playersData = data.players || []
-      setOriginalPlayers(playersData)
-      setPlayers(playersData)
+      setPlayers(data.players || [])
       setKeyStats(data.key_stats || [])
+      setSortConfig({ key: 'rank', direction: 'asc' })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -52,20 +51,21 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
     if (statName.includes('pct') || statName.includes('avg')) {
       return parseFloat(value).toFixed(1)
     }
-    return Math.round(value)
+    return Math.round(value).toLocaleString('en-US')
   }
 
   const handleSort = (key) => {
     let direction = 'desc'
-    if (sortConfig.key === key && sortConfig.direction === 'desc') {
-      direction = 'asc'
+    if (key === 'rank' || key === 'name' || key === 'team') direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === direction) {
+      direction = direction === 'desc' ? 'asc' : 'desc'
     }
-    
+
     setSortConfig({ key, direction })
-    
+
     const sortedPlayers = [...players].sort((a, b) => {
       let aValue, bValue
-      
+
       if (key === 'rank') {
         aValue = a.rank
         bValue = b.rank
@@ -80,256 +80,148 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
         aValue = parseFloat(a.stats[key] || 0)
         bValue = parseFloat(b.stats[key] || 0)
       }
-      
+
       if (direction === 'asc') {
         return aValue > bValue ? 1 : -1
       } else {
         return aValue < bValue ? 1 : -1
       }
     })
-    
+
     setPlayers(sortedPlayers)
   }
 
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) {
-      return '↕️'
-    }
-    return sortConfig.direction === 'asc' ? '↑' : '↓'
+  const sortCar = (key) => {
+    if (sortConfig.key !== key) return null
+    return (
+      <span className="sort-car" aria-hidden="true">
+        {sortConfig.direction === 'asc' ? '▲' : '▼'}
+      </span>
+    )
   }
 
+  const ariaSort = (key) => {
+    if (sortConfig.key !== key) return undefined
+    return sortConfig.direction === 'asc' ? 'ascending' : 'descending'
+  }
+
+  const positionTitle = currentPosition
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase())
+
+  const SortableTh = ({ colKey, children, txt, sourceKey }) => (
+    <th
+      scope="col"
+      className={`${txt ? 'txt ' : ''}${sortConfig.key === colKey ? 'sorted' : ''}`.trim() || undefined}
+      aria-sort={ariaSort(colKey)}
+    >
+      <button type="button" onClick={() => handleSort(colKey)}>
+        {children} {sortCar(colKey)}
+      </button>
+      {sourceKey ? <span className="was">{sourceKey}</span> : null}
+    </th>
+  )
+
   return (
-    <div className="app">
-      <div className="header">
-        <button className="home-button" onClick={goBack}>← Back</button>
-        <h1>{currentPosition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Stats</h1>
-      </div>
+    <>
+      <Masthead
+        vol="Sec 3 — Position Leaders — Night Ed."
+        controls={
+          <>
+            <button className="ctl" type="button" onClick={goBack}>
+              <span className="lbl">RETURN</span> <span>ONE PAGE BACK</span>
+            </button>
+            <label className="ctl">
+              <span className="lbl">SEASON</span>
+              <select
+                value={selectedSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                aria-label="Season"
+              >
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
+              </select>
+              <span className="car" aria-hidden="true">&#9662;</span>
+            </label>
+          </>
+        }
+      />
 
-      <div className="season-selector">
-        <label htmlFor="season">Season:</label>
-        <select 
-          id="season" 
-          value={selectedSeason} 
-          onChange={(e) => setSelectedSeason(e.target.value)}
-        >
-          <option value="2025">2025</option>
-          <option value="2024">2024</option>
-          <option value="2023">2023</option>
-          <option value="2022">2022</option>
-        </select>
-      </div>
+      <section aria-labelledby="sec-leaders">
+        <Folio
+          sec="SEC 3"
+          id="sec-leaders"
+          title={`Position Leaders — ${positionTitle}`}
+          cont={`${selectedSeason} Season`}
+        />
+        <p className="folio-note">
+          Raw feed keys are translated to printed labels; the mono line under each header
+          names its source key. Click a header to re-sort the table.
+        </p>
 
-      {loading ? (
-        <div className="stats-loading">
-          <p>Loading {currentPosition} stats...</p>
-        </div>
-      ) : error ? (
-        <div className="stats-loading">
-          <p>Error: {error}</p>
-        </div>
-      ) : players.length > 0 ? (
-        <div className="position-stats">
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th onClick={() => handleSort('rank')} className="sortable">
-                  Rank {getSortIcon('rank')}
-                </th>
-                <th onClick={() => handleSort('name')} className="sortable">
-                  Player {getSortIcon('name')}
-                </th>
-                <th onClick={() => handleSort('team')} className="sortable">
-                  Team {getSortIcon('team')}
-                </th>
-                <th>#</th>
-                {keyStats.map(stat => (
-                  <th key={stat} onClick={() => handleSort(stat)} className="sortable">
-                    {formatStatName(stat)} {getSortIcon(stat)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {players.map(player => (
-                <tr 
-                  key={player.athlete_id}
-                  className={selectedPlayerId && player.athlete_id === selectedPlayerId ? 'highlighted-player' : ''}
-                >
-                  <td>{player.rank}</td>
-                  <td className="player-name">{player.name}</td>
-                  <td>{player.team}</td>
-                  <td>{player.jersey || 'N/A'}</td>
+        {loading ? (
+          <p className="wire">RANKING THE LEAGUE&hellip; <b>stand by</b></p>
+        ) : error ? (
+          <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+        ) : players.length > 0 ? (
+          <div className="tablewrap">
+            <table className="stats">
+              <thead>
+                <tr>
+                  <SortableTh colKey="rank">Rk</SortableTh>
+                  <SortableTh colKey="name" txt>Player</SortableTh>
+                  <SortableTh colKey="team" txt>Team</SortableTh>
+                  <th scope="col">No.</th>
                   {keyStats.map(stat => (
-                    <td key={stat}>
-                      {formatStatValue(player.stats[stat] || 0, stat)}
-                    </td>
+                    <SortableTh key={stat} colKey={stat} sourceKey={stat}>
+                      {formatStatName(stat)}
+                    </SortableTh>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="stats-loading">
-          <p>No stats available for {currentPosition} in {selectedSeason} season.</p>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {players.map(player => {
+                  const isLeader = player.rank === 1
+                  const isSelected = selectedPlayerId && player.athlete_id === selectedPlayerId
+                  return (
+                    <tr
+                      key={player.athlete_id}
+                      className={isLeader ? 'leader' : undefined}
+                      style={isSelected ? { outline: '1px solid var(--green)', outlineOffset: '-1px' } : undefined}
+                    >
+                      <td className={`n${sortConfig.key === 'rank' ? ' sortcol' : ''}`}>{player.rank}</td>
+                      <td className="txt player">
+                        {player.name}
+                        {isLeader && <span className="mark" title="League leader">*</span>}
+                      </td>
+                      <td className="txt team">{player.team}</td>
+                      <td className="n">{player.jersey || '—'}</td>
+                      {keyStats.map(stat => (
+                        <td key={stat} className={`n${sortConfig.key === stat ? ' sortcol' : ''}`}>
+                          {formatStatValue(player.stats[stat] || 0, stat)}
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="wire">
+            NO FIGURES on file for <b>{positionTitle}</b> in the <b>{selectedSeason}</b> season.
+          </p>
+        )}
 
-      <style jsx>{`
-        .app {
-          max-width: 768px;
-          margin: 0 auto;
-          padding: 20px;
-          font-family: Arial, sans-serif;
-          box-sizing: border-box;
-        }
+        <Footnotes>
+          <p><span className="mark">*</span> League leader at the position, {selectedSeason} season to date.</p>
+        </Footnotes>
+      </section>
 
-        .header {
-          position: relative;
-          margin-bottom: 20px;
-        }
-
-        .home-button {
-          position: absolute;
-          left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          background-color: #007cba;
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: bold;
-        }
-
-        .home-button:hover {
-          background-color: #005a87;
-        }
-
-        h1 {
-          text-align: center;
-          color: white;
-          margin-bottom: 20px;
-        }
-
-        .season-selector {
-          margin-bottom: 20px;
-          text-align: center;
-        }
-
-        .season-selector label {
-          margin-right: 10px;
-          font-weight: bold;
-          color: white;
-        }
-
-        .season-selector select {
-          padding: 8px 12px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 16px;
-        }
-
-        .position-stats {
-          overflow-x: auto;
-        }
-
-        .stats-table {
-          width: 100%;
-          max-width: 100%;
-          margin: 0 auto 32px auto;
-          border-collapse: separate;
-          border-spacing: 0;
-          background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            0 2px 8px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-          font-size: 11px;
-        }
-
-        @media (min-width: 768px) {
-          .stats-table {
-            max-width: 900px;
-            font-size: 15px;
-          }
-        }
-
-        .stats-table th {
-          padding: 12px 6px;
-          text-align: center;
-          background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
-          font-weight: 600;
-          color: #e0e0e0;
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        @media (min-width: 768px) {
-          .stats-table th {
-            padding: 20px 16px;
-            font-size: 14px;
-          }
-        }
-
-        .stats-table td {
-          padding: 12px 6px;
-          text-align: center;
-          background-color: rgba(26, 26, 26, 0.8);
-          color: #f0f0f0;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-          transition: all 0.2s ease;
-          font-size: 11px;
-        }
-
-        @media (min-width: 768px) {
-          .stats-table td {
-            padding: 20px 16px;
-            font-size: 15px;
-          }
-        }
-
-        .player-name {
-          font-weight: bold;
-          text-align: left !important;
-        }
-
-        .highlighted-player td {
-          background-color: rgba(79, 195, 247, 0.25) !important;
-          color: #81d4fa !important;
-          font-weight: 600;
-        }
-
-        .highlighted-player {
-          background: linear-gradient(135deg, rgba(79, 195, 247, 0.25), rgba(33, 150, 243, 0.15)) !important;
-          border-left: 4px solid #4fc3f7;
-        }
-
-        .highlighted-player:hover {
-          background: linear-gradient(135deg, rgba(79, 195, 247, 0.35), rgba(33, 150, 243, 0.25)) !important;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(79, 195, 247, 0.3), 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .highlighted-player:hover td {
-          color: #b3e5fc !important;
-          text-shadow: 0 0 8px rgba(79, 195, 247, 0.4);
-        }
-
-        .stats-loading {
-          text-align: center;
-          padding: 40px;
-          color: #ccc;
-          font-style: italic;
-        }
-      `}</style>
-    </div>
+      <Colophon center={positionTitle} />
+    </>
   )
 }
 

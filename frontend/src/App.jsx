@@ -6,16 +6,14 @@ import TeamStatComparison from './components/TeamStatComparison'
 
 function App() {
   return (
-    <div id="app">
-      <div className="container">
-        <Routes>
-          <Route path="/" element={<GameDisplay />} />
-          <Route path="/team/:id" element={<TeamSchedule />} />
-          <Route path="/position/:position/stats" element={<PositionStats />} />
-          <Route path="/team-stat/:statName" element={<TeamStatComparison />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
+    <div className="page">
+      <Routes>
+        <Route path="/" element={<GameDisplay />} />
+        <Route path="/team/:id" element={<TeamSchedule />} />
+        <Route path="/position/:position/stats" element={<PositionStats />} />
+        <Route path="/team-stat/:statName" element={<TeamStatComparison />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   )
 }

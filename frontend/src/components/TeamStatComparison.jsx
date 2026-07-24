@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { gameService } from '../api'
-import { getLogoUrl } from '../utils'
-import './TeamStatComparison.css'
+import { getTeamLogoFile } from '../utils'
+import { Masthead, Folio, Chip, Footnotes, Colophon } from './Almanac'
 
 function TeamStatComparison() {
   const { statName } = useParams()
@@ -46,90 +46,90 @@ function TeamStatComparison() {
     }
   }
 
-  const handleTeamClick = (teamId) => {
-    navigate(`/team/${teamId}`)
+  const formatStatName = (name) => {
+    if (!name) return 'Team Figure'
+    return name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/^./, str => str.toUpperCase())
   }
 
-  const formatStatName = (statName) => {
-    return statName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
-  }
-
-  if (loading) {
-    return (
-      <div className="app">
-        <div className="header">
-          <button className="back-button" onClick={goBack}>← Back</button>
-          <h1>Loading Team Comparison...</h1>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="app">
-        <div className="header">
-          <button className="back-button" onClick={goBack}>← Back</button>
-          <h1>Error Loading Data</h1>
-        </div>
-        <p>Error: {error}</p>
-      </div>
-    )
-  }
+  const printedName = formatStatName(statInfo.name || statName)
 
   return (
-    <div className="app">
-      <div className="header">
-        <button className="back-button" onClick={goBack}>← Back</button>
-        <h1>{formatStatName(statInfo.name)} - Team Comparison</h1>
-      </div>
-      
-      <div className="stat-comparison-info">
-        <p>Season: {statInfo.season} | Teams: {statInfo.totalTeams}</p>
-      </div>
+    <>
+      <Masthead
+        vol="Sec 4 — League Table — Night Ed."
+        controls={
+          <button className="ctl" type="button" onClick={goBack}>
+            <span className="lbl">RETURN TO</span> <span>THE TEAM DESK</span>
+          </button>
+        }
+      />
 
-      <div className="team-stat-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Team</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teams.map((team) => (
-              <tr 
-                key={team.team_id} 
-                className={selectedTeamId && parseInt(selectedTeamId) === team.team_id ? 'highlighted-team' : ''}
-              >
-                <td>{team.display_rank}</td>
-                <td>
-                  <div className="team-cell">
-                    <img 
-                      className="team-logo-small" 
-                      src={getLogoUrl(team.short_name)} 
-                      alt={team.team_name} 
-                    />
-                    <a 
-                      href="#" 
-                      className="team-link"
-                      onClick={(e) => { 
-                        e.preventDefault(); 
-                        handleTeamClick(team.team_id);
-                      }}
+      <section aria-labelledby="sec-league">
+        <Folio
+          sec="SEC 4"
+          id="sec-league"
+          title={`League Table — ${printedName}`}
+          cont={statInfo.season ? `${statInfo.season} Season` : null}
+          pg={statInfo.totalTeams ? `${statInfo.totalTeams} clubs` : null}
+        />
+        <p className="folio-note">
+          Every club ranked by <span className="num">{printedName}</span>.
+          The first line holds the league lead{selectedTeamId ? '; your club is ruled in green' : ''}.
+        </p>
+
+        {loading ? (
+          <p className="wire">RANKING THE LEAGUE&hellip; <b>stand by</b></p>
+        ) : error ? (
+          <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+        ) : (
+          <div className="tablewrap">
+            <table className="stats">
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col" className="txt">Team</th>
+                  <th scope="col">
+                    Value
+                    <span className="was">{statInfo.name || statName}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {teams.map((team) => {
+                  const isSelected = selectedTeamId && parseInt(selectedTeamId) === team.team_id
+                  const isLeader = team.rank === 1 || team.display_rank === '1st'
+                  return (
+                    <tr
+                      key={team.team_id}
+                      className={isLeader ? 'leader' : undefined}
+                      style={isSelected ? { outline: '1px solid var(--green)', outlineOffset: '-1px' } : undefined}
                     >
-                      {team.team_name}
-                    </a>
-                  </div>
-                </td>
-                <td>{team.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                      <td className="n">{team.display_rank}</td>
+                      <td className="txt player">
+                        <span className="cell-chip">
+                          <Chip file={getTeamLogoFile(team.team_id)} />
+                          <Link to={`/team/${team.team_id}`}>
+                            {team.team_name}
+                            {isLeader && <span className="mark" title="League leader">*</span>}
+                          </Link>
+                        </span>
+                      </td>
+                      <td className="n sortcol">{team.value}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <Footnotes>
+          <p><span className="mark">*</span> League leader in {printedName.toLowerCase()}, {statInfo.season || 'current'} season to date.</p>
+        </Footnotes>
+      </section>
+
+      <Colophon center={printedName} />
+    </>
   )
 }
 

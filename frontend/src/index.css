@@ -1,61 +1,405 @@
-/* General resets and mobile-friendly settings */
-html,
-body {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
+/* ============================================================
+   GRIDIRON DESK — Almanac, Night Edition
+   Bone ink on warm near-black press-room stock. Pale hairlines,
+   lifted (not recessed) panels, stadium green as the single
+   accent. No glow anywhere; every instrument is a thin stroke.
+   ============================================================ */
+
+:root {
+  --paper: #161814;
+  --paper-deep: #20231D;
+  --ink: #EDE9DD;
+  --ink-soft: #A9A491;
+  --rule: rgba(237, 233, 221, .22);
+  --rule-soft: rgba(237, 233, 221, .10);
+  --green: #4DB47F;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  --grot: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --bl: 28px; /* baseline unit */
+  color-scheme: dark;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
 
 body {
-    color: white;
-    text-align: center;
-    padding: 8px;
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    background-color: black;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--paper);
+  /* visible baseline grid: pale ink on dark stock */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--bl) - 1px),
+    rgba(237, 233, 221, .05) calc(var(--bl) - 1px),
+    rgba(237, 233, 221, .05) var(--bl));
 }
 
-li {
-    list-style: none;
+.num {
+  font-family: var(--grot);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
-a {
-    color: white;
+a { color: var(--green); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+ul, li { list-style: none; }
+img { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+.page { max-width: 1148px; margin: 0 auto; padding: 28px 32px 56px; }
+
+/* ---------------- masthead ---------------- */
+.plate {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 6px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 16px; flex-wrap: wrap;
+}
+.plate .vol {
+  font-family: var(--grot); font-size: 10px; font-weight: 700;
+  letter-spacing: .22em; text-transform: uppercase; color: var(--ink-soft);
+}
+.plate .stamp { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--ink-soft); }
+.plate .stamp b { color: var(--ink); font-weight: 700; }
+
+.masthead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 24px; flex-wrap: wrap; padding: 22px 0 18px;
+}
+.brand h1, .brand .h1 {
+  font-family: var(--grot); font-weight: 800; font-size: 46px; line-height: .96;
+  letter-spacing: -.025em; text-transform: uppercase; color: var(--ink);
+}
+.brand h1 a, .brand .h1 a { color: inherit; text-decoration: none; }
+.brand .desk { color: var(--green); }
+.brand p { font-size: 14px; font-style: italic; color: var(--ink-soft); margin-top: 6px; }
+
+.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ctl {
+  font-family: var(--grot); font-weight: 700; font-size: 12px; letter-spacing: .1em;
+  border: 1px solid var(--ink); background: var(--paper); padding: 7px 12px 6px;
+  display: inline-flex; align-items: center; gap: 8px; color: var(--ink);
+  text-decoration: none;
+}
+.ctl:hover { background: var(--paper-deep); }
+.ctl .lbl { font-size: 9px; letter-spacing: .2em; color: var(--ink-soft); font-weight: 700; }
+.ctl .car { font-size: 9px; color: var(--ink-soft); }
+/* native select dressed as printed control text; intrinsic select sizing
+   ignores letter-spacing, so keep tracking off and pad instead */
+.ctl select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  font-family: var(--grot); font-weight: 700; font-size: 12px; letter-spacing: 0;
+  color: var(--ink); background: transparent; border: 0; cursor: pointer;
+  font-variant-numeric: tabular-nums; text-transform: uppercase;
+  padding: 0 6px 0 0; text-indent: 0;
+}
+.ctl select:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.ctl select option { background: var(--paper-deep); color: var(--ink); }
+
+.weekset { display: inline-flex; border: 1px solid var(--ink); background: var(--paper); }
+.weekset button {
+  font-family: var(--grot); font-weight: 700; font-size: 14px; line-height: 1;
+  width: 32px; padding: 7px 0 6px; color: var(--ink);
+}
+.weekset button:hover:not(:disabled) { background: var(--paper-deep); }
+.weekset button:disabled { color: var(--ink-soft); opacity: .45; cursor: default; }
+.weekset .cur {
+  border-left: 1px solid var(--ink); border-right: 1px solid var(--ink);
+  align-self: stretch; display: inline-flex; align-items: center;
+}
+.weekset .cur select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: 0;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: transparent; border: 0; cursor: pointer;
+  padding: 8px 12px 6px; text-align: center;
+}
+.weekset .cur select:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.weekset .cur select option { background: var(--paper-deep); color: var(--ink); }
+
+.rule-double { border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); height: 6px; }
+
+/* ---------------- folio system (signature) ---------------- */
+.folio {
+  margin: 56px 0 0; position: relative; border-bottom: 1.5px solid var(--ink);
+  padding-bottom: 6px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+}
+.folio::after { /* page-corner tick */
+  content: ""; position: absolute; right: 0; top: 100%; width: 16px; height: 8px;
+  border-right: 1.5px solid var(--ink);
+}
+.folio .sec {
+  font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .16em;
+  color: var(--paper); background: var(--ink); padding: 3px 8px 2px;
+}
+.folio .title {
+  font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .24em;
+  text-transform: uppercase; color: var(--ink);
+}
+.folio .cont {
+  font-family: var(--grot); font-weight: 700; font-size: 12px; letter-spacing: .24em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.folio .sep { color: var(--rule); font-family: var(--grot); }
+.folio .pg {
+  margin-left: auto; font-family: var(--grot); font-weight: 700; font-size: 11px;
+  letter-spacing: .12em; color: var(--ink-soft);
+}
+.folio-note { font-size: 13px; font-style: italic; color: var(--ink-soft); margin: 8px 0 20px; }
+.folio-note .num { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--ink); }
+
+/* ---------------- tab row (team desk) ---------------- */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); margin-top: 18px; }
+.tabs button {
+  font-family: var(--grot); font-weight: 700; font-size: 11.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--ink-soft); padding: 10px 16px 8px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs button:hover { color: var(--ink); background: var(--paper-deep); }
+.tabs button[aria-selected="true"] { color: var(--green); border-bottom-color: var(--green); }
+
+/* ---------------- slate ---------------- */
+.slate {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--rule); border-left: 1px solid var(--rule);
+}
+.slate.two-up { grid-template-columns: repeat(2, 1fr); }
+.entry {
+  border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px;
+}
+/* the completed game prints on lifted stock */
+.entry.final { background: var(--paper-deep); }
+.entry-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  border-bottom: 1px solid var(--rule-soft); padding-bottom: 8px;
+}
+.entry-no {
+  font-family: var(--grot); font-weight: 800; font-size: 11px; letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+}
+.entry-time {
+  font-family: var(--grot); font-weight: 700; font-size: 10.5px; letter-spacing: .14em;
+  color: var(--ink-soft); text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.final-flag {
+  font-family: var(--grot); font-weight: 800; font-size: 10px; letter-spacing: .18em;
+  background: var(--ink); color: var(--paper); padding: 2px 7px 1px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.result-flag {
+  font-family: var(--grot); font-weight: 800; font-size: 10px; letter-spacing: .18em;
+  padding: 2px 7px 1px; white-space: nowrap;
+}
+.result-flag.w { background: var(--green); color: var(--paper); }
+.result-flag.l { background: none; color: var(--ink-soft); border: 1px solid var(--rule); }
+
+.matchup {
+  display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 9px;
+  align-items: center;
+}
+.trow { display: flex; align-items: center; gap: 9px; min-width: 0; }
+/* logo chip: the team mark printed small on a lifted plate with a pale keyline */
+.chip {
+  flex: none; width: 27px; height: 27px; border-radius: 2px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper-deep); border-bottom: 3px solid var(--rule);
+  box-shadow: 0 0 0 1px rgba(237, 233, 221, .28); /* pale keyline, not a glow */
+}
+.entry.final .chip { background: var(--paper); }
+.chip img { width: 21px; height: 21px; object-fit: contain; display: block; }
+.tname { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tname a { color: var(--ink); text-decoration: none; }
+.tname a:hover { color: var(--green); text-decoration: underline; text-decoration-color: var(--rule); }
+.tname b { font-weight: 700; }
+.tname .at { font-style: italic; color: var(--ink-soft); margin-right: 2px; font-size: 13px; }
+.dots {
+  flex: 1; min-width: 12px; border-bottom: 1px dotted rgba(237, 233, 221, .45);
+  margin: 0 2px; height: .72em;
+}
+.trec {
+  font-family: var(--grot); font-weight: 700; font-size: 13px; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.fig { text-align: right; min-width: 64px; }
+.fig .flbl {
+  display: block; font-family: var(--grot); font-weight: 700; font-size: 8.5px;
+  letter-spacing: .2em; color: var(--ink-soft);
+}
+.fig .fval {
+  font-family: var(--grot); font-weight: 800; font-size: 15px; letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink);
+}
+.fig .fval.dim { color: var(--ink-soft); font-weight: 700; }
+.fig .fval.win { font-size: 21px; }
+.fig .fval.lose { font-size: 21px; color: var(--ink-soft); font-weight: 700; }
+
+/* win probability: inked gauge with needle tick — thin pale strokes */
+.prob { margin-top: auto; }
+.prob-labels { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.prob-labels .cap {
+  font-family: var(--grot); font-weight: 700; font-size: 8.5px;
+  letter-spacing: .22em; color: var(--ink-soft);
+}
+.pl { font-family: var(--grot); font-weight: 800; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pl.home { color: var(--green); }
+.gauge {
+  position: relative; height: 9px; margin-top: 8px;
+  background: linear-gradient(to right, var(--ink) 0 var(--split), var(--green) var(--split) 100%);
+}
+.gauge .scale {
+  position: absolute; left: 0; right: 0; bottom: 100%; height: 4px;
+  background-image: linear-gradient(to right, var(--rule) 1px, transparent 1px);
+  background-size: 25% 100%; border-right: 1px solid var(--rule);
+}
+.gauge .needle {
+  position: absolute; top: -6px; bottom: -3px; left: var(--split);
+  width: 2px; margin-left: -1px; background: var(--ink);
+}
+.gauge .needle::before {
+  content: ""; position: absolute; top: -3px; left: -2px;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+  border-top: 4px solid var(--ink);
 }
 
-.app {
-    width: 100%;
-    max-width: 768px;
-    margin: 0 auto;
-    padding: 20px;
-    box-sizing: border-box;
+.edge {
+  align-self: flex-start; font-family: var(--grot); font-weight: 800; font-size: 10px;
+  letter-spacing: .14em; color: var(--green); border: 1px solid var(--green);
+  padding: 3px 8px 2px; font-variant-numeric: tabular-nums;
+}
+.edge .dag { font-family: var(--serif); margin-right: 4px; }
+
+/* completed game: printed box-score line */
+.linescore { width: 100%; border-collapse: collapse; margin-top: 2px; }
+.linescore caption {
+  text-align: left; font-family: var(--grot); font-weight: 700; font-size: 8.5px;
+  letter-spacing: .22em; color: var(--ink-soft); padding-bottom: 5px;
+}
+.linescore th, .linescore td {
+  font-family: var(--grot); font-size: 12px; padding: 3px 0;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.linescore th:not(:first-child), .linescore td:not(:first-child) { width: 36px; }
+.linescore th {
+  font-weight: 700; color: var(--ink-soft); font-size: 10px; letter-spacing: .1em;
+  border-bottom: 1px solid var(--ink);
+}
+.linescore th:first-child, .linescore td:first-child { text-align: left; }
+.linescore td:last-child, .linescore th:last-child {
+  font-weight: 800; border-left: 1px solid var(--rule); padding-left: 10px;
+}
+.linescore tr.won td { font-weight: 800; }
+.linescore td { border-bottom: 1px solid var(--rule-soft); }
+.linescore tr:last-child td { border-bottom: 0; }
+
+.closing, .note { font-size: 12.5px; font-style: italic; color: var(--ink-soft); margin-top: 9px; }
+.note { margin-top: 0; }
+.closing .num { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--ink); }
+
+/* ---------------- almanac tables ---------------- */
+.tablewrap {
+  overflow-x: auto;
+  border-top: 1px solid var(--rule); border-left: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+}
+table.stats { width: 100%; border-collapse: collapse; }
+.stats th, .stats td { padding: 9px 14px; text-align: right; white-space: nowrap; }
+.stats th.txt, .stats td.txt { text-align: left; }
+.stats thead th {
+  font-family: var(--grot); font-weight: 800; font-size: 10.5px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+  background: var(--paper-deep); border-bottom: 2px solid var(--ink);
+}
+.stats thead th .was {
+  display: block; font-family: var(--mono); font-weight: 400; font-size: 9px;
+  letter-spacing: 0; text-transform: none; color: var(--ink-soft); margin-top: 1px;
+}
+.stats thead th button {
+  font-family: inherit; font-weight: inherit; font-size: inherit;
+  letter-spacing: inherit; text-transform: inherit; color: inherit;
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 2px;
+}
+.stats thead th.sorted button { color: var(--green); box-shadow: 0 2px 0 var(--green); }
+.sort-car { font-size: 8px; }
+.stats tbody td {
+  border-bottom: 1px solid var(--rule-soft); font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.stats tbody td.n { font-family: var(--grot); font-weight: 600; }
+.stats tbody tr:hover td { background: var(--paper-deep); }
+.stats td.player { font-weight: 700; }
+.stats td.player a, .stats td.txt a { color: var(--ink); text-decoration: none; }
+.stats td.player a:hover, .stats td.txt a:hover { color: var(--green); text-decoration: underline; text-decoration-color: var(--rule); }
+.stats td.team {
+  font-family: var(--grot); font-weight: 700; font-size: 12px; color: var(--ink-soft);
+  letter-spacing: .06em;
+}
+.stats tr.leader td { background: rgba(77, 180, 127, .12); border-bottom: 1px solid var(--green); }
+.stats tr.leader:hover td { background: rgba(77, 180, 127, .16); }
+.stats tr.leader td .mark, .stats td .mark { color: var(--green); font-weight: 800; margin-left: 2px; }
+.stats td.sortcol { font-weight: 800; }
+.stats tr.clickable { cursor: pointer; }
+.stats td .cell-chip { display: inline-flex; align-items: center; gap: 10px; }
+.stats td .cell-chip .chip { width: 24px; height: 24px; }
+.stats td .cell-chip .chip img { width: 18px; height: 18px; }
+
+/* table sub-heading between groups (roster position groups) */
+.subhead {
+  margin: 30px 0 10px; font-family: var(--grot); font-weight: 800; font-size: 11px;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--ink);
+  display: flex; align-items: baseline; gap: 10px;
+}
+.subhead::after { content: ""; flex: 1; border-bottom: 1px solid var(--rule); }
+.subhead .count { font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* ---------------- footnotes & colophon ---------------- */
+.footnotes { margin-top: 26px; border-top: 1px solid var(--ink); padding-top: 10px; max-width: 640px; }
+.footnotes p {
+  font-size: 12.5px; color: var(--ink-soft); padding-left: 14px; text-indent: -14px;
+  margin-bottom: 4px;
+}
+.footnotes .mark { color: var(--green); font-weight: 700; }
+.footnotes .num { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+.footnotes .src { font-family: var(--mono); font-size: 11px; margin-top: 8px; text-indent: 0; padding-left: 0; }
+.colophon {
+  margin-top: 56px; border-top: 3px solid var(--ink); padding-top: 8px;
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.colophon span {
+  font-family: var(--grot); font-weight: 700; font-size: 10px;
+  letter-spacing: .22em; text-transform: uppercase; color: var(--ink-soft);
 }
 
-/* Header styling */
-.header {
-    position: relative;
-    margin-bottom: 20px;
+/* ---------------- states ---------------- */
+.wire {
+  font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--ink-soft);
+  border: 1px dashed var(--rule); padding: 22px 18px; margin-top: 4px;
+}
+.wire b { color: var(--ink); font-weight: 700; }
+
+/* historical-data notice printed as a set-off note */
+.notice {
+  font-size: 12.5px; font-style: italic; color: var(--ink-soft);
+  border-left: 2px solid var(--green); padding: 4px 0 4px 12px; margin: 0 0 14px;
 }
 
-.home-button {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    background-color: #007cba;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: bold;
+/* ---------------- responsive ---------------- */
+@media (max-width: 1024px) {
+  .slate, .slate.two-up { grid-template-columns: repeat(2, 1fr); }
 }
-
-.home-button:hover {
-    background-color: #005a87;
+@media (max-width: 680px) {
+  .page { padding: 20px 16px 40px; }
+  .brand h1, .brand .h1 { font-size: 34px; }
+  .slate, .slate.two-up { grid-template-columns: 1fr; }
+  .masthead { padding: 18px 0 14px; }
+  .folio { margin-top: 42px; }
+  .folio .cont, .folio .sep { display: none; }
+  .stats th, .stats td { padding: 8px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }

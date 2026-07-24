@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { gameService } from '../api'
-import { getLogoUrl } from '../utils'
-import './TeamSchedule.css'
+import { isNumberLike, figureOrDash } from '../utils'
+import { Masthead, Folio, Chip, Footnotes, Colophon } from './Almanac'
 
 const POSITION_GROUPS = {
   'Quarterback': ['QB'],
@@ -18,6 +18,8 @@ const POSITION_GROUPS = {
   'Special Teams': ['LS'],
 };
 
+const TAB_LABELS = { schedule: 'Schedule', stats: 'Team Stats', roster: 'Roster' }
+
 function getPositionGroup(position) {
   if (!position) return 'Special Teams';
   const pos = position.toUpperCase();
@@ -27,6 +29,66 @@ function getPositionGroup(position) {
     }
   }
   return 'Special Teams';
+}
+
+/* Result of a schedule game from this team's side, when scores are posted. */
+function gameResult(game) {
+  const hasScores = isNumberLike(game.home_score) && isNumberLike(game.away_score)
+  const statusFinal = /final|post/i.test(String(game.status || ''))
+  if (!hasScores || (game.status && !statusFinal)) return null
+  const teamScore = Number(game.is_home ? game.home_score : game.away_score)
+  const oppScore = Number(game.is_home ? game.away_score : game.home_score)
+  return { teamScore, oppScore, won: teamScore > oppScore }
+}
+
+function ScheduleEntry({ game }) {
+  const result = gameResult(game)
+  const teamProb = game.is_home ? game.home_win_prob : game.away_win_prob
+  return (
+    <article className={`entry${result ? ' final' : ''}`}>
+      <div className="entry-head">
+        <span className="entry-no num">No. W{String(game.week_num).padStart(2, '0')}</span>
+        {result && (
+          <span className={`result-flag num ${result.won ? 'w' : 'l'}`}>
+            {result.won ? 'WON' : 'LOST'}
+          </span>
+        )}
+        <span className="entry-time num">{game.game_datetime}</span>
+      </div>
+      <div className="matchup">
+        <div className="trow">
+          <Chip file={game.opponent_logo} />
+          <span className="tname">
+            <span className="at">{game.is_home ? 'vs ' : 'at '}</span>
+            <Link to={`/team/${game.opponent_id}`}>{game.opponent}</Link>
+          </span>
+          <span className="dots"></span>
+          <span className="trec num">{game.opponent_record}</span>
+        </div>
+        {result ? (
+          <div className="fig">
+            <span className={`fval num ${result.won ? 'win' : 'lose'}`}>
+              {result.teamScore}&ndash;{result.oppScore}
+            </span>
+          </div>
+        ) : (
+          <div className="fig">
+            <span className="flbl">LINE</span>
+            <span className={`fval num${game.odds === 'N/A' ? ' dim' : ''}`}>{figureOrDash(game.odds)}</span>
+          </div>
+        )}
+      </div>
+      {result ? (
+        game.odds && game.odds !== 'N/A' && (
+          <p className="closing">Closed <span className="num">{game.odds}</span>.</p>
+        )
+      ) : (
+        isNumberLike(teamProb) && (
+          <p className="closing">Win probability <span className="num">{teamProb}%</span>.</p>
+        )
+      )}
+    </article>
+  )
 }
 
 function TeamSchedule() {
@@ -45,6 +107,9 @@ function TeamSchedule() {
 
   useEffect(() => {
     if (teamId) {
+      setCurrentView("schedule")
+      setTeamStats({})
+      setRoster([])
       loadSchedule()
       getCurrentSeason()
     }
@@ -56,19 +121,17 @@ function TeamSchedule() {
       if (data.current_week && data.current_week.season) {
         const season = data.current_week.season.toString()
         setCurrentSeason(season)
-        if (selectedSeason === null) {
-          setSelectedSeason(season)
-        }
+        setSelectedSeason((prev) => prev ?? season)
       }
     } catch (err) {
       console.error("Failed to get current season:", err)
-      if (selectedSeason === null) {
-        setSelectedSeason("2025")
-      }
+      setSelectedSeason((prev) => prev ?? "2025")
     }
   }
 
   const loadSchedule = async () => {
+    setLoading(true)
+    setError(null)
     try {
       const data = await gameService.fetchTeamSchedule(teamId)
       setGames(data.schedule)
@@ -99,24 +162,16 @@ function TeamSchedule() {
     }
   }
 
-  const goBack = () => {
-    navigate('/')
-  }
-
-  const handleTeamClick = (team_id) => {
-    navigate(`/team/${team_id}`)
-  }
-
   const handlePlayerClick = (player, positionGroup) => {
     const positionKey = positionGroup.toLowerCase().replace(' ', '_')
-    navigate(`/position/${positionKey}/stats`, { 
-      state: { selectedPlayerId: player.athlete_id } 
+    navigate(`/position/${positionKey}/stats`, {
+      state: { selectedPlayerId: player.athlete_id }
     })
   }
 
   const handleStatClick = (statName) => {
-    navigate(`/team-stat/${statName}`, { 
-      state: { selectedTeamId: teamId } 
+    navigate(`/team-stat/${statName}`, {
+      state: { selectedTeamId: teamId }
     })
   }
 
@@ -145,8 +200,6 @@ function TeamSchedule() {
 
   // Order stats by importance for NFL team analysis
   const getOrderedStats = (stats) => {
-    console.log('Original stats:', Object.keys(stats))
-    
     // Deduplicate stats by name, keeping the first occurrence
     const deduped = {}
     Object.entries(stats).forEach(([key, stat]) => {
@@ -155,7 +208,7 @@ function TeamSchedule() {
         deduped[statName] = [key, stat]
       }
     })
-    
+
     const statOrder = [
       // Tier 1: Game-Winning Fundamentals (Most Critical)
       'TotalPointsPerGame',
@@ -163,7 +216,7 @@ function TeamSchedule() {
       'TurnOverDifferential',
       'ThirdDownConvPct',
       'RedzoneScoringPct',
-      
+
       // Tier 2: Yards Efficiency & Production (Second Priority)
       'YardsPerCompletion',
       'YardsPerPassAttempt',
@@ -175,7 +228,7 @@ function TeamSchedule() {
       'PassingYardsPerGame',
       'RushingYards',
       'RushingYardsPerGame',
-      
+
       // Tier 3: Offensive Production
       'TotalTouchdowns',
       'PassingTouchdowns',
@@ -183,49 +236,49 @@ function TeamSchedule() {
       'CompletionPct',
       'QBRating',
       'QuarterbackRating',
-      
+
       // Tier 4: Turnover Details
       'TotalTakeaways',
       'TotalGiveaways',
       'Interceptions',
       'FumblesRecovered',
       'FumblesLost',
-      
+
       // Tier 5: Defensive Impact
       'Sacks',
       'TacklesForLoss',
       'PassesDefended',
       'TotalTackles',
       'SoloTackles',
-      
+
       // Tier 6: Situational Performance
       'RedzoneEfficiencyPct',
       'FourthDownConvPct',
       'FirstDowns',
       'FirstDownsPerGame',
-      
+
       // Tier 7: Special Teams
       'FieldGoalPct',
       'ExtraPointPct',
       'NetAvgPuntYards',
       'YardsPerKickReturn',
       'YardsPerPuntReturn',
-      
+
       // Tier 8: Discipline & Control
       'TotalPenalties',
       'TotalPenaltyYards',
       'PossessionTimeSeconds',
-      
+
       // Tier 9: Volume Stats
       'TotalOffensivePlays',
       'PassingAttempts',
       'RushingAttempts',
       'Completions'
     ]
-    
+
     const orderedEntries = []
     const remainingStats = { ...deduped }
-    
+
     // Add stats in priority order
     statOrder.forEach(statKey => {
       if (remainingStats[statKey]) {
@@ -233,12 +286,12 @@ function TeamSchedule() {
         delete remainingStats[statKey]
       }
     })
-    
+
     // Add any remaining stats at the end
     Object.values(remainingStats).forEach(entry => {
       orderedEntries.push(entry)
     })
-    
+
     return orderedEntries
   }
 
@@ -256,11 +309,11 @@ function TeamSchedule() {
     const offenseOrder = ['Quarterback', 'Running Back', 'Wide Receiver', 'Tight End', 'Offensive Line']
     const defenseOrder = ['Defensive Line', 'Linebacker', 'Defensive Back']
     const specialOrder = ['Kicker', 'Punter', 'Special Teams']
-    
+
     const offense = offenseOrder.filter(pos => groupedRoster[pos])
     const defense = defenseOrder.filter(pos => groupedRoster[pos])
     const special = specialOrder.filter(pos => groupedRoster[pos])
-    
+
     return { offense, defense, special }
   }
 
@@ -268,204 +321,204 @@ function TeamSchedule() {
   const orderedGroups = getOrderedPositionGroups(groupedRoster)
 
   const renderRosterTable = (positionGroup) => (
-    <div key={positionGroup} className="position-group">
-      <h3>{positionGroup}</h3>
-      <table className="roster-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Age</th>
-            <th>Height</th>
-            <th>Weight</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groupedRoster[positionGroup].map(player => (
-            <tr key={player.athlete_id}>
-              <td>{player.jersey || 'N/A'}</td>
-              <td>
-                <a 
-                  href="#" 
-                  className="player-link"
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    handlePlayerClick(player, positionGroup);
-                  }}
-                >
-                  {player.display_name || `${player.first_name} ${player.last_name}`}
-                </a>
-              </td>
-              <td>{player.position}</td>
-              <td>{player.age || 'N/A'}</td>
-              <td>{player.height || 'N/A'}</td>
-              <td>{player.weight || 'N/A'}</td>
+    <div key={positionGroup}>
+      <h3 className="subhead">
+        {positionGroup} <span className="count num">{groupedRoster[positionGroup].length}</span>
+      </h3>
+      <div className="tablewrap">
+        <table className="stats">
+          <thead>
+            <tr>
+              <th scope="col">No.</th>
+              <th scope="col" className="txt">Player</th>
+              <th scope="col" className="txt">Position</th>
+              <th scope="col">Age</th>
+              <th scope="col">Ht</th>
+              <th scope="col">Wt</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {groupedRoster[positionGroup].map(player => (
+              <tr key={player.athlete_id}>
+                <td className="n">{player.jersey ?? '—'}</td>
+                <td className="txt player">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePlayerClick(player, positionGroup);
+                    }}
+                  >
+                    {player.display_name || `${player.first_name} ${player.last_name}`}
+                  </a>
+                </td>
+                <td className="txt team">{player.position}</td>
+                <td className="n">{player.age ?? '—'}</td>
+                <td className="n">{player.height ?? '—'}</td>
+                <td className="n">{player.weight ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 
+  const seasonValue = selectedSeason || currentSeason
+  const results = games.map(gameResult)
+  const played = results.filter(Boolean)
+  const wins = played.filter((r) => r.won).length
+
   return (
-    <div className="app">
-      <div className="header">
-        <button className="home-button" onClick={goBack}>🏠 Home</button>
-        <h1>{teamName}</h1>
-      </div>
-      
-      <div className="team-nav">
-        <button 
-          className={`nav-btn ${currentView === 'schedule' ? 'active' : ''}`}
-          onClick={() => switchView('schedule')}
-        >
-          Schedule
-        </button>
-        <button 
-          className={`nav-btn ${currentView === 'stats' ? 'active' : ''}`}
-          onClick={() => switchView('stats')}
-        >
-          Team Stats
-        </button>
-        <button 
-          className={`nav-btn ${currentView === 'roster' ? 'active' : ''}`}
-          onClick={() => switchView('roster')}
-        >
-          Roster
-        </button>
-      </div>
+    <>
+      <Masthead
+        vol="Sec 2 — Team Desk — Night Ed."
+        controls={
+          <Link className="ctl" to="/">
+            <span className="lbl">RETURN TO</span> <span>THE WEEK SLATE</span>
+          </Link>
+        }
+      />
 
-      {currentView === 'schedule' && (
-        <div className="game-list">
-          {loading ? (
-            <p>Loading games...</p>
-          ) : error ? (
-            <p>Error: {error}</p>
-          ) : games.length > 0 ? (
-            <ul>
-              {games.map((game) => (
-                <div key={game.event_id} className="game-card">
-                  <li>
-                    <div className="team-row">
-                      <div className="team-box">
-                        <a href="#" onClick={(e) => { e.preventDefault(); handleTeamClick(game.opponent_id); }}>
-                          <img className="team-logo" src={getLogoUrl(game.opponent_logo)} alt={game.opponent} />
-                        </a>
-                        <div className="team-name">
-                          <a href="#" onClick={(e) => { e.preventDefault(); handleTeamClick(game.opponent_id); }}>
-                            {game.opponent}
-                          </a>
-                        </div>
-                        <div className="win-prob">
-                          ({game.opponent_record})<br />
-                        </div>
-                      </div>
-                      <div className="team-box">
-                        {game.game_datetime}<br />
-                        Week {game.week_num}<br />
-                        {game.is_home ? 'vs' : '@'} {game.is_home ? teamName : game.opponent}
-                      </div>
+      <section aria-labelledby="sec-team">
+        <Folio
+          sec="SEC 2"
+          id="sec-team"
+          title={teamName || 'Team Desk'}
+          cont={TAB_LABELS[currentView]}
+          pg={played.length ? `${wins}-${played.length - wins} played` : null}
+        />
+
+        <div className="tabs" role="tablist" aria-label="Team desk pages">
+          {Object.entries(TAB_LABELS).map(([view, label]) => (
+            <button
+              key={view}
+              role="tab"
+              aria-selected={currentView === view}
+              onClick={() => switchView(view)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {currentView === 'schedule' && (
+          <>
+            <p className="folio-note">
+              The full season, entered in kickoff order. Completed games print on lifted stock
+              with the result; upcoming games carry the market line.
+            </p>
+            {loading ? (
+              <p className="wire">PULLING THE SCHEDULE&hellip; <b>stand by</b></p>
+            ) : error ? (
+              <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+            ) : games.length > 0 ? (
+              <div className="slate">
+                {games.map((game) => (
+                  <ScheduleEntry key={game.event_id} game={game} />
+                ))}
+              </div>
+            ) : (
+              <p className="wire">NO GAMES ON FILE for this team.</p>
+            )}
+          </>
+        )}
+
+        {currentView === 'stats' && (
+          <>
+            <p className="folio-note">
+              Season figures with league rank. Any line opens the full league table for that figure.
+            </p>
+            <div className="controls" style={{ marginBottom: 18 }}>
+              <label className="ctl">
+                <span className="lbl">SEASON</span>
+                <select value={seasonValue} onChange={onSeasonChange} aria-label="Season">
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                  <option value="2022">2022</option>
+                </select>
+                <span className="car" aria-hidden="true">&#9662;</span>
+              </label>
+            </div>
+
+            {Object.keys(teamStats).length > 0 ? (
+              <>
+                {seasonValue !== currentSeason && (
+                  <p className="notice">
+                    Historical data for {seasonValue} may not be available;
+                    figures shown may be the current season&rsquo;s ({currentSeason}).
+                  </p>
+                )}
+                <div className="tablewrap">
+                  <table className="stats">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="txt">Figure</th>
+                        <th scope="col" className="txt">Category</th>
+                        <th scope="col">Value</th>
+                        <th scope="col">Rank</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getOrderedStats(teamStats).map(([key, stat]) => (
+                        <tr
+                          key={key}
+                          className="clickable"
+                          tabIndex={0}
+                          onClick={() => handleStatClick(stat.name || key)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleStatClick(stat.name || key)
+                            }
+                          }}
+                        >
+                          <td className="txt player">{(stat.name || key).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ')}</td>
+                          <td className="txt team">{stat.category || 'Team'}</td>
+                          <td className="n sortcol">{stat.value}</td>
+                          <td className="n">{stat.display_rank || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="wire">NO TEAM FIGURES on file for the <b>{seasonValue}</b> season.</p>
+            )}
+          </>
+        )}
+
+        {currentView === 'roster' && (
+          <>
+            <p className="folio-note">
+              The roster by unit and position. Any player opens the league leaders at that position.
+            </p>
+            {Object.keys(groupedRoster).length > 0 ? (
+              <>
+                {[['Offense', orderedGroups.offense], ['Defense', orderedGroups.defense], ['Special Teams', orderedGroups.special]]
+                  .filter(([, groups]) => groups.length > 0)
+                  .map(([unit, groups]) => (
+                    <div key={unit}>
+                      <Folio sec="UNIT" title={unit} />
+                      {groups.map(renderRosterTable)}
                     </div>
-                  </li>
-                </div>
-              ))}
-            </ul>
-          ) : (
-            <p>No games found for this team.</p>
-          )}
-        </div>
-      )}
-
-      {currentView === 'stats' && (
-        <div className="team-stats">
-          <div className="season-selector">
-            <label htmlFor="season">Season:</label>
-            <select id="season" value={selectedSeason || currentSeason} onChange={onSeasonChange}>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
-              <option value="2022">2022</option>
-            </select>
-          </div>
-          
-          {Object.keys(teamStats).length > 0 ? (
-            <div className="stats-table">
-              {(selectedSeason || currentSeason) !== currentSeason && (
-                <div className="historical-data-notice" style={{
-                  backgroundColor: '#fff3cd',
-                  border: '1px solid #ffeaa7',
-                  borderRadius: '4px',
-                  padding: '10px',
-                  marginBottom: '15px',
-                  color: '#856404'
-                }}>
-                  <strong>Note:</strong> Historical data for {selectedSeason || currentSeason} may not be available. 
-                  Showing current season ({currentSeason}) data.
-                </div>
-              )}
-              <table>
-                <thead>
-                  <tr>
-                    <th>Category</th>
-                    <th>Stat</th>
-                    <th>Value</th>
-                    <th>Rank</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getOrderedStats(teamStats).map(([key, stat]) => (
-                    <tr 
-                      key={key} 
-                      className="clickable-stat-row"
-                      onClick={() => handleStatClick(stat.name || key)}
-                    >
-                      <td>{stat.category || 'Team'}</td>
-                      <td>{stat.name || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-                      <td>{stat.value}</td>
-                      <td>{stat.display_rank || 'N/A'}</td>
-                    </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="stats-loading">
-              <p>No team stats available for {selectedSeason || currentSeason} season.</p>
-            </div>
-          )}
-        </div>
-      )}
+              </>
+            ) : (
+              <p className="wire">NO ROSTER on file for this team.</p>
+            )}
+          </>
+        )}
 
-      {currentView === 'roster' && (
-        <div className="roster">
-          {Object.keys(groupedRoster).length > 0 ? (
-            <>
-              <div className="position-super-group">
-                <h2 className="super-group-title">Offense</h2>
-                {orderedGroups.offense.map(renderRosterTable)}
-              </div>
+        <Footnotes>
+          <p>Lines are the market&rsquo;s at last update; results post when games go final.</p>
+        </Footnotes>
+      </section>
 
-              <div className="position-super-group">
-                <h2 className="super-group-title">Defense</h2>
-                {orderedGroups.defense.map(renderRosterTable)}
-              </div>
-
-              <div className="position-super-group">
-                <h2 className="super-group-title">Special Teams</h2>
-                {orderedGroups.special.map(renderRosterTable)}
-              </div>
-            </>
-          ) : (
-            <div className="roster-loading">
-              <p>No roster information available.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <button className="back-button" onClick={goBack}>← Back to Games</button>
-    </div>
+      <Colophon center={teamName || null} />
+    </>
   )
 }
 
