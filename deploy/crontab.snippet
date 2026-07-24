@@ -1,0 +1,11 @@
+# NFL sports app scheduled jobs — add to `crontab -e` for user t.
+#
+# django_cron gates each job by its own schedule, so runcrons can fire
+# frequently and cheaply; the registered jobs are:
+#   nfl.update_season_data   (hourly: calendar, records, games+scores, odds)
+#   nfl.update_team_stats    (hourly: team season stat lines)
+#   nfl.update_player_stats  (every 6h: boxscores of recently completed games)
+# runcrons also purges its own log rows older than 14 days
+# (DJANGO_CRON_DELETE_LOGS_OLDER_THAN).
+
+*/15 * * * * cd /home/t/projects/nfl-sports-app/backend && /home/t/projects/nfl-sports-app/venv/bin/python manage.py runcrons >> /home/t/projects/nfl-sports-app/backend/logs/cron.log 2>&1

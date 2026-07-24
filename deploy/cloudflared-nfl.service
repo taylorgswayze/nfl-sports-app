@@ -1,0 +1,25 @@
+# /etc/systemd/system/cloudflared-nfl.service
+# Cloudflare tunnel for nfl.taylorswayze.com
+#
+# Install:
+#   cp deploy/nfl-tunnel.yml /home/t/.cloudflared/nfl-tunnel.yml
+#   sudo cp deploy/cloudflared-nfl.service /etc/systemd/system/cloudflared-nfl.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cloudflared-nfl.service
+#
+# Requires the tunnel credentials file
+# /home/t/.cloudflared/3dd555b4-a47d-407c-9a0a-0410696a61b1.json on this host.
+
+[Unit]
+Description=Cloudflare tunnel for NFL sports app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=t
+ExecStart=/usr/local/bin/cloudflared tunnel --config /home/t/.cloudflared/nfl-tunnel.yml run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

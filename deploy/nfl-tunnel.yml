@@ -1,0 +1,9 @@
+# Cloudflare tunnel config for nfl.taylorswayze.com
+# Install location: /home/t/.cloudflared/nfl-tunnel.yml
+tunnel: 3dd555b4-a47d-407c-9a0a-0410696a61b1
+credentials-file: /home/t/.cloudflared/3dd555b4-a47d-407c-9a0a-0410696a61b1.json
+
+ingress:
+  - hostname: nfl.taylorswayze.com
+    service: http://localhost:8001
+  - service: http_status:404

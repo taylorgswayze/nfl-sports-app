@@ -1,0 +1,30 @@
+# /etc/systemd/system/nfl.service
+# Django backend for nfl.taylorswayze.com (gunicorn on 127.0.0.1:8001)
+#
+# Install:
+#   sudo cp deploy/nfl.service /etc/systemd/system/nfl.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nfl.service
+
+[Unit]
+Description=NFL sports app (Django/gunicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=t
+WorkingDirectory=/home/t/projects/nfl-sports-app/backend
+Environment=DJANGO_SETTINGS_MODULE=sports.production_settings
+# Optional: secrets (DJANGO_SECRET_KEY etc.) — copy .env.example to .env
+EnvironmentFile=-/home/t/projects/nfl-sports-app/.env
+ExecStart=/home/t/projects/nfl-sports-app/venv/bin/gunicorn \
+    --bind 127.0.0.1:8001 \
+    --workers 2 \
+    --timeout 60 \
+    --access-logfile - \
+    sports.wsgi:application
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
