@@ -32,14 +32,13 @@ INSTALLED_APPS = [
     ]
 
 CRON_CLASSES = [
-    'nfl.cron.RefreshEveryDay',
-    'nfl.cron.RefreshEveryHour',
-    'nfl.cron.RefreshEveryMinute',
-    'nfl.cron.UpdatePlayerStatsEvery10Minutes',
-    'nfl.cron.UpdatePlayerStatsPostGame',
     'nfl.cron.UpdateSeasonData',
     'nfl.cron.UpdateTeamStats',
+    'nfl.cron.UpdatePlayerStats',
 ]
+
+# runcrons prunes its own CronJobLog rows older than this many days
+DJANGO_CRON_DELETE_LOGS_OLDER_THAN = 14
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -146,7 +145,7 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs/django.log',
             'maxBytes': 1024 * 1024 * 5,  # 5 MB
@@ -154,7 +153,7 @@ LOGGING = {
             'formatter': 'verbose',
         },
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
@@ -162,17 +161,23 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': True,
+        },
+        # Keep SQL echo off (it was DEBUG, drowning the logs)
+        'django.db.backends': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': False,
         },
         'nfl': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': True,
         },
         'utils': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': True,
         },
     },

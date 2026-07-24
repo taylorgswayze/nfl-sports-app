@@ -401,10 +401,3 @@ def current_schedule(season=None):
                         'end_date': y['endDate'],
                     }
                 )
-
-def update_future_game_odds_and_probs():
-    future_games = models.Game.objects.filter(game_datetime__gt=timezone.now())
-    for game in future_games:
-        single_game_odds(game)
-        single_game_probs(game)
-        print(f'Updated odds and probabilities for {game}')
