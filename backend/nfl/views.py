@@ -20,17 +20,26 @@ def api_root(request):
         'version': '1.0.0',
         'description': 'RESTful API for NFL game data, team information, and statistics',
         'available_endpoints': {
+            'seasons': {
+                'url': '/seasons/',
+                'method': 'GET',
+                'description': 'Seasons with available game data',
+                'response': 'List of seasons plus the current season'
+            },
             'games': {
                 'url': '/games/',
                 'method': 'GET',
                 'description': 'Get all games for current week',
-                'response': 'Games list with team info, odds, and win probabilities'
+                'parameters': {'season': 'Optional season year', 'season_type': 'Optional: 2=regular (default), 3=postseason'},
+                'response': 'Games list with scores, team info, odds, and win probabilities'
             },
             'games_by_week': {
                 'url': '/games/<week_num>/',
                 'method': 'GET',
                 'description': 'Get games for specific week number',
-                'parameters': {'week_num': 'Integer (1-18 for regular season)'},
+                'parameters': {'week_num': 'Integer (1-18 regular season, 1-5 postseason)',
+                               'season': 'Optional season year',
+                               'season_type': 'Optional: 2=regular (default), 3=postseason'},
                 'response': 'Games list filtered by week'
             },
             'team_schedule': {
@@ -99,12 +108,40 @@ def safe_get_outcome_data(game, field, default='N/A'):
 
 
 @require_http_methods(["GET"])
-def games(request, week_num=None):
-    """Get games data with improved error handling and week filtering"""
+def seasons(request):
+    """List seasons that have game data, newest first."""
     try:
-        # Get all weeks for the current season
-        season = h.current_season()
-        unique_weeks = Calendar.objects.filter(season=season).order_by('end_date')
+        available = sorted(set(Game.objects.values_list('season', flat=True)), reverse=True)
+        return JsonResponse({
+            'seasons': available,
+            'current_season': h.current_season(),
+        })
+    except Exception as e:
+        logger.error(f"Error in seasons view: {e}")
+        return JsonResponse({'error': 'Internal server error while fetching seasons'}, status=500)
+
+
+@require_http_methods(["GET"])
+def games(request, week_num=None):
+    """Get games for a week.
+
+    Query params: ?season= (default: current season), ?season_type=
+    (2=regular season [default], 3=postseason) to disambiguate colliding
+    week numbers between regular season and playoffs.
+    """
+    try:
+        try:
+            season = int(request.GET.get('season', h.current_season()))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season parameter'}, status=400)
+        try:
+            season_type = int(request.GET.get('season_type', 2))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season_type parameter'}, status=400)
+
+        # All weeks for the season (both season types, postseason exposed too)
+        unique_weeks = Calendar.objects.filter(season=season).order_by(
+            'season_type_id', 'week_num')
         unique_weeks_data = [{
             'name': week.name,
             'details': week.details,
@@ -118,31 +155,31 @@ def games(request, week_num=None):
 
         # Determine which week to show
         if week_num:
-            try:
-                week = Calendar.objects.filter(
-                    season=season,
-                    week_num=week_num
-                ).first()
-                if not week:
-                    return JsonResponse({
-                        'error': f'Week {week_num} not found for season {season}',
-                        'available_weeks': [w['week_num'] for w in unique_weeks_data]
-                    }, status=404)
-            except Exception as e:
-                logger.error(f"Error finding week {week_num}: {e}")
-                return JsonResponse({'error': f'Invalid week number: {week_num}'}, status=400)
+            week = Calendar.objects.filter(
+                season=season,
+                season_type_id=season_type,
+                week_num=week_num
+            ).first()
+            if not week:
+                return JsonResponse({
+                    'error': f'Week {week_num} (type {season_type}) not found for season {season}',
+                    'available_weeks': [
+                        {'week_num': w['week_num'], 'season_type_id': w['season_type_id']}
+                        for w in unique_weeks_data]
+                }, status=404)
         else:
-            # Get current week or default to first week
+            # Current week when browsing the current season; else week 1.
+            week = None
             try:
-                week = h.current_week()
-                if not week:
-                    week = unique_weeks.first() if unique_weeks else None
+                current = h.current_week()
+                if current and current.season == season:
+                    week = current
             except Exception as e:
                 logger.warning(f"Error getting current week: {e}")
-                week = unique_weeks.first() if unique_weeks else None
-                
             if not week:
-                return JsonResponse({'error': 'No calendar data available'}, status=404)
+                week = unique_weeks.first() if unique_weeks else None
+            if not week:
+                return JsonResponse({'error': f'No calendar data available for season {season}'}, status=404)
 
         # Get games for the selected week
         games_queryset = Game.objects.filter(week=week).select_related('home_team', 'away_team', 'outcome').order_by('game_datetime')
@@ -156,6 +193,10 @@ def games(request, week_num=None):
                     'game_datetime': format_game_time(game.game_datetime),
                     'season': game.season,
                     'week_num': game.week_num,
+                    'season_type_id': game.season_type_id,
+                    'home_score': game.home_score,
+                    'away_score': game.away_score,
+                    'status': game.status,
                     'home_team': game.home_team.team_name if game.home_team else 'TBD',
                     'home_team_id': game.home_team.team_id if game.home_team else None,
                     'home_team_record': game.home_team.record if game.home_team else '0-0',
@@ -190,6 +231,8 @@ def games(request, week_num=None):
             'games': games_list,
             'weeks': unique_weeks_data,
             'current_week': current_week_data,
+            'season': season,
+            'season_type': week.season_type_id,
             'total_games': len(games_list),
             'week_requested': week_num
         })
@@ -215,22 +258,47 @@ def team_schedules(request, team_id):
                 'message': 'Please provide a valid team ID (1-32)'
             }, status=404)
     
-        schedule = []
-        # Use Q objects for proper OR query
+        try:
+            season = int(request.GET.get('season', h.current_season()))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season parameter'}, status=400)
+
         games = Game.objects.filter(
             models.Q(home_team_id=team_id) | models.Q(away_team_id=team_id)
         ).select_related('home_team', 'away_team', 'outcome').order_by('game_datetime')
-        
+
+        available_seasons = sorted(set(games.values_list('season', flat=True)), reverse=True)
+        if season not in available_seasons and available_seasons:
+            # Requested/current season has no games yet; fall back to the
+            # latest season with data.
+            season = available_seasons[0]
+        games = games.filter(season=season)
+
+        schedule = []
         for game in games:
             try:
                 is_home = int(team_id) == int(game.home_team_id)
                 opponent = game.away_team if is_home else game.home_team
-                
+
+                team_score = game.home_score if is_home else game.away_score
+                opponent_score = game.away_score if is_home else game.home_score
+                result = None
+                if game.status == Game.STATUS_FINAL and team_score is not None and opponent_score is not None:
+                    result = 'W' if team_score > opponent_score else ('L' if team_score < opponent_score else 'T')
+
                 game_data = {
                     'event_id': game.event_id,
                     'game_datetime': format_game_time(game.game_datetime),
                     'week_num': game.week_num,
+                    'season': game.season,
+                    'season_type_id': game.season_type_id,
                     'is_home': is_home,
+                    'home_score': game.home_score,
+                    'away_score': game.away_score,
+                    'team_score': team_score,
+                    'opponent_score': opponent_score,
+                    'status': game.status,
+                    'result': result,
                     'opponent': opponent.team_name if opponent else 'TBD',
                     'opponent_id': opponent.team_id if opponent else None,
                     'opponent_logo': h.get_team_logo(opponent.team_id) if opponent else 'default-logo.png',
@@ -240,7 +308,7 @@ def team_schedules(request, team_id):
                     'away_win_prob': safe_get_outcome_data(game, 'away_win_prob'),
                 }
                 schedule.append(game_data)
-                    
+
             except Exception as e:
                 logger.error(f"Error processing game {game.event_id}: {e}")
                 continue
@@ -249,6 +317,8 @@ def team_schedules(request, team_id):
             'schedule': schedule,
             'team': team.team_name,
             'team_id': team_id,
+            'season': season,
+            'available_seasons': available_seasons,
             'total_games': len(schedule),
             'home_games': len([g for g in schedule if g['is_home']]),
             'away_games': len([g for g in schedule if not g['is_home']])
@@ -282,14 +352,16 @@ def matchup(request, event_id):
         
         try:
             if game.home_team:
-                home_stats = StatTeam.objects.filter(team_id=game.home_team.team_id)
+                home_stats = StatTeam.objects.filter(
+                    team_id=game.home_team.team_id, season=game.season)
                 home_stats = [model_to_dict(stat) for stat in home_stats]
         except Exception as e:
             logger.warning(f"Error fetching home team stats: {e}")
 
         try:
             if game.away_team:
-                away_stats = StatTeam.objects.filter(team_id=game.away_team.team_id)
+                away_stats = StatTeam.objects.filter(
+                    team_id=game.away_team.team_id, season=game.season)
                 away_stats = [model_to_dict(stat) for stat in away_stats]
         except Exception as e:
             logger.warning(f"Error fetching away team stats: {e}")
@@ -301,6 +373,10 @@ def matchup(request, event_id):
             'game_datetime': format_game_time(game.game_datetime),
             'season': game.season,
             'week_num': game.week_num,
+            'season_type_id': game.season_type_id,
+            'home_score': game.home_score,
+            'away_score': game.away_score,
+            'status': game.status,
             'home_team': game.home_team.team_name if game.home_team else 'TBD',
             'home_team_id': game.home_team.team_id if game.home_team else None,
             'home_team_record': game.home_team.record if game.home_team else '0-0',
@@ -479,85 +555,38 @@ def team_stats(request, team_id):
                 'message': 'Please provide a valid team ID (1-32)'
             }, status=404)
         
-        # Get real stats from StatTeam model
-        all_team_stats = StatTeam.objects.filter(team_id=team_id)
-        
-        if all_team_stats.exists():
-            # Order stats by priority
-            ordered_stats = order_stats_by_priority(all_team_stats)
-            
-            # Convert to ordered dictionary maintaining priority order
-            stats_data = []
-            for stat_obj in ordered_stats:
-                stats_data.append({
-                    'name': stat_obj.stat_name,
-                    'value': stat_obj.value,
-                    'rank': stat_obj.rank,
-                    'display_rank': stat_obj.display_rank,
-                    'description': stat_obj.description,
-                    'category': stat_obj.category
-                })
-        else:
-            # Fallback to mock stats with team-specific variations
-            base_stats = {
-                'TotalPointsPerGame': 24.5,
-                'TotalPoints': 416,
-                'TurnOverDifferential': 8,
-                'ThirdDownConvPct': 42.3,
-                'RedzoneScoringPct': 58.7,
-                'YardsPerCompletion': 11.2,
-                'YardsPerPassAttempt': 7.8,
-                'TotalYards': 365.2,
-                'NetYardsPerPassAttempt': 6.9,
-                'YardsPerRushAttempt': 4.2,
-                'YardsPerGame': 365.2,
-                'PassingYardsPerGame': 239.4,
-                'RushingYardsPerGame': 125.8,
-                'PointsAllowedPerGame': 18.2,
-                'YardsAllowedPerGame': 320.1,
-                'ThirdDownDefensePct': 35.1,
-                'PenaltiesPerGame': 6.2,
-                'PenaltyYardsPerGame': 52.1
-            }
-            
-            # Add slight variations based on team_id for more realistic mock data
-            import random
-            random.seed(team_id)
-            
-            # Create ordered stats list following priority system
-            priority_tiers = get_stat_priority_order()
-            stats_data = []
-            
-            for tier in sorted(priority_tiers.keys()):
-                for stat_name in priority_tiers[tier]:
-                    if stat_name in base_stats:
-                        value = base_stats[stat_name]
-                        if isinstance(value, (int, float)):
-                            variation = random.uniform(0.8, 1.2)
-                            if isinstance(value, int):
-                                value = int(value * variation)
-                            else:
-                                value = round(value * variation, 1)
-                        
-                        stats_data.append({
-                            'name': stat_name,
-                            'value': value,
-                            'rank': random.randint(1, 32),
-                            'display_rank': f"{random.randint(1, 32)}",
-                            'description': f"{stat_name} description",
-                            'category': 'General'
-                        })
-        
+        try:
+            season = int(request.GET.get('season', h.current_season()))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season parameter'}, status=400)
+
+        available_seasons = sorted(set(
+            StatTeam.objects.filter(team_id=team_id).values_list('season', flat=True)
+        ), reverse=True)
+
+        # No fabricated fallback: return honest empty data with a flag.
+        all_team_stats = StatTeam.objects.filter(team_id=team_id, season=season)
+        stats_data = []
+        for stat_obj in order_stats_by_priority(all_team_stats):
+            stats_data.append({
+                'name': stat_obj.stat_name,
+                'value': stat_obj.value,
+                'rank': stat_obj.rank,
+                'display_rank': stat_obj.display_rank,
+                'description': stat_obj.description,
+                'category': stat_obj.category
+            })
+
         response_data = {
             'team': team.team_name,
             'team_id': team_id,
             'stats': stats_data,
-            'season': h.current_season(),
-            'games_played': 17,
-            'last_updated': format_game_time(None),
-            'data_source': 'database' if all_team_stats.exists() else 'calculated'
+            'season': season,
+            'available_seasons': available_seasons,
+            'has_stats': bool(stats_data),
+            'data_source': 'database' if stats_data else 'none'
         }
-        
+
         return JsonResponse(response_data)
         
     except Exception as e:
@@ -571,61 +600,70 @@ def team_stats(request, team_id):
 
 @require_http_methods(["GET"])
 def team_stat_comparison(request, stat_name):
-    """Get all 32 teams ranked by a specific stat"""
+    """Rank teams by a specific stat. Only real database rows are returned;
+    teams without the stat are listed separately, never fabricated."""
     try:
-        # Get all teams
-        all_teams = Team.objects.all().order_by('team_id')
-        
-        # Get the stat for all teams
+        try:
+            season = int(request.GET.get('season', h.current_season()))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season parameter'}, status=400)
+
+        available_seasons = sorted(set(
+            StatTeam.objects.filter(stat_name=stat_name).values_list('season', flat=True)
+        ), reverse=True)
+        if season not in available_seasons and available_seasons:
+            season = available_seasons[0]
+
+        # Single batched query instead of one per team
+        stat_rows = StatTeam.objects.filter(
+            stat_name=stat_name, season=season
+        ).select_related('team_id')
+
         team_stats = []
-        for team in all_teams:
-            try:
-                # Try to get real stat from database
-                stat_obj = StatTeam.objects.filter(team_id=team.team_id, stat_name=stat_name).first()
-                
-                if stat_obj:
-                    team_stats.append({
-                        'team_id': team.team_id,
-                        'team_name': team.team_name,
-                        'short_name': team.short_name,
-                        'value': stat_obj.value,
-                        'rank': stat_obj.rank,
-                        'display_rank': stat_obj.display_rank,
-                        'description': stat_obj.description,
-                        'category': stat_obj.category
-                    })
-                else:
-                    # Fallback to mock data if stat not found
-                    import random
-                    random.seed(team.team_id + hash(stat_name))
-                    mock_value = round(random.uniform(10, 100), 1)
-                    mock_rank = random.randint(1, 32)
-                    
-                    team_stats.append({
-                        'team_id': team.team_id,
-                        'team_name': team.team_name,
-                        'short_name': team.short_name,
-                        'value': mock_value,
-                        'rank': mock_rank,
-                        'display_rank': str(mock_rank),
-                        'description': f"{stat_name} for {team.team_name}",
-                        'category': 'General'
-                    })
-            except Exception as e:
-                logger.warning(f"Error getting stat {stat_name} for team {team.team_id}: {e}")
-                continue
-        
-        # Sort by rank (ascending - lower rank is better)
-        team_stats.sort(key=lambda x: x['rank'])
-        
+        teams_with_stat = set()
+        for stat_obj in stat_rows:
+            team = stat_obj.team_id
+            teams_with_stat.add(team.team_id)
+            team_stats.append({
+                'team_id': team.team_id,
+                'team_name': team.team_name,
+                'short_name': team.short_name,
+                'logo': h.get_team_logo(team.team_id),
+                'value': stat_obj.value,
+                'rank': stat_obj.rank,
+                'display_rank': stat_obj.display_rank,
+                'description': stat_obj.description,
+                'category': stat_obj.category
+            })
+
+        missing_teams = [
+            {'team_id': t.team_id, 'team_name': t.team_name, 'short_name': t.short_name}
+            for t in Team.objects.exclude(team_id__in=teams_with_stat).exclude(team_name='TBD')
+        ]
+
+        # Sort by rank ascending (lower is better); unranked rows last
+        team_stats.sort(key=lambda x: (x['rank'] is None, x['rank']))
+
+        if not team_stats:
+            return JsonResponse({
+                'stat_name': stat_name,
+                'season': season,
+                'available_seasons': available_seasons,
+                'teams': [],
+                'has_stats': False,
+                'error': f'No data for stat {stat_name} in season {season}'
+            }, status=404)
+
         response_data = {
             'stat_name': stat_name,
             'teams': team_stats,
+            'teams_missing_stat': missing_teams,
             'total_teams': len(team_stats),
-            'season': h.current_season(),
-            'last_updated': format_game_time(None)
+            'season': season,
+            'available_seasons': available_seasons,
+            'has_stats': True
         }
-        
+
         return JsonResponse(response_data)
         
     except Exception as e:
@@ -641,7 +679,10 @@ def team_stat_comparison(request, stat_name):
 def position_stats(request, position):
     """Get stats for all players of a specific position with ranking"""
     try:
-        season = request.GET.get('season', h.current_season())
+        try:
+            season = int(request.GET.get('season', h.current_season()))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid season parameter'}, status=400)
         
         # Position mapping and key stats (based on ESPN API order and NFL standards)
         position_mappings = {
@@ -747,39 +788,72 @@ def position_stats(request, position):
             }
         }
         
+        # Aliases from REAL ESPN stat names (used for all rows written going
+        # forward) to the semantic keys above. The stat_N aliases remain only
+        # for legacy rows written before real names were stored.
+        real_name_aliases = {
+            'quarterback': {'passingYards': 'yards', 'passingTouchdowns': 'touchdowns',
+                            'completionPct': 'completion_pct', 'QBRating': 'rating',
+                            'interceptions': 'interceptions'},
+            'running back': {'rushingAttempts': 'rush_attempts', 'rushingYards': 'rush_yards',
+                             'yardsPerRushAttempt': 'rush_avg', 'rushingTouchdowns': 'rush_tds',
+                             'receptions': 'receptions'},
+            'wide receiver': {'receptions': 'receptions', 'receivingTargets': 'targets',
+                              'receivingYards': 'rec_yards', 'yardsPerReception': 'rec_avg',
+                              'receivingTouchdowns': 'rec_tds'},
+            'tight end': {'receptions': 'receptions', 'receivingTargets': 'targets',
+                          'receivingYards': 'rec_yards', 'yardsPerReception': 'rec_avg',
+                          'receivingTouchdowns': 'rec_tds'},
+            'defensive line': {'totalTackles': 'tackles', 'soloTackles': 'solo_tackles',
+                               'assistTackles': 'assists', 'sacks': 'sacks',
+                               'tacklesForLoss': 'tfl'},
+            'linebacker': {'totalTackles': 'tackles', 'soloTackles': 'solo_tackles',
+                           'assistTackles': 'assists', 'sacks': 'sacks',
+                           'tacklesForLoss': 'tfl'},
+            'defensive back': {'totalTackles': 'tackles', 'soloTackles': 'solo_tackles',
+                               'assistTackles': 'assists', 'interceptions': 'interceptions',
+                               'passesDefended': 'pass_def'},
+            'kicker': {'fieldGoalsMade': 'fg_made', 'fieldGoalAttempts': 'fg_att',
+                       'fieldGoalPct': 'fg_pct', 'extraPointsMade': 'xp_made',
+                       'kickingPoints': 'points', 'totalPoints': 'points'},
+        }
+
         position_lower = position.lower().replace('_', ' ')
         position_config = position_mappings.get(position_lower)
-        
+
         if not position_config:
             return JsonResponse({'error': f'Position {position} not supported'}, status=400)
-        
+
+        stat_aliases = dict(position_config.get('stat_aliases', {}))
+        stat_aliases.update(real_name_aliases.get(position_lower, {}))
+
         # Get all athletes for this position
         athletes = Athlete.objects.filter(
             position__icontains=position_lower.split()[0]
         ).select_related('team')
-        
+
+        # Single batched query for all athletes (was one query per athlete)
+        stats_by_athlete = {}
+        season_stats = SeasonStatistic.objects.filter(
+            athlete__in=athletes,
+            season_year=season,
+            season_type='Regular Season'
+        )
+        for stat in season_stats:
+            stats_by_athlete.setdefault(stat.athlete_id, {})[stat.stat_name] = stat.stat_value or 0
+
         players_data = []
-        
+
         for athlete in athletes:
-            # Get season stats for this athlete
-            stats = SeasonStatistic.objects.filter(
-                athlete=athlete,
-                season_year=season,
-                season_type='Regular Season'
-            )
-            
-            # Organize stats by name
-            player_stats = {}
-            for stat in stats:
-                player_stats[stat.stat_name] = stat.stat_value or 0
-            
-            # Map generic stat names to meaningful names using aliases
+            player_stats = stats_by_athlete.get(athlete.athlete_id, {})
+
+            # Map stored stat names (real ESPN names, or legacy stat_N) to
+            # the semantic names used by the formulas
             mapped_stats = {}
-            stat_aliases = position_config.get('stat_aliases', {})
             for generic_name, value in player_stats.items():
                 meaningful_name = stat_aliases.get(generic_name, generic_name)
                 mapped_stats[meaningful_name] = value
-            
+
             # Only include players with some stats
             if player_stats:
                 # Calculate ranking score using mapped stats

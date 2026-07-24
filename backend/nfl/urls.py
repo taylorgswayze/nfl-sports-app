@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.api_root, name='api_root'),  # Root API endpoint with enhanced documentation
+    path('seasons/', views.seasons, name='seasons'),  # Seasons with available data
     path('games/', views.games, name='games'),  # All games for current week
     path('games/<int:week_num>/', views.games, name='games_by_week'),  # Games for specific week
     path('team-schedule/<int:team_id>/', views.team_schedules, name='team_schedules'),  # Team schedule
