@@ -46,12 +46,29 @@ export function Folio({ sec, title, cont, pg, id }) {
   )
 }
 
-/* The team mark printed small on a lifted chip plate with a pale keyline.
-   Logo files are the app's own copyright-safe marks; never substitute. */
-export function Chip({ file, alt = '' }) {
+/* The team mark printed on a lifted chip plate with a pale keyline.
+   Logo files are the app's own copyright-safe marks; never substitute.
+   With `to` + `label` the chip becomes its own link (to the team desk),
+   focusable and sealed off from any clickable card around it. */
+export function Chip({ file, alt = '', to, label, lg = false }) {
+  const img = file ? <img src={getLogoUrl(file)} alt={alt} /> : null
+  const cls = `chip${lg ? ' chip-lg' : ''}`
+  if (to) {
+    return (
+      <Link
+        className={`${cls} chip-link`}
+        to={to}
+        aria-label={label}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {img}
+      </Link>
+    )
+  }
   return (
-    <span className="chip" aria-hidden={alt === '' ? 'true' : undefined}>
-      {file ? <img src={getLogoUrl(file)} alt={alt} /> : null}
+    <span className={cls} aria-hidden={alt === '' ? 'true' : undefined}>
+      {img}
     </span>
   )
 }

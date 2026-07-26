@@ -42,10 +42,22 @@ function gameResult(game) {
 }
 
 function ScheduleEntry({ game }) {
+  const navigate = useNavigate()
   const result = gameResult(game)
   const teamProb = game.is_home ? game.home_win_prob : game.away_win_prob
+  const to = `/game/${game.event_id}`
+  const goCard = (e) => {
+    if (!e.target.closest('a')) navigate(to)
+  }
   return (
-    <article className={`entry${result ? ' final' : ''}`}>
+    <article
+      className={`entry link${result ? ' final' : ''}`}
+      role="link"
+      tabIndex={0}
+      aria-label={`${game.is_home ? 'vs' : 'at'} ${game.opponent}, Week ${game.week_num} — open game detail`}
+      onClick={goCard}
+      onKeyDown={(e) => { if (e.key === 'Enter') goCard(e) }}
+    >
       <div className="entry-head">
         <span className="entry-no num">No. W{String(game.week_num).padStart(2, '0')}</span>
         {result && (
@@ -57,10 +69,11 @@ function ScheduleEntry({ game }) {
       </div>
       <div className="matchup">
         <div className="trow">
-          <Chip file={game.opponent_logo} />
+          <Chip file={game.opponent_logo} to={`/team/${game.opponent_id}`}
+            label={`View ${game.opponent} schedule`} />
           <span className="tname">
             <span className="at">{game.is_home ? 'vs ' : 'at '}</span>
-            <Link to={`/team/${game.opponent_id}`}>{game.opponent}</Link>
+            <b>{game.opponent_abbr || game.opponent}</b>
           </span>
           <span className="dots"></span>
           <span className="trec num">{game.opponent_record}</span>
@@ -406,7 +419,8 @@ function TeamSchedule() {
           <>
             <p className="folio-note">
               The full season, entered in kickoff order. Completed games print on lifted stock
-              with the result; upcoming games carry the market line.
+              with the result; upcoming games carry the market line. Any entry opens that
+              game&rsquo;s desk; the opponent&rsquo;s mark opens their schedule.
             </p>
             {loading ? (
               <p className="wire">PULLING THE SCHEDULE&hellip; <b>stand by</b></p>

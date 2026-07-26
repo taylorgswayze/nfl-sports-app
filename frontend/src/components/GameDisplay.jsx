@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { gameService } from '../api'
 import { isNumberLike, figureOrDash } from '../utils'
 import { Masthead, Folio, Chip, Footnotes, Colophon, ProbGauge } from './Almanac'
@@ -19,13 +19,13 @@ function isFinalGame(game) {
   return hasScores && (statusFinal || !game.status)
 }
 
-function TeamLine({ name, teamId, logo, record, away }) {
+function TeamLine({ name, abbr, teamId, logo, record, away }) {
   return (
     <div className="trow">
-      <Chip file={logo} />
+      <Chip file={logo} to={`/team/${teamId}`} label={`View ${name} schedule`} />
       <span className="tname">
         {!away && <span className="at">at </span>}
-        <Link to={`/team/${teamId}`}>{name}</Link>
+        <b>{abbr || name}</b>
       </span>
       <span className="dots"></span>
       <span className="trec num">{record}</span>
@@ -33,8 +33,30 @@ function TeamLine({ name, teamId, logo, record, away }) {
   )
 }
 
+/* Card-level navigation to the game desk. Real links inside the card
+   (logo chips) stop propagation, so they keep their own destinations. */
+function useCardLink(to) {
+  const navigate = useNavigate()
+  return {
+    role: 'link',
+    tabIndex: 0,
+    onClick: (e) => {
+      if (!e.target.closest('a')) navigate(to)
+    },
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' && !e.target.closest('a')) navigate(to)
+    },
+  }
+}
+
 function GameEntry({ game, index }) {
-  const abbr = abbrsFrom(game)
+  const parsed = abbrsFrom(game)
+  const abbr = {
+    away: game.away_team_abbr || parsed.away,
+    home: game.home_team_abbr || parsed.home,
+  }
+  const cardLink = useCardLink(`/game/${game.event_id}`)
+  const cardLabel = `${game.away_team} at ${game.home_team} — open game detail`
   const number = `No. ${game.week_num}.${String(index + 1).padStart(2, '0')}`
   const final = isFinalGame(game)
   const hasProbs = isNumberLike(game.away_win_prob) && isNumberLike(game.home_win_prob)
@@ -46,19 +68,19 @@ function GameEntry({ game, index }) {
     const homeScore = Number(game.home_score)
     const awayWon = awayScore > homeScore
     return (
-      <article className="entry final">
+      <article className="entry final link" aria-label={cardLabel} {...cardLink}>
         <div className="entry-head">
           <span className="entry-no num">{number}</span>
           <span className="final-flag">{String(game.status || 'Final')}</span>
           <span className="entry-time num">{game.game_datetime}</span>
         </div>
         <div className="matchup">
-          <TeamLine away name={game.away_team} teamId={game.away_team_id}
+          <TeamLine away name={game.away_team} abbr={abbr.away} teamId={game.away_team_id}
             logo={game.away_team_logo} record={game.away_team_record} />
           <div className="fig">
             <span className={`fval num ${awayWon ? 'win' : 'lose'}`}>{awayScore}</span>
           </div>
-          <TeamLine name={game.home_team} teamId={game.home_team_id}
+          <TeamLine name={game.home_team} abbr={abbr.home} teamId={game.home_team_id}
             logo={game.home_team_logo} record={game.home_team_record} />
           <div className="fig">
             <span className={`fval num ${awayWon ? 'lose' : 'win'}`}>{homeScore}</span>
@@ -80,19 +102,19 @@ function GameEntry({ game, index }) {
   }
 
   return (
-    <article className="entry">
+    <article className="entry link" aria-label={cardLabel} {...cardLink}>
       <div className="entry-head">
         <span className="entry-no num">{number}</span>
         <span className="entry-time num">{game.game_datetime}</span>
       </div>
       <div className="matchup">
-        <TeamLine away name={game.away_team} teamId={game.away_team_id}
+        <TeamLine away name={game.away_team} abbr={abbr.away} teamId={game.away_team_id}
           logo={game.away_team_logo} record={game.away_team_record} />
         <div className="fig">
           <span className="flbl">LINE</span>
           <span className={`fval num${game.odds === 'N/A' ? ' dim' : ''}`}>{figureOrDash(game.odds)}</span>
         </div>
-        <TeamLine name={game.home_team} teamId={game.home_team_id}
+        <TeamLine name={game.home_team} abbr={abbr.home} teamId={game.home_team_id}
           logo={game.home_team_logo} record={game.home_team_record} />
         <div className="fig">
           <span className="flbl">TOTAL</span>
@@ -265,6 +287,7 @@ function GameDisplay() {
             </p>
           )}
           <p>Records print through the latest completed week. Lines are the market&rsquo;s; probabilities are the Desk model&rsquo;s.</p>
+          <p>Any entry opens that game&rsquo;s desk, with the head-to-head figures. A team&rsquo;s mark opens its schedule.</p>
         </Footnotes>
       </section>
 

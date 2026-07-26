@@ -1,5 +1,4 @@
 from django.http import JsonResponse
-from django.forms.models import model_to_dict
 from django.views.decorators.http import require_http_methods
 from django.db import models
 from .models import Calendar, Team, Game, Athlete, Outcome, StatTeam, SeasonStatistic
@@ -199,9 +198,11 @@ def games(request, week_num=None):
                     'status': game.status,
                     'home_team': game.home_team.team_name if game.home_team else 'TBD',
                     'home_team_id': game.home_team.team_id if game.home_team else None,
+                    'home_team_abbr': game.home_team.short_name if game.home_team else None,
                     'home_team_record': game.home_team.record if game.home_team else '0-0',
                     'away_team': game.away_team.team_name if game.away_team else 'TBD',
                     'away_team_id': game.away_team.team_id if game.away_team else None,
+                    'away_team_abbr': game.away_team.short_name if game.away_team else None,
                     'away_team_record': game.away_team.record if game.away_team else '0-0',
                     'home_team_logo': h.get_team_logo(game.home_team.team_id) if game.home_team else 'default-logo.png',
                     'away_team_logo': h.get_team_logo(game.away_team.team_id) if game.away_team else 'default-logo.png',
@@ -301,6 +302,7 @@ def team_schedules(request, team_id):
                     'result': result,
                     'opponent': opponent.team_name if opponent else 'TBD',
                     'opponent_id': opponent.team_id if opponent else None,
+                    'opponent_abbr': opponent.short_name if opponent else None,
                     'opponent_logo': h.get_team_logo(opponent.team_id) if opponent else 'default-logo.png',
                     'opponent_record': opponent.record if opponent else '0-0',
                     'odds': safe_get_outcome_data(game, 'spread_display'),
@@ -316,6 +318,7 @@ def team_schedules(request, team_id):
         return JsonResponse({
             'schedule': schedule,
             'team': team.team_name,
+            'team_abbr': team.short_name,
             'team_id': team_id,
             'season': season,
             'available_seasons': available_seasons,
@@ -333,11 +336,241 @@ def team_schedules(request, team_id):
         }, status=500)
 
 
+# ---------------------------------------------------------------------------
+# Head-to-head matchup apparatus
+#
+# H2H_ROWS is the explicit mapping table for the matchup view: stat key ->
+# data source, label, better-side direction and display format.
+#
+# Source kinds:
+#   'scores'                          computed point-in-time from the Game
+#                                     table (finals before the viewed game's
+#                                     kickoff, in the stats season)
+#   ('stat', (category, stat_name))   full-season StatTeam value (real ESPN
+#                                     stat names, verified in the DB)
+#   ('ratio', num_pair, den_pair)     ratio of two StatTeam values
+#   ('per_game', (category, name))    StatTeam value / games played
+#
+# Rows from the owner's research list that are DROPPED because the data does
+# not exist in StatTeam (never fabricated):
+#   - Yards per play allowed          (defensive|yardsAllowed is zeroed in the
+#                                      ESPN backfill; no opponent-plays stat)
+#   - Net yards/pass attempt allowed  (no allowed/opponent passing stat)
+#   - Third down conversion % allowed (no allowed variant)
+# ---------------------------------------------------------------------------
+
+H2H_GAMES_PLAYED_SOURCES = [('general', 'gamesPlayed'), ('passing', 'teamGamesPlayed')]
+
+H2H_ROWS = [
+    {'key': 'record',          'label': 'Record',                      'src': 'scores', 'dir': None,     'fmt': 'text'},
+    {'key': 'ppg',             'label': 'Points per game',             'src': 'scores', 'dir': 'higher', 'fmt': 'num1'},
+    {'key': 'papg',            'label': 'Points allowed per game',     'src': 'scores', 'dir': 'lower',  'fmt': 'num1'},
+    {'key': 'point_diff',      'label': 'Point differential per game', 'src': 'scores', 'dir': 'higher', 'fmt': 'signed1'},
+    {'key': 'yards_per_play',  'label': 'Yards per play',
+     'src': ('ratio', ('passing', 'totalYards'), ('passing', 'totalOffensivePlays')), 'dir': 'higher', 'fmt': 'num2'},
+    {'key': 'turnover_margin', 'label': 'Turnover margin',
+     'src': ('stat', ('miscellaneous', 'turnOverDifferential')), 'dir': 'higher', 'fmt': 'signed0'},
+    {'key': 'net_pass_ypa',    'label': 'Net yards per pass attempt',
+     'src': ('stat', ('passing', 'netYardsPerPassAttempt')), 'dir': 'higher', 'fmt': 'num2'},
+    {'key': 'rush_ypa',        'label': 'Rushing yards per attempt',
+     'src': ('stat', ('rushing', 'yardsPerRushAttempt')), 'dir': 'higher', 'fmt': 'num2'},
+    {'key': 'third_down_pct',  'label': 'Third down conversion',
+     'src': ('stat', ('miscellaneous', 'thirdDownConvPct')), 'dir': 'higher', 'fmt': 'pct1'},
+    {'key': 'red_zone_td_pct', 'label': 'Red zone touchdown rate',
+     'src': ('stat', ('miscellaneous', 'redzoneTouchdownPct')), 'dir': 'higher', 'fmt': 'pct1'},
+    {'key': 'passer_rating',   'label': 'Team passer rating',
+     'src': ('stat', ('passing', 'QBRating')), 'dir': 'higher', 'fmt': 'num1'},
+    {'key': 'sacks_def',       'label': 'Sacks, defense',
+     'src': ('stat', ('defensive', 'sacks')), 'dir': 'higher', 'fmt': 'int'},
+    {'key': 'sacks_allowed',   'label': 'Sacks allowed',
+     'src': ('stat', ('passing', 'sacks')), 'dir': 'lower', 'fmt': 'int'},
+    {'key': 'ints_thrown',     'label': 'Interceptions thrown',
+     'src': ('stat', ('passing', 'interceptions')), 'dir': 'lower', 'fmt': 'int'},
+    {'key': 'penalty_ypg',     'label': 'Penalty yards per game',
+     'src': ('per_game', ('miscellaneous', 'totalPenaltyYards')), 'dir': 'lower', 'fmt': 'num1'},
+    {'key': 'possession_time', 'label': 'Time of possession per game',
+     'src': ('per_game', ('miscellaneous', 'possessionTimeSeconds')), 'dir': 'higher', 'fmt': 'clock'},
+    {'key': 'total_ypg',       'label': 'Total yards per game',
+     'src': ('stat', ('passing', 'yardsPerGame')), 'dir': 'higher', 'fmt': 'num1'},
+]
+
+
+def _h2h_format(value, fmt):
+    """Render a raw stat value as a printed figure. Text rows pass through."""
+    if value is None:
+        return None
+    if fmt == 'text':
+        return str(value)
+    value = float(value)
+    if fmt == 'num1':
+        return f'{value:.1f}'
+    if fmt == 'num2':
+        return f'{value:.2f}'
+    if fmt == 'signed1':
+        return f'{value:+.1f}'
+    if fmt == 'signed0':
+        return f'{value:+.0f}'
+    if fmt == 'pct1':
+        return f'{value:.1f}%'
+    if fmt == 'int':
+        return f'{value:.0f}'
+    if fmt == 'clock':
+        seconds = int(round(value))
+        return f'{seconds // 60}:{seconds % 60:02d}'
+    return str(value)
+
+
+def _score_lines(team_ids, season, kickoff):
+    """Point-in-time score-derived figures for the given teams: only games
+    completed (status=final) BEFORE the viewed game's kickoff in `season`.
+    One query for both teams."""
+    finals = Game.objects.filter(
+        season=season,
+        status=Game.STATUS_FINAL,
+        game_datetime__lt=kickoff,
+        home_score__isnull=False,
+        away_score__isnull=False,
+    ).filter(
+        models.Q(home_team_id__in=team_ids) | models.Q(away_team_id__in=team_ids)
+    ).values('home_team_id', 'away_team_id', 'home_score', 'away_score')
+
+    tally = {tid: {'w': 0, 'l': 0, 't': 0, 'pf': 0, 'pa': 0, 'n': 0} for tid in team_ids}
+    for g in finals:
+        for tid in team_ids:
+            if g['home_team_id'] == tid:
+                us, them = g['home_score'], g['away_score']
+            elif g['away_team_id'] == tid:
+                us, them = g['away_score'], g['home_score']
+            else:
+                continue
+            t = tally[tid]
+            t['n'] += 1
+            t['pf'] += us
+            t['pa'] += them
+            if us > them:
+                t['w'] += 1
+            elif us < them:
+                t['l'] += 1
+            else:
+                t['t'] += 1
+
+    lines = {}
+    for tid, t in tally.items():
+        if t['n'] == 0:
+            lines[tid] = {'record': None, 'ppg': None, 'papg': None, 'point_diff': None}
+            continue
+        record = f"{t['w']}-{t['l']}" + (f"-{t['t']}" if t['t'] else '')
+        lines[tid] = {
+            'record': record,
+            'ppg': t['pf'] / t['n'],
+            'papg': t['pa'] / t['n'],
+            'point_diff': (t['pf'] - t['pa']) / t['n'],
+        }
+    return lines
+
+
+def _build_h2h(game):
+    """Build the head-to-head rows for a game.
+
+    Season rule (owner's spec): for a game in season Y, if BOTH teams have at
+    least one completed game in season Y before the viewed game's kickoff,
+    use season Y; otherwise use season Y-1 (full season)."""
+    away_id = game.away_team_id
+    home_id = game.home_team_id
+    team_ids = [away_id, home_id]
+
+    current = _score_lines(team_ids, game.season, game.game_datetime)
+    in_season = all(current[tid]['record'] is not None for tid in team_ids)
+    if in_season:
+        stats_season = game.season
+        score_lines = current
+        stats_note = f'Stats: {stats_season} through Week {game.week_num}'
+        stats_scope = 'to_kickoff'
+    else:
+        stats_season = game.season - 1
+        # A prior season's games all precede this kickoff, so the same
+        # point-in-time computation yields true full-season figures.
+        score_lines = _score_lines(team_ids, stats_season, game.game_datetime)
+        stats_note = f'Stats: {stats_season} full season'
+        stats_scope = 'full_season'
+
+    # Every StatTeam figure for both team-seasons in one batched query.
+    needed_names = {H2H_GAMES_PLAYED_SOURCES[0][1], H2H_GAMES_PLAYED_SOURCES[1][1]}
+    for row in H2H_ROWS:
+        src = row['src']
+        if src == 'scores':
+            continue
+        if src[0] == 'ratio':
+            needed_names.update([src[1][1], src[2][1]])
+        else:
+            needed_names.add(src[1][1])
+    stat_rows = StatTeam.objects.filter(
+        team_id__in=team_ids, season=stats_season, stat_name__in=needed_names,
+    ).values('team_id', 'category', 'stat_name', 'value')
+    values = {(r['team_id'], r['category'], r['stat_name']): r['value'] for r in stat_rows}
+
+    def stat(tid, pair):
+        return values.get((tid, pair[0], pair[1]))
+
+    def games_played(tid):
+        for pair in H2H_GAMES_PLAYED_SOURCES:
+            v = stat(tid, pair)
+            if v:
+                return v
+        return None
+
+    def resolve(tid, row):
+        src = row['src']
+        if src == 'scores':
+            return score_lines[tid][row['key']]
+        kind = src[0]
+        if kind == 'stat':
+            return stat(tid, src[1])
+        if kind == 'ratio':
+            num, den = stat(tid, src[1]), stat(tid, src[2])
+            if num is None or not den:
+                return None
+            return num / den
+        if kind == 'per_game':
+            total, n = stat(tid, src[1]), games_played(tid)
+            if total is None or not n:
+                return None
+            return total / n
+        return None
+
+    h2h = []
+    for row in H2H_ROWS:
+        away_val = resolve(away_id, row)
+        home_val = resolve(home_id, row)
+        # No fabricated data: a row missing a real value on either side is
+        # omitted entirely (a one-sided comparison is no comparison).
+        if away_val is None or home_val is None:
+            continue
+        better = None
+        if row['dir'] and away_val != home_val:
+            away_leads = away_val > home_val
+            if row['dir'] == 'lower':
+                away_leads = not away_leads
+            better = 'away' if away_leads else 'home'
+        h2h.append({
+            'key': row['key'],
+            'label': row['label'],
+            'away': _h2h_format(away_val, row['fmt']),
+            'home': _h2h_format(home_val, row['fmt']),
+            'better': better,
+            'direction': row['dir'],
+            'season_used': stats_season,
+            'scope': 'to_kickoff' if (row['src'] == 'scores' and stats_scope == 'to_kickoff') else 'full_season',
+            'format': row['fmt'],
+        })
+
+    return h2h, stats_season, stats_scope, stats_note, score_lines
+
+
 @require_http_methods(["GET"])
 def matchup(request, event_id):
-    """Get detailed matchup information with improved error handling"""
+    """Game header plus the head-to-head comparison table."""
     try:
-        # Try to get the game by event_id
         try:
             game = Game.objects.select_related('home_team', 'away_team', 'outcome').get(event_id=event_id)
         except Game.DoesNotExist:
@@ -346,27 +579,22 @@ def matchup(request, event_id):
                 'message': 'Please check the event_id and try again'
             }, status=404)
 
-        # Get team statistics
-        home_stats = []
-        away_stats = []
-        
-        try:
-            if game.home_team:
-                home_stats = StatTeam.objects.filter(
-                    team_id=game.home_team.team_id, season=game.season)
-                home_stats = [model_to_dict(stat) for stat in home_stats]
-        except Exception as e:
-            logger.warning(f"Error fetching home team stats: {e}")
+        if not game.home_team or not game.away_team:
+            return JsonResponse({
+                'error': f'Game {event_id} has incomplete team data'
+            }, status=404)
 
-        try:
-            if game.away_team:
-                away_stats = StatTeam.objects.filter(
-                    team_id=game.away_team.team_id, season=game.season)
-                away_stats = [model_to_dict(stat) for stat in away_stats]
-        except Exception as e:
-            logger.warning(f"Error fetching away team stats: {e}")
+        h2h, stats_season, stats_scope, stats_note, score_lines = _build_h2h(game)
 
-        # Build matchup data
+        def team_block(team, line):
+            return {
+                'team_id': team.team_id,
+                'name': team.team_name,
+                'abbr': team.short_name,
+                'record': line['record'],  # point-in-time; None when no games counted
+                'logo': h.get_team_logo(team.team_id),
+            }
+
         matchup_data = {
             'event_id': game.event_id,
             'short_name': game.short_name,
@@ -374,25 +602,20 @@ def matchup(request, event_id):
             'season': game.season,
             'week_num': game.week_num,
             'season_type_id': game.season_type_id,
+            'status': game.status,
             'home_score': game.home_score,
             'away_score': game.away_score,
-            'status': game.status,
-            'home_team': game.home_team.team_name if game.home_team else 'TBD',
-            'home_team_id': game.home_team.team_id if game.home_team else None,
-            'home_team_record': game.home_team.record if game.home_team else '0-0',
-            'away_team': game.away_team.team_name if game.away_team else 'TBD',
-            'away_team_id': game.away_team.team_id if game.away_team else None,
-            'away_team_record': game.away_team.record if game.away_team else '0-0',
-            'home_team_logo': h.get_team_logo(game.home_team.team_id) if game.home_team else 'default-logo.png',
-            'away_team_logo': h.get_team_logo(game.away_team.team_id) if game.away_team else 'default-logo.png',
+            'away_team': team_block(game.away_team, score_lines[game.away_team_id]),
+            'home_team': team_block(game.home_team, score_lines[game.home_team_id]),
             'odds': safe_get_outcome_data(game, 'spread_display'),
             'home_win_prob': safe_get_outcome_data(game, 'home_win_prob'),
             'away_win_prob': safe_get_outcome_data(game, 'away_win_prob'),
             'pred_diff': safe_get_outcome_data(game, 'pred_diff'),
             'odds_last_updated': format_game_time(safe_get_outcome_data(game, 'last_updated', None)) if safe_get_outcome_data(game, 'last_updated', None) else 'N/A',
-            'home_stats': home_stats,
-            'away_stats': away_stats,
-            'has_stats': len(home_stats) > 0 or len(away_stats) > 0
+            'stats_season': stats_season,
+            'stats_scope': stats_scope,
+            'stats_note': stats_note,
+            'h2h': h2h,
         }
 
         return JsonResponse(matchup_data)

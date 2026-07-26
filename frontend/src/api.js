@@ -43,6 +43,9 @@ export const gameService = {
   fetchTeamSchedule(teamId) {
     return get(`/team-schedule/${teamId}/`)
   },
+  fetchMatchup(eventId) {
+    return get(`/matchup/${eventId}/`)
+  },
   fetchTeamStats(teamId, season) {
     return get(`/teams/${teamId}/stats/`, { season })
   },
