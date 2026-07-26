@@ -215,22 +215,21 @@ img { max-width: 100%; }
   align-items: center;
 }
 .trow { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* logo chip: the team mark printed on a lifted plate with a pale keyline */
+/* logo chip: the team mark on a quiet plate, borderless */
 .chip {
-  flex: none; width: 50px; height: 50px; border-radius: 2px;
+  flex: none; width: 58px; height: 58px; border-radius: 2px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--paper-deep); border-bottom: 3px solid var(--rule);
-  box-shadow: 0 0 0 1px rgba(237, 233, 221, .28); /* pale keyline, not a glow */
+  background: var(--paper-deep);
 }
 .entry.final .chip { background: var(--paper); }
-.chip img { width: 40px; height: 40px; object-fit: contain; display: block; }
+.chip img { width: 50px; height: 50px; object-fit: contain; display: block; }
 /* chip as its own link: the mark opens the team desk */
 a.chip-link { text-decoration: none; }
-a.chip-link:hover { border-bottom-color: var(--green); background: var(--paper-deep); }
+a.chip-link:hover { background: var(--paper); }
 .entry.final a.chip-link:hover { background: var(--paper); }
 /* oversized plate for the game-desk header */
-.chip.chip-lg { width: 76px; height: 76px; border-bottom-width: 4px; }
-.chip.chip-lg img { width: 62px; height: 62px; }
+.chip.chip-lg { width: 88px; height: 88px; }
+.chip.chip-lg img { width: 76px; height: 76px; }
 .tname { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tname a { color: var(--ink); text-decoration: none; }
 .tname a:hover { color: var(--green); text-decoration: underline; text-decoration-color: var(--rule); }
@@ -497,8 +496,8 @@ table.h2h { width: 100%; border-collapse: collapse; }
   .gd-team, .gd-team.home { flex-direction: column; gap: 10px; }
   .gd-team { align-items: flex-start; }
   .gd-team.home { align-items: flex-end; }
-  .chip.chip-lg { width: 60px; height: 60px; }
-  .chip.chip-lg img { width: 48px; height: 48px; }
+  .chip.chip-lg { width: 70px; height: 70px; }
+  .chip.chip-lg img { width: 58px; height: 58px; }
   .gd-abbr { font-size: 24px; }
   .gd-name { font-size: 12px; }
   .gd-score { font-size: 32px; gap: 6px; }
