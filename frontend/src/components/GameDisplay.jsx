@@ -4,7 +4,7 @@ import { gameService } from '../api'
 import { isNumberLike, figureOrDash } from '../utils'
 import { Masthead, Folio, Chip, Footnotes, Colophon, ProbGauge } from './Almanac'
 
-const FALLBACK_SEASONS = ['2025', '2024', '2023', '2022']
+const FALLBACK_SEASONS = ['2026', '2025', '2024', '2023', '2022']
 
 /* "BAL @ CIN" -> { away: 'BAL', home: 'CIN' } */
 function abbrsFrom(game) {
@@ -56,7 +56,7 @@ function GameEntry({ game, index }) {
     home: game.home_team_abbr || parsed.home,
   }
   const cardLink = useCardLink(`/game/${game.event_id}`)
-  const cardLabel = `${game.away_team} at ${game.home_team} — open game detail`
+  const cardLabel = `${game.away_team} at ${game.home_team}, open the game page`
   const number = `No. ${game.week_num}.${String(index + 1).padStart(2, '0')}`
   const final = isFinalGame(game)
   const hasProbs = isNumberLike(game.away_win_prob) && isNumberLike(game.home_win_prob)
@@ -93,7 +93,7 @@ function GameEntry({ game, index }) {
           {hasProbs && (
             <>
               {game.odds && game.odds !== 'N/A' ? ' · ' : ''}
-              kickoff prob. <span className="num">{game.away_win_prob}/{game.home_win_prob}</span> {abbr.away}.
+              kickoff probability <span className="num">{game.away_win_prob}/{game.home_win_prob}</span> {abbr.away}.
             </>
           )}
         </p>
@@ -119,7 +119,7 @@ function GameEntry({ game, index }) {
         <div className="fig">
           <span className="flbl">TOTAL</span>
           <span className={`fval num${total == null ? ' dim' : ''}`}>
-            {total == null ? '—' : `O/U ${total}`}
+            {total == null ? '–' : `O/U ${total}`}
           </span>
         </div>
       </div>
@@ -246,29 +246,28 @@ function GameDisplay() {
   return (
     <>
       <Masthead
-        vol={`Sec 1 — Masthead & Index${seasonLabel ? ` — ${seasonLabel} Season` : ''} — Night Ed.`}
+        vol={`Front Page${seasonLabel ? ` · ${seasonLabel} Season` : ''}`}
         stamp={stamp}
         controls={controls}
       />
 
       <section aria-labelledby="sec-slate">
         <Folio
-          sec="SEC 2"
+          sec="THE SLATE"
           id="sec-slate"
-          title={`${selectedWeek?.name || 'Week'} Slate`}
+          title={selectedWeek?.name || 'This Week'}
           cont={seasonLabel ? `${seasonLabel} Season` : null}
-          pg={weekNo ? `p. ${String(weekNo).padStart(2, '0')}` : null}
         />
-        <p className="folio-note">
-          {games.length > 0
-            ? `${games.length} game${games.length === 1 ? '' : 's'}, entered in kickoff order. Lines are closing where final. Probabilities are the Desk model's.`
-            : 'Entries print in kickoff order as the schedule posts.'}
-        </p>
+        {games.length > 0 && (
+          <p className="folio-note">
+            {games.length} game{games.length === 1 ? '' : 's'}, listed in kickoff order.
+          </p>
+        )}
 
         {loading ? (
-          <p className="wire">SETTING THE SLATE&hellip; <b>stand by</b></p>
+          <p className="wire">LOADING THE WEEK&rsquo;S GAMES&hellip; <b>stand by</b></p>
         ) : error ? (
-          <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+          <p className="wire">COULD NOT LOAD THE WEEK&rsquo;S GAMES: <b>{error}</b>. Reload the page to try again.</p>
         ) : games.length > 0 ? (
           <div className="slate">
             {games.map((game, i) => (
@@ -276,18 +275,19 @@ function GameDisplay() {
             ))}
           </div>
         ) : (
-          <p className="wire">NO GAMES ON THE BOOKS for this week. <b>Pick another week above.</b></p>
+          <p className="wire">NO GAMES LISTED for this week. <b>Pick another week above.</b></p>
         )}
 
         <Footnotes>
           {hasEdges && (
             <p>
-              <span className="mark">&dagger;</span> Model edge: the Desk model&rsquo;s line differs
-              from the market by the figure shown, in points.
+              <span className="mark">&dagger;</span> Model edge: the Desk model&rsquo;s predicted
+              line differs from the market line by the points shown.
             </p>
           )}
-          <p>Records print through the latest completed week. Lines are the market&rsquo;s; probabilities are the Desk model&rsquo;s.</p>
-          <p>Any entry opens that game&rsquo;s desk, with the head-to-head figures. A team&rsquo;s mark opens its schedule.</p>
+          <p>Records run through the latest completed week.</p>
+          <p>Lines come from the betting market; win probabilities come from the Desk&rsquo;s own model.</p>
+          <p>Select any game to open its page, with head-to-head figures. Select a team&rsquo;s logo to open its schedule.</p>
         </Footnotes>
       </section>
 

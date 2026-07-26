@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { get } from '../api'
+import { get, fetchSeasonsCached } from '../api'
 import { Masthead, Folio, Footnotes, Colophon } from './Almanac'
 
 function PositionStats({ position: propPosition, selectedPlayerId: propSelectedPlayerId }) {
@@ -13,12 +13,22 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [selectedSeason, setSelectedSeason] = useState("2025")
+  const [seasons, setSeasons] = useState([])
+  const [selectedSeason, setSelectedSeason] = useState(null)
   const [keyStats, setKeyStats] = useState([])
   const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'asc' })
 
   useEffect(() => {
-    if (currentPosition) {
+    fetchSeasonsCached()
+      .then((data) => {
+        setSeasons((data.seasons || []).map(String))
+        setSelectedSeason((prev) => prev ?? String(data.current_season || '2026'))
+      })
+      .catch(() => setSelectedSeason((prev) => prev ?? '2026'))
+  }, [])
+
+  useEffect(() => {
+    if (currentPosition && selectedSeason) {
       loadPositionStats()
     }
   }, [currentPosition, selectedSeason])
@@ -125,23 +135,22 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
   return (
     <>
       <Masthead
-        vol="Sec 3 — Position Leaders — Night Ed."
+        vol="Position Leaders"
         controls={
           <>
             <button className="ctl" type="button" onClick={goBack}>
-              <span className="lbl">RETURN</span> <span>ONE PAGE BACK</span>
+              <span className="lbl">RETURN</span> <span>PREVIOUS PAGE</span>
             </button>
             <label className="ctl">
               <span className="lbl">SEASON</span>
               <select
-                value={selectedSeason}
+                value={selectedSeason || ''}
                 onChange={(e) => setSelectedSeason(e.target.value)}
                 aria-label="Season"
               >
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
+                {(seasons.length ? seasons : [selectedSeason].filter(Boolean)).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
               </select>
               <span className="car" aria-hidden="true">&#9662;</span>
             </label>
@@ -151,20 +160,20 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
 
       <section aria-labelledby="sec-leaders">
         <Folio
-          sec="SEC 3"
+          sec="LEADERS"
           id="sec-leaders"
-          title={`Position Leaders — ${positionTitle}`}
-          cont={`${selectedSeason} Season`}
+          title={positionTitle}
+          cont={selectedSeason ? `${selectedSeason} Season` : null}
         />
         <p className="folio-note">
-          Raw feed keys are translated to printed labels; the mono line under each header
-          names its source key. Click a header to re-sort the table.
+          Players ranked by combined production. The small line under a stat header
+          names the stat as the data feed keeps it. Select any header to sort the table.
         </p>
 
         {loading ? (
-          <p className="wire">RANKING THE LEAGUE&hellip; <b>stand by</b></p>
+          <p className="wire">LOADING THE LEADERS&hellip; <b>stand by</b></p>
         ) : error ? (
-          <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+          <p className="wire">COULD NOT LOAD THE LEADERS: <b>{error}</b>. Reload the page to try again.</p>
         ) : players.length > 0 ? (
           <div className="tablewrap">
             <table className="stats">
@@ -197,7 +206,7 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
                         {isLeader && <span className="mark" title="League leader">*</span>}
                       </td>
                       <td className="txt team">{player.team}</td>
-                      <td className="n">{player.jersey || '—'}</td>
+                      <td className="n">{player.jersey || '–'}</td>
                       {keyStats.map(stat => (
                         <td key={stat} className={`n${sortConfig.key === stat ? ' sortcol' : ''}`}>
                           {formatStatValue(player.stats[stat] || 0, stat)}
@@ -211,7 +220,8 @@ function PositionStats({ position: propPosition, selectedPlayerId: propSelectedP
           </div>
         ) : (
           <p className="wire">
-            NO FIGURES on file for <b>{positionTitle}</b> in the <b>{selectedSeason}</b> season.
+            NO STATS ON FILE for <b>{positionTitle}</b> in the <b>{selectedSeason}</b> season.{' '}
+            <b>Pick another season above.</b>
           </p>
         )}
 

@@ -56,31 +56,31 @@ function TeamStatComparison() {
   return (
     <>
       <Masthead
-        vol="Sec 4 — League Table — Night Ed."
+        vol="League Table"
         controls={
           <button className="ctl" type="button" onClick={goBack}>
-            <span className="lbl">RETURN TO</span> <span>THE TEAM DESK</span>
+            <span className="lbl">BACK TO</span> <span>THE TEAM DESK</span>
           </button>
         }
       />
 
       <section aria-labelledby="sec-league">
         <Folio
-          sec="SEC 4"
+          sec="THE TABLE"
           id="sec-league"
-          title={`League Table — ${printedName}`}
+          title={printedName}
           cont={statInfo.season ? `${statInfo.season} Season` : null}
-          pg={statInfo.totalTeams ? `${statInfo.totalTeams} clubs` : null}
+          pg={statInfo.totalTeams ? `${statInfo.totalTeams} teams` : null}
         />
         <p className="folio-note">
-          Every club ranked by <span className="num">{printedName}</span>.
-          The first line holds the league lead{selectedTeamId ? '; your club is ruled in green' : ''}.
+          Every team ranked by <span className="num">{printedName}</span>.
+          The top row holds the league lead{selectedTeamId ? '; your team is ruled in green' : ''}.
         </p>
 
         {loading ? (
-          <p className="wire">RANKING THE LEAGUE&hellip; <b>stand by</b></p>
+          <p className="wire">LOADING THE TABLE&hellip; <b>stand by</b></p>
         ) : error ? (
-          <p className="wire">WIRE FAULT &mdash; <b>{error}</b>. Reload to re-request the feed.</p>
+          <p className="wire">COULD NOT LOAD THE TABLE: <b>{error}</b>. Reload the page to try again.</p>
         ) : (
           <div className="tablewrap">
             <table className="stats">

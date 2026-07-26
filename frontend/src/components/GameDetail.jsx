@@ -5,7 +5,7 @@ import { isNumberLike } from '../utils'
 import { Masthead, Folio, Chip, Footnotes, Colophon, ProbGauge } from './Almanac'
 
 /* The game desk: one game's almanac page. Header prints the matchup as an
-   oversized entry; below it, the head-to-head ledger — away figures left,
+   oversized entry; below it, the head-to-head ledger: away figures left,
    the measure down the spine, home figures right, the leading side set in
    bone-bold with a green tick toward the spine. */
 
@@ -68,19 +68,19 @@ function GameDetail() {
 
   const controls = (
     <Link className="ctl" to="/">
-      <span className="lbl">RETURN TO</span> <span>THE WEEK SLATE</span>
+      <span className="lbl">BACK TO</span> <span>FRONT PAGE</span>
     </Link>
   )
 
   if (loading || error || !data) {
     return (
       <>
-        <Masthead vol="Sec 3 — Game Desk — Night Ed." controls={controls} />
+        <Masthead vol="Game Desk" controls={controls} />
         {loading ? (
-          <p className="wire" style={{ marginTop: 42 }}>PULLING THE GAME FILE&hellip; <b>stand by</b></p>
+          <p className="wire" style={{ marginTop: 42 }}>LOADING THE GAME&hellip; <b>stand by</b></p>
         ) : (
           <p className="wire" style={{ marginTop: 42 }}>
-            WIRE FAULT &mdash; <b>{error || 'no game data'}</b>. Reload to re-request the feed.
+            COULD NOT LOAD THIS GAME: <b>{error || 'no game data'}</b>. Reload the page to try again.
           </p>
         )}
         <Colophon />
@@ -100,27 +100,26 @@ function GameDetail() {
   const hasOdds = data.odds && data.odds !== 'N/A'
   const rows = data.h2h || []
   const mixedScope = data.stats_scope === 'to_kickoff'
-  const seasonNote = (data.stats_note || '').replace(/^Stats:\s*/, '')
+  const seasonNote = data.stats_note || ''
   const weekLabel = data.season_type_id === 3
     ? `Postseason, Round ${data.week_num}`
     : `Week ${data.week_num}`
 
   return (
     <>
-      <Masthead vol="Sec 3 — Game Desk — Night Ed." controls={controls} />
+      <Masthead vol="Game Desk" controls={controls} />
 
       <section aria-labelledby="sec-game">
         <Folio
-          sec="SEC 2"
+          sec="THE GAME"
           id="sec-game"
           title={`${away.abbr} at ${home.abbr}`}
-          cont={`${weekLabel} — ${data.season} Season`}
-          pg={`No. ${data.event_id}`}
+          cont={`${weekLabel} · ${data.season} Season`}
         />
         <p className="folio-note">
           {final
-            ? <>Gone final. Kicked off {data.game_datetime}{hasOdds && <>; closed <span className="num">{data.odds}</span></>}.</>
-            : <>Kickoff {data.game_datetime}{hasOdds && <>; the market holds <span className="num">{data.odds}</span></>}.</>}
+            ? <>Final. Kicked off {data.game_datetime}{hasOdds && <>; the line closed <span className="num">{data.odds}</span></>}.</>
+            : <>Kickoff {data.game_datetime}{hasOdds && <>; current line <span className="num">{data.odds}</span></>}.</>}
         </p>
 
         <div className="gd-head">
@@ -158,10 +157,10 @@ function GameDetail() {
       </section>
 
       <section aria-labelledby="sec-h2h">
-        <Folio sec="SEC 3" id="sec-h2h" title="Head to Head" cont={seasonNote} />
+        <Folio sec="THE LEDGER" id="sec-h2h" title="Head to Head" cont={seasonNote} />
         <p className="folio-note">
-          {data.stats_note}. The leading side of each measure prints in bone
-          with a tick at the spine.
+          Figures cover the {seasonNote}. The leading side of each measure is set
+          in bold with a green tick.
         </p>
 
         {rows.length > 0 ? (
@@ -176,7 +175,7 @@ function GameDetail() {
                       <span className="num">{away.abbr}</span>
                     </span>
                   </th>
-                  <th scope="col" className="lblhead"><span>The Measure</span></th>
+                  <th scope="col" className="lblhead"><span>Measure</span></th>
                   <th scope="col" className="side home">
                     <span className="h2h-team">
                       <span className="num">{home.abbr}</span>
@@ -202,27 +201,27 @@ function GameDetail() {
         <Footnotes>
           {mixedScope && (
             <p>
-              <span className="mark">&deg;</span> Score-kept figure: counts only games gone
-              final before this game&rsquo;s kickoff in the {data.stats_season} season.
+              <span className="mark">&deg;</span> Figured from final scores only, using
+              games completed before this kickoff in the {data.stats_season} season.
               Records include the postseason.
             </p>
           )}
           {!mixedScope && rows.length > 0 && (
             <p>
               Neither side had completed a {data.season} game before kickoff, so all
-              figures print from the {data.stats_season} season in full. Records include
+              figures come from the full {data.stats_season} season. Records include
               the postseason.
             </p>
           )}
           <p>
-            League aggregates print for the {data.stats_season} season as kept by the
-            wire service. A measure missing a real figure on either side is left out
-            of the ledger, never estimated.
+            Season statistics come from the ESPN feed for the {data.stats_season} season.
+            A measure missing a real figure on either side is left out of the table,
+            never estimated.
           </p>
         </Footnotes>
       </section>
 
-      <Colophon center={`${away.abbr} at ${home.abbr} — ${weekLabel}, ${data.season}`} />
+      <Colophon center={`${away.abbr} at ${home.abbr} · ${weekLabel}, ${data.season}`} />
     </>
   )
 }

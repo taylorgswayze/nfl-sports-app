@@ -49,9 +49,9 @@ export function isNumberLike(value) {
   return Number.isFinite(Number(value));
 }
 
-// Print a figure or an em dash when the feed has nothing.
+// Print a figure, or an en dash when the feed has nothing.
 export function figureOrDash(value) {
   return value === null || value === undefined || value === '' || value === 'N/A'
-    ? '—'
+    ? '–'
     : value;
 }

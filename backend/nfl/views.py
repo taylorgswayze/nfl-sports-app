@@ -25,6 +25,12 @@ def api_root(request):
                 'description': 'Seasons with available game data',
                 'response': 'List of seasons plus the current season'
             },
+            'teams': {
+                'url': '/teams/',
+                'method': 'GET',
+                'description': 'All 32 teams sorted by name (placeholder rows excluded)',
+                'response': 'List of teams with team_id, name, abbr, and logo filename'
+            },
             'games': {
                 'url': '/games/',
                 'method': 'GET',
@@ -118,6 +124,24 @@ def seasons(request):
     except Exception as e:
         logger.error(f"Error in seasons view: {e}")
         return JsonResponse({'error': 'Internal server error while fetching seasons'}, status=500)
+
+
+@require_http_methods(["GET"])
+def teams(request):
+    """All real teams sorted by name. Placeholder rows (TBD) are excluded.
+    One query; logo filenames come from the local map, not the network."""
+    try:
+        rows = Team.objects.exclude(team_name='TBD').order_by('team_name')
+        teams_list = [{
+            'team_id': t.team_id,
+            'name': t.team_name,
+            'abbr': t.short_name,
+            'logo': h.get_team_logo(t.team_id),
+        } for t in rows]
+        return JsonResponse({'teams': teams_list, 'count': len(teams_list)})
+    except Exception as e:
+        logger.error(f"Error in teams view: {e}")
+        return JsonResponse({'error': 'Internal server error while fetching teams'}, status=500)
 
 
 @require_http_methods(["GET"])
@@ -484,14 +508,14 @@ def _build_h2h(game):
     if in_season:
         stats_season = game.season
         score_lines = current
-        stats_note = f'Stats: {stats_season} through Week {game.week_num}'
+        stats_note = f'{stats_season} season, through Week {game.week_num}'
         stats_scope = 'to_kickoff'
     else:
         stats_season = game.season - 1
         # A prior season's games all precede this kickoff, so the same
         # point-in-time computation yields true full-season figures.
         score_lines = _score_lines(team_ids, stats_season, game.game_datetime)
-        stats_note = f'Stats: {stats_season} full season'
+        stats_note = f'full {stats_season} season'
         stats_scope = 'full_season'
 
     # Every StatTeam figure for both team-seasons in one batched query.

@@ -1,5 +1,5 @@
 /* ============================================================
-   GRIDIRON DESK — Almanac, Night Edition
+   GRIDIRON DESK, Almanac, Night Edition
    Bone ink on warm near-black press-room stock. Pale hairlines,
    lifted (not recessed) panels, stadium green as the single
    accent. No glow anywhere; every instrument is a thin stroke.
@@ -74,7 +74,12 @@ img { max-width: 100%; }
   font-family: var(--grot); font-weight: 800; font-size: 46px; line-height: .96;
   letter-spacing: -.025em; text-transform: uppercase; color: var(--ink);
 }
-.brand h1 a, .brand .h1 a { color: inherit; text-decoration: none; }
+/* wordmark lockup: the Desk mark set left of the two-line wordmark */
+.brand-lock {
+  display: inline-flex; align-items: center; gap: 16px;
+  color: inherit; text-decoration: none;
+}
+.mark-plate { width: 78px; height: 78px; flex: none; display: block; }
 .brand .desk { color: var(--green); }
 .brand p { font-size: 14px; font-style: italic; color: var(--ink-soft); margin-top: 6px; }
 
@@ -256,7 +261,7 @@ a.chip-link:hover { background: var(--paper); }
 .fig .fval.win { font-size: 21px; }
 .fig .fval.lose { font-size: 21px; color: var(--ink-soft); font-weight: 700; }
 
-/* win probability: inked gauge with needle tick — thin pale strokes */
+/* win probability: inked gauge with needle tick, thin pale strokes */
 .prob { margin-top: auto; }
 .prob-labels { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
 .prob-labels .cap {
@@ -391,6 +396,8 @@ table.stats { width: 100%; border-collapse: collapse; }
   font-family: var(--grot); font-weight: 700; font-size: 10px;
   letter-spacing: .22em; text-transform: uppercase; color: var(--ink-soft);
 }
+.colophon .colo-brand { display: inline-flex; align-items: center; gap: 8px; }
+.mark-colo { width: 14px; height: 14px; flex: none; display: block; opacity: .8; }
 
 /* ---------------- states ---------------- */
 .wire {
@@ -487,11 +494,15 @@ table.h2h { width: 100%; border-collapse: collapse; }
   .brand h1, .brand .h1 { font-size: 34px; }
   .slate, .slate.two-up { grid-template-columns: 1fr; }
   .masthead { padding: 18px 0 14px; }
+  .brand-lock { gap: 12px; }
+  .mark-plate { width: 58px; height: 58px; }
   .folio { margin-top: 42px; }
-  .folio .cont, .folio .sep { display: none; }
+  /* the middot separator dangles when the cont line wraps; the cont
+     itself still prints (it carries the season) */
+  .folio .sep { display: none; }
   .stats th, .stats td { padding: 8px 10px; }
   /* game desk at phone width: plates stack over their names, three
-     columns hold — figures compress, the measure may wrap two lines */
+     columns hold; figures compress, the measure may wrap two lines */
   .gd-head { gap: 10px; padding: 20px 0 16px; }
   .gd-team, .gd-team.home { flex-direction: column; gap: 10px; }
   .gd-team { align-items: flex-start; }

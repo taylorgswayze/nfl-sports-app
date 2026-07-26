@@ -32,13 +32,29 @@ export async function get(endpoint, params = null) {
   }
 }
 
+// Seasons rarely change within a session; share one request across pages.
+let seasonsPromise = null
+
+export function fetchSeasonsCached() {
+  if (!seasonsPromise) {
+    seasonsPromise = get("/seasons/").catch((error) => {
+      seasonsPromise = null
+      throw error
+    })
+  }
+  return seasonsPromise
+}
+
 export const gameService = {
   fetchGames(weekNum = null, season = null) {
     const endpoint = weekNum ? `/games/${weekNum}/` : "/games/"
     return get(endpoint, season ? { season } : null)
   },
   fetchSeasons() {
-    return get("/seasons/")
+    return fetchSeasonsCached()
+  },
+  fetchTeams() {
+    return get("/teams/")
   },
   fetchTeamSchedule(teamId) {
     return get(`/team-schedule/${teamId}/`)
