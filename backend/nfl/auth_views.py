@@ -1,0 +1,150 @@
+"""Google sign-in (authorization-code flow) plus Django sessions.
+
+Uses the same Google OAuth client as undaunted.taylorswayze.com and mirrors
+that app's flow: /api/auth/login/ redirects to Google, /api/auth/callback/
+exchanges the code and sets the session cookie, /api/auth/logout/ clears it.
+The id_token is accepted without local signature verification because it is
+obtained directly from Google's token endpoint over TLS in the same request.
+
+Anyone with a verified Google account may sign in; per-user state (Sleeper
+username, notification settings) lives on DeskUser via /api/me/.
+"""
+
+import base64
+import json
+import logging
+import os
+import secrets
+import urllib.parse
+
+import requests
+from django.http import HttpResponseRedirect, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+from .models import DeskUser
+
+logger = logging.getLogger(__name__)
+
+CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+REDIRECT_URI = os.environ.get(
+    'OAUTH_REDIRECT', 'https://nfl-beta.taylorswayze.com/auth/callback')
+
+AUTH_URI = 'https://accounts.google.com/o/oauth2/auth'
+TOKEN_URI = 'https://oauth2.googleapis.com/token'
+
+STATE_COOKIE = 'oauth_state'
+
+
+def _is_https(request):
+    return request.headers.get('x-forwarded-proto', request.scheme) == 'https'
+
+
+def current_user(request):
+    """The signed-in DeskUser for this request, or None."""
+    uid = request.session.get('desk_user_id')
+    if not uid:
+        return None
+    return DeskUser.objects.filter(id=uid).first()
+
+
+@require_http_methods(['GET'])
+def login(request):
+    if not CLIENT_ID or not CLIENT_SECRET:
+        return JsonResponse({'error': 'Google sign-in is not configured'}, status=503)
+    state = secrets.token_urlsafe(16)
+    params = {
+        'client_id': CLIENT_ID,
+        'redirect_uri': REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'prompt': 'select_account',
+    }
+    resp = HttpResponseRedirect(f'{AUTH_URI}?{urllib.parse.urlencode(params)}')
+    resp.set_cookie(STATE_COOKIE, state, max_age=600, httponly=True,
+                    secure=_is_https(request), samesite='Lax')
+    return resp
+
+
+@require_http_methods(['GET'])
+def callback(request):
+    error = request.GET.get('error', '')
+    if error:
+        return HttpResponseRedirect('/?auth_error=' + urllib.parse.quote(error))
+    code = request.GET.get('code', '')
+    state = request.GET.get('state', '')
+    if not code or not state or state != request.COOKIES.get(STATE_COOKIE):
+        return JsonResponse({'error': 'Bad OAuth state'}, status=400)
+    try:
+        tok = requests.post(TOKEN_URI, data={
+            'code': code,
+            'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET,
+            'redirect_uri': REDIRECT_URI,
+            'grant_type': 'authorization_code',
+        }, timeout=15)
+    except requests.RequestException as e:
+        logger.error(f'Google token exchange failed: {e}')
+        return JsonResponse({'error': 'Google token exchange failed'}, status=502)
+    if tok.status_code != 200:
+        logger.error(f'Google token exchange returned {tok.status_code}: {tok.text[:200]}')
+        return JsonResponse({'error': 'Google token exchange failed'}, status=502)
+    id_token = tok.json().get('id_token', '')
+    try:
+        payload = id_token.split('.')[1]
+        payload += '=' * (-len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return JsonResponse({'error': 'Bad id_token'}, status=502)
+    if not claims.get('email') or not claims.get('email_verified', False):
+        return JsonResponse({'error': 'Google account has no verified email'}, status=403)
+
+    user, _created = DeskUser.objects.update_or_create(
+        google_sub=claims['sub'],
+        defaults={
+            'email': claims['email'],
+            'name': claims.get('name') or claims['email'],
+            'picture': claims.get('picture', ''),
+        })
+    request.session['desk_user_id'] = user.id
+    request.session.set_expiry(60 * 60 * 24 * 90)
+    resp = HttpResponseRedirect('/')
+    resp.delete_cookie(STATE_COOKIE)
+    return resp
+
+
+@require_http_methods(['GET'])
+def logout(request):
+    request.session.flush()
+    return HttpResponseRedirect('/')
+
+
+@csrf_exempt
+@require_http_methods(['GET', 'PATCH'])
+def me(request):
+    """GET: who am I plus saved settings. PATCH: save sleeper_username and
+    settings. CSRF is covered by the SameSite=Lax session cookie; the
+    endpoint only ever touches the caller's own row."""
+    user = current_user(request)
+    if not user:
+        return JsonResponse({'authenticated': False}, status=200)
+    if request.method == 'PATCH':
+        try:
+            body = json.loads(request.body or b'{}')
+        except ValueError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        if 'sleeper_username' in body:
+            user.sleeper_username = str(body['sleeper_username'] or '').strip()[:100]
+        if 'settings' in body and isinstance(body['settings'], dict):
+            user.settings = {**user.settings, **body['settings']}
+        user.save()
+    return JsonResponse({
+        'authenticated': True,
+        'email': user.email,
+        'name': user.name,
+        'picture': user.picture,
+        'sleeper_username': user.sleeper_username,
+        'settings': user.settings,
+    })

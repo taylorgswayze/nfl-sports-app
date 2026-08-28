@@ -137,7 +137,7 @@ export function Footnotes({ children }) {
   return (
     <div className="footnotes">
       {children}
-      <p className="src">Data: ESPN public API. Scores, odds, and team stats refresh hourly; player stats every six hours.</p>
+      <p className="src">Data: ESPN public API. Live scores and boxscores refresh about every half minute during games; odds and season stats hourly.</p>
     </div>
   )
 }
@@ -150,7 +150,7 @@ export function Colophon({ center }) {
         Gridiron Desk &middot; Almanac, Night Edition
       </span>
       {center ? <span>{center}</span> : null}
-      <span>Updated hourly</span>
+      <span>Live during games, hourly otherwise</span>
     </footer>
   )
 }

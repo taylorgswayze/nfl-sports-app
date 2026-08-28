@@ -27,8 +27,6 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-backend/static/
-backend/templates/index.html
 
 # Virtual Environment
 venv/
@@ -45,6 +43,8 @@ yarn-error.log*
 # React Build
 build/
 dist/
+!frontend/dist/
+!frontend/dist/**
 
 # Environment Variables
 .env

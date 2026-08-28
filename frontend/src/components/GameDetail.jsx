@@ -48,11 +48,96 @@ function H2HRow({ row, mixedScope }) {
   )
 }
 
+/* One category's table: PLAYER plus the feed's own column labels. */
+function BoxTable({ cat, teamAbbr }) {
+  return (
+    <div className="bx-cat">
+      <p className="subhead">
+        {teamAbbr} &middot; {cat.label}
+      </p>
+      <div className="tablewrap">
+        <table className="stats">
+          <thead>
+            <tr>
+              <th scope="col" className="txt">PLAYER</th>
+              {cat.labels.map((l, i) => <th scope="col" key={`${l}${i}`}>{l}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cat.entries.map((en) => (
+              <tr key={en.athlete_id || en.name}>
+                <td className="txt player">{en.name}</td>
+                {en.stats.map((s, i) => <td key={i} className="n">{s}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/* Print a fantasy stat figure: dash for "never accrued", number otherwise. */
+function fig(v) {
+  if (v == null) return '–'
+  const n = Number(v)
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+function FantasyTable({ rows }) {
+  return (
+    <div className="bx-cat">
+      <p className="subhead">
+        Fantasy Points <span className="count">top {rows.length}, PPR order</span>
+      </p>
+      <div className="tablewrap">
+        <table className="stats">
+          <thead>
+            <tr>
+              <th scope="col" className="txt">PLAYER</th>
+              <th scope="col">TEAM</th>
+              <th scope="col">PASS YD</th>
+              <th scope="col">PASS TD</th>
+              <th scope="col">INT</th>
+              <th scope="col">RUSH YD</th>
+              <th scope="col">RUSH TD</th>
+              <th scope="col">REC</th>
+              <th scope="col">REC YD</th>
+              <th scope="col">REC TD</th>
+              <th scope="col">STD</th>
+              <th scope="col">PPR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.athlete_id || r.name} className={i === 0 ? 'leader' : undefined}>
+                <td className="txt player">{r.name}</td>
+                <td className="team">{r.team_abbr}</td>
+                <td className="n">{fig(r.pass_yd)}</td>
+                <td className="n">{fig(r.pass_td)}</td>
+                <td className="n">{fig(r.int)}</td>
+                <td className="n">{fig(r.rush_yd)}</td>
+                <td className="n">{fig(r.rush_td)}</td>
+                <td className="n">{fig(r.rec)}</td>
+                <td className="n">{fig(r.rec_yd)}</td>
+                <td className="n">{fig(r.rec_td)}</td>
+                <td className="n">{Number(r.pts_std ?? 0).toFixed(1)}</td>
+                <td className="n sortcol">{Number(r.pts_ppr ?? 0).toFixed(1)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function GameDetail() {
   const { eventId } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [box, setBox] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -64,6 +149,26 @@ function GameDetail() {
       .catch((err) => { if (alive) setError(err.message) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
+  }, [eventId])
+
+  /* The boxscore feed: fetched once for a settled game, re-fetched every
+     30s while the game is live. The server caches upstream, so the poll
+     stays cheap for any number of readers. */
+  useEffect(() => {
+    let alive = true
+    let timer = null
+    setBox(null)
+    const load = () => {
+      gameService.fetchBoxscore(eventId)
+        .then((b) => {
+          if (!alive) return
+          setBox(b)
+          if (b.state === 'in') timer = setTimeout(load, 30000)
+        })
+        .catch(() => { /* section prints its wire note when absent */ })
+    }
+    load()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
   }, [eventId])
 
   const controls = (
@@ -90,12 +195,17 @@ function GameDetail() {
 
   const away = data.away_team
   const home = data.home_team
-  const final = data.status === 'final'
-    && isNumberLike(data.away_score) && isNumberLike(data.home_score)
-  const awayScore = Number(data.away_score)
-  const homeScore = Number(data.home_score)
+  const liveNow = box?.state === 'in'
+  const boxFinal = box?.state === 'post'
+    && isNumberLike(box?.away?.score) && isNumberLike(box?.home?.score)
+  const final = (data.status === 'final'
+    && isNumberLike(data.away_score) && isNumberLike(data.home_score)) || boxFinal
+  const useBoxScores = liveNow || boxFinal
+  const awayScore = Number(useBoxScores ? box.away?.score : data.away_score)
+  const homeScore = Number(useBoxScores ? box.home?.score : data.home_score)
   const awayWon = final && awayScore > homeScore
   const homeWon = final && homeScore > awayScore
+  const boxHasStats = box?.teams?.some((t) => (t.categories || []).length > 0)
   const hasProbs = isNumberLike(data.away_win_prob) && isNumberLike(data.home_win_prob)
   const hasOdds = data.odds && data.odds !== 'N/A'
   const rows = data.h2h || []
@@ -103,7 +213,9 @@ function GameDetail() {
   const seasonNote = data.stats_note || ''
   const weekLabel = data.season_type_id === 3
     ? `Postseason, Round ${data.week_num}`
-    : `Week ${data.week_num}`
+    : data.season_type_id === 1
+      ? `Preseason, Week ${data.week_num}`
+      : `Week ${data.week_num}`
 
   return (
     <>
@@ -117,17 +229,35 @@ function GameDetail() {
           cont={`${weekLabel} · ${data.season} Season`}
         />
         <p className="folio-note">
-          {final
-            ? <>Final. Kicked off {data.game_datetime}{hasOdds && <>; the line closed <span className="num">{data.odds}</span></>}.</>
-            : <>Kickoff {data.game_datetime}{hasOdds && <>; current line <span className="num">{data.odds}</span></>}.</>}
+          {liveNow
+            ? <>In progress: <span className="num">{box.detail || box.short_detail}</span>. Figures on this page refresh about every half minute.</>
+            : final
+              ? <>Final. Kicked off {data.game_datetime}{hasOdds && <>; the line closed <span className="num">{data.odds}</span></>}.</>
+              : <>Kickoff {data.game_datetime}{hasOdds && <>; current line <span className="num">{data.odds}</span></>}.</>}
         </p>
 
         <div className="gd-head">
           <TeamPlate team={away} side="away" />
           <div className="gd-mid">
-            {final ? (
+            {liveNow ? (
               <>
-                <span className="final-flag">{String(data.status || 'Final').toUpperCase()}</span>
+                <span className="live-flag">
+                  <span className="live-dot" aria-hidden="true"></span>LIVE
+                </span>
+                <div className="gd-score num" aria-label={`Score ${away.abbr} ${awayScore}, ${home.abbr} ${homeScore}`}>
+                  <span className={awayScore >= homeScore ? 'win' : 'lose'}>{awayScore}</span>
+                  <span className="gd-dash">&ndash;</span>
+                  <span className={homeScore >= awayScore ? 'win' : 'lose'}>{homeScore}</span>
+                </div>
+                <span className="gd-live-detail num">{box.short_detail}</span>
+              </>
+            ) : final ? (
+              <>
+                <span className="final-flag">
+                  {(boxFinal && data.status !== 'final'
+                    ? (box.short_detail || 'Final')
+                    : String(data.status || 'Final')).toUpperCase()}
+                </span>
                 <div className="gd-score num" aria-label={`Final score ${away.abbr} ${awayScore}, ${home.abbr} ${homeScore}`}>
                   <span className={awayWon ? 'win' : 'lose'}>{awayScore}</span>
                   <span className="gd-dash">&ndash;</span>
@@ -155,6 +285,43 @@ function GameDetail() {
           </div>
         )}
       </section>
+
+      {(liveNow || final) && (
+        <section aria-labelledby="sec-box">
+          <Folio
+            sec="THE BOX SCORE"
+            id="sec-box"
+            title="Player Figures"
+            cont={liveNow ? 'Live, updating' : 'Final'}
+          />
+          <p className="folio-note">
+            {liveNow
+              ? 'Player figures to this point in the game; the table refreshes about every half minute.'
+              : 'Player figures for the completed game, as the feed recorded them.'}
+          </p>
+          {boxHasStats ? (
+            <>
+              {box.fantasy?.length > 0 && <FantasyTable rows={box.fantasy} />}
+              {box.teams.map((team) => (
+                team.categories.map((cat) => (
+                  <BoxTable key={`${team.team_id}-${cat.name}`} cat={cat} teamAbbr={team.abbr} />
+                ))
+              ))}
+              <Footnotes>
+                <p>
+                  Fantasy points use standard scoring: passing yards at 1 per 25,
+                  rushing and receiving yards at 1 per 10, touchdowns 4 passing
+                  and 6 otherwise, minus 2 for interceptions and lost fumbles.
+                  PPR adds 1 per reception.
+                </p>
+                <p>Defense, kicking and return categories print below the fantasy table but do not score.</p>
+              </Footnotes>
+            </>
+          ) : (
+            <p className="wire">NO PLAYER FIGURES ON THE WIRE YET. <b>They post shortly after kickoff.</b></p>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="sec-h2h">
         <Folio sec="THE LEDGER" id="sec-h2h" title="Head to Head" cont={seasonNote} />

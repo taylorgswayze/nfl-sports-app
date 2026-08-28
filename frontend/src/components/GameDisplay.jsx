@@ -19,13 +19,14 @@ function isFinalGame(game) {
   return hasScores && (statusFinal || !game.status)
 }
 
-function TeamLine({ name, abbr, teamId, logo, record, away }) {
+function TeamLine({ name, abbr, teamId, logo, record, away, poss }) {
   return (
     <div className="trow">
       <Chip file={logo} to={`/team/${teamId}`} label={`View ${name} schedule`} />
       <span className="tname">
         {!away && <span className="at">at </span>}
         <b>{abbr || name}</b>
+        {poss && <span className="poss" title="Possession" aria-label="has possession">&#9679;</span>}
       </span>
       <span className="dots"></span>
       <span className="trec num">{record}</span>
@@ -49,7 +50,19 @@ function useCardLink(to) {
   }
 }
 
-function GameEntry({ game, index }) {
+function GameEntry({ game, index, live }) {
+  // A finished game the hourly cron has not caught up with yet: print the
+  // live board's final figures rather than a stale "scheduled" card.
+  if (live && live.state === 'post') {
+    game = {
+      ...game,
+      home_score: live.home_score ?? game.home_score,
+      away_score: live.away_score ?? game.away_score,
+      status: /final|post/i.test(String(game.status || ''))
+        ? game.status
+        : (live.short_detail || 'Final'),
+    }
+  }
   const parsed = abbrsFrom(game)
   const abbr = {
     away: game.away_team_abbr || parsed.away,
@@ -58,6 +71,47 @@ function GameEntry({ game, index }) {
   const cardLink = useCardLink(`/game/${game.event_id}`)
   const cardLabel = `${game.away_team} at ${game.home_team}, open the game page`
   const number = `No. ${game.week_num}.${String(index + 1).padStart(2, '0')}`
+
+  if (live && live.state === 'in') {
+    const awayScore = Number(live.away_score ?? 0)
+    const homeScore = Number(live.home_score ?? 0)
+    const poss = live.possession_team_id
+    return (
+      <article className="entry live link" aria-label={cardLabel} {...cardLink}>
+        <div className="entry-head">
+          <span className="entry-no num">{number}</span>
+          <span className="live-flag">
+            <span className="live-dot" aria-hidden="true"></span>LIVE
+          </span>
+          <span className="entry-time num">
+            {live.short_detail || `${live.clock || ''} Q${live.period || ''}`}
+          </span>
+        </div>
+        <div className="matchup">
+          <TeamLine away name={game.away_team} abbr={abbr.away} teamId={game.away_team_id}
+            logo={game.away_team_logo} record={game.away_team_record}
+            poss={poss != null && poss === game.away_team_id} />
+          <div className="fig">
+            <span className={`fval num ${awayScore >= homeScore ? 'win' : 'lose'}`}>{awayScore}</span>
+          </div>
+          <TeamLine name={game.home_team} abbr={abbr.home} teamId={game.home_team_id}
+            logo={game.home_team_logo} record={game.home_team_record}
+            poss={poss != null && poss === game.home_team_id} />
+          <div className="fig">
+            <span className={`fval num ${homeScore >= awayScore ? 'win' : 'lose'}`}>{homeScore}</span>
+          </div>
+        </div>
+        {(live.down_distance || live.last_play) && (
+          <p className="live-sit">
+            {live.down_distance && <b>{live.down_distance}</b>}
+            {live.down_distance && live.last_play ? ' · ' : ''}
+            {live.last_play}
+          </p>
+        )}
+      </article>
+    )
+  }
+
   const final = isFinalGame(game)
   const hasProbs = isNumberLike(game.away_win_prob) && isNumberLike(game.home_win_prob)
   const hasEdge = isNumberLike(game.pred_diff) && Number(game.pred_diff) !== 0
@@ -147,10 +201,32 @@ function GameDisplay() {
   const [selectedWeek, setSelectedWeek] = useState({})
   const [seasons, setSeasons] = useState([])
   const [selectedSeason, setSelectedSeason] = useState('')
+  const [liveMap, setLiveMap] = useState({})
 
   useEffect(() => {
     fetchGamesForWeek()
     loadSeasons()
+  }, [])
+
+  /* The live board: polled while the page is open. The server caches the
+     upstream feed for ~20s, so polling stays cheap no matter how many
+     readers are on the page. */
+  useEffect(() => {
+    let alive = true
+    const tick = () => {
+      if (document.hidden) return
+      gameService.fetchLive()
+        .then((d) => {
+          if (!alive) return
+          const map = {}
+          for (const g of d.games || []) map[String(g.event_id)] = g
+          setLiveMap(map)
+        })
+        .catch(() => { /* the live board is a bonus; the page works without it */ })
+    }
+    tick()
+    const id = setInterval(tick, 40000)
+    return () => { alive = false; clearInterval(id) }
   }, [])
 
   const loadSeasons = async () => {
@@ -164,11 +240,11 @@ function GameDisplay() {
     }
   }
 
-  const fetchGamesForWeek = async (weekNum = null, season = null) => {
+  const fetchGamesForWeek = async (weekNum = null, season = null, seasonType = null) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await gameService.fetchGames(weekNum, season)
+      const data = await gameService.fetchGames(weekNum, season, seasonType)
       setGames(data.games || [])
       setWeeks(data.weeks || [])
       const week = data.current_week || (data.weeks || [])[0] || {}
@@ -183,24 +259,27 @@ function GameDisplay() {
     }
   }
 
-  const weekIndex = weeks.findIndex((w) => w.name === selectedWeek?.name)
+  /* Week identity is (season type, week number): week numbers repeat across
+     preseason, regular season and the playoffs. */
+  const weekKey = (w) => (w ? `${w.season_type_id}:${w.week_num}` : '')
+  const weekIndex = weeks.findIndex((w) => weekKey(w) === weekKey(selectedWeek))
 
   const goToWeek = (week) => {
     if (!week) return
     setSelectedWeek(week)
     if (week.week_num) {
-      fetchGamesForWeek(week.week_num, selectedSeason || null)
+      fetchGamesForWeek(week.week_num, selectedSeason || null, week.season_type_id)
     }
   }
 
   const handleWeekSelect = (event) => {
-    goToWeek(weeks.find((w) => w.name === event.target.value))
+    goToWeek(weeks.find((w) => weekKey(w) === event.target.value))
   }
 
   const handleSeasonChange = (event) => {
     const season = event.target.value
     setSelectedSeason(season)
-    fetchGamesForWeek(selectedWeek?.week_num || null, season)
+    fetchGamesForWeek(null, season)
   }
 
   const stamp = games.map((g) => g.odds_last_updated).find((t) => t && t !== 'N/A')
@@ -227,9 +306,9 @@ function GameDisplay() {
           disabled={weekIndex <= 0}
           onClick={() => goToWeek(weeks[weekIndex - 1])}>&#8249;</button>
         <span className="cur">
-          <select value={selectedWeek?.name || ''} onChange={handleWeekSelect} aria-label="Select week">
+          <select value={weekKey(selectedWeek)} onChange={handleWeekSelect} aria-label="Select week">
             {weeks.map((week) => (
-              <option key={week.name} value={week.name}>{week.name}</option>
+              <option key={weekKey(week)} value={weekKey(week)}>{week.name}</option>
             ))}
           </select>
         </span>
@@ -242,6 +321,13 @@ function GameDisplay() {
   )
 
   const hasEdges = games.some((g) => isNumberLike(g.pred_diff) && Number(g.pred_diff) !== 0)
+
+  // Live games print first; everything else keeps kickoff order (the sort
+  // is stable, so within each group the server's ordering holds).
+  const liveFor = (g) => liveMap[String(g.event_id)]
+  const isLiveNow = (g) => liveFor(g)?.state === 'in'
+  const orderedGames = [...games].sort((a, b) => Number(isLiveNow(b)) - Number(isLiveNow(a)))
+  const liveCount = games.filter(isLiveNow).length
 
   return (
     <>
@@ -260,7 +346,10 @@ function GameDisplay() {
         />
         {games.length > 0 && (
           <p className="folio-note">
-            {games.length} game{games.length === 1 ? '' : 's'}, listed in kickoff order.
+            {games.length} game{games.length === 1 ? '' : 's'}
+            {liveCount > 0
+              ? <>; <b className="live-note">{liveCount} live now</b>, printed first, then kickoff order.</>
+              : ', listed in kickoff order.'}
           </p>
         )}
 
@@ -270,8 +359,8 @@ function GameDisplay() {
           <p className="wire">COULD NOT LOAD THE WEEK&rsquo;S GAMES: <b>{error}</b>. Reload the page to try again.</p>
         ) : games.length > 0 ? (
           <div className="slate">
-            {games.map((game, i) => (
-              <GameEntry key={game.event_id} game={game} index={i} />
+            {orderedGames.map((game, i) => (
+              <GameEntry key={game.event_id} game={game} index={i} live={liveFor(game)} />
             ))}
           </div>
         ) : (
@@ -291,7 +380,13 @@ function GameDisplay() {
         </Footnotes>
       </section>
 
-      <Colophon center={weekNo ? `Week ${weekNo} of ${weeks.filter((w) => w.season_type_id === 2).length || 18}` : null} />
+      <Colophon center={weekNo
+        ? selectedWeek?.season_type_id === 1
+          ? `Preseason, ${selectedWeek?.name || `Week ${weekNo}`}`
+          : selectedWeek?.season_type_id === 3
+            ? `Postseason, Round ${weekNo}`
+            : `Week ${weekNo} of ${weeks.filter((w) => w.season_type_id === 2).length || 18}`
+        : null} />
     </>
   )
 }

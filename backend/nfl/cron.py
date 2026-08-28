@@ -20,6 +20,16 @@ class UpdateTeamStats(CronJobBase):
         call_command('update_team_stats')
 
 
+class UpdateRosters(CronJobBase):
+    """Daily: every team's current roster and depth chart; players who left
+    a team are detached so stale entries cannot linger."""
+    schedule = Schedule(run_every_mins=1440)
+    code = 'nfl.update_rosters'
+
+    def do(self):
+        call_command('update_rosters')
+
+
 class UpdatePlayerStats(CronJobBase):
     """Every 6 hours: boxscore-based player stats for recently completed
     games. No-ops out of season (no recent finals)."""

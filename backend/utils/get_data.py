@@ -1,4 +1,5 @@
 from django.db.models import Q
+import re
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -251,13 +252,19 @@ def single_game_probs(game):
 
 
 def get_athletes_from_espn(team_id):
+    """Upsert the team's current roster (every group: offense, defense,
+    special teams, IR, suspended, practice squad). Returns the set of
+    athlete ids present in the payload so callers can detach players who
+    have left the team."""
     team = models.Team.objects.get(pk=team_id)
     url = f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster?limit=200'
     logger.info(f"Fetching athletes from {url}")
     data = session.get(url).json()
-    for group in data['athletes']:
-        for a in group['items']:
-            player = models.Athlete.objects.update_or_create(
+    seen = set()
+    for group in data.get('athletes', []):
+        for a in group.get('items', []):
+            seen.add(int(a['id']))
+            models.Athlete.objects.update_or_create(
                 athlete_id =a['id'],
                 defaults = {
                     'first_name': a['firstName'],
@@ -274,8 +281,54 @@ def get_athletes_from_espn(team_id):
                     'injuries': a['injuries'],
                     'status': a['status']['name'],
                     'status_id': a['status']['id'],
-                    'debut_year': a.get('debutYear', None)})
-            print(player[0])
+                    'debut_year': a.get('debutYear', None),
+                    'last_updated': timezone.now()})
+    return seen
+
+
+DEPTH_CHART_URL = ('https://sports.core.api.espn.com/v2/sports/football/'
+                   'leagues/nfl/seasons/{season}/teams/{team_id}/depthcharts')
+ATHLETE_REF_RE = re.compile(r'/athletes/(\d+)')
+# Return and holder spots would otherwise crown returners as "starters".
+DEPTH_SLUGS_SKIPPED = {'kr', 'pr', 'h'}
+
+
+def apply_depth_chart(team_id, season=None):
+    """Stamp depth_rank/depth_slot on the team's athletes from ESPN's
+    seasonal depth chart (rank 1 within a slot = starter). Athletes the
+    chart does not list end up NULL, reading as deep reserves. An error
+    payload or an empty chart raises/returns before anything is cleared,
+    and only athletes currently on this team are stamped, so a stale
+    chart cannot rank players who were traded away or detached."""
+    if season is None:
+        season = h.current_season()
+    url = DEPTH_CHART_URL.format(season=season, team_id=team_id)
+    logger.info(f"Fetching depth chart from {url}")
+    data = session.get(url).json()
+    if 'error' in data:
+        raise ValueError(f"depth chart error for team {team_id}: {data['error']}")
+    best = {}
+    for formation in data.get('items', []):
+        for slug, pos in (formation.get('positions') or {}).items():
+            if slug in DEPTH_SLUGS_SKIPPED:
+                continue
+            for entry in pos.get('athletes', []):
+                ref = ((entry.get('athlete') or {}).get('$ref')) or ''
+                match = ATHLETE_REF_RE.search(ref)
+                rank = entry.get('rank')
+                if not match or rank is None:
+                    continue
+                aid = int(match.group(1))
+                if aid not in best or rank < best[aid][0]:
+                    best[aid] = (rank, entry.get('slot'))
+    if not best:
+        logger.warning(f"empty depth chart for team {team_id}; keeping existing ranks")
+        return
+    models.Athlete.objects.filter(team_id=team_id).update(
+        depth_rank=None, depth_slot=None)
+    for aid, (rank, slot) in best.items():
+        models.Athlete.objects.filter(athlete_id=aid, team_id=team_id).update(
+            depth_rank=rank, depth_slot=slot)
 
 
 def format_datetime_to_est(dt):
@@ -386,7 +439,7 @@ def current_schedule(season=None):
     logger.info(f"Fetching schedule calendar from {url}")
     calendar = (session.get(url).json())['content']['calendar']
     for x in calendar:
-        if int(x['value']) in (2, 3):
+        if int(x['value']) in (1, 2, 3):
             season_type = x['label']
             for y in x['entries']:
                 models.Calendar.objects.update_or_create(

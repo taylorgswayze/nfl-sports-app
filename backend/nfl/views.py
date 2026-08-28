@@ -5,6 +5,7 @@ from .models import Calendar, Team, Game, Athlete, Outcome, StatTeam, SeasonStat
 import utils.get_data as get_data
 import utils.helpers as h
 from datetime import timedelta, datetime
+from django.utils import timezone
 import logging
 
 # Set up logging
@@ -144,6 +145,85 @@ def teams(request):
         return JsonResponse({'error': 'Internal server error while fetching teams'}, status=500)
 
 
+def serialize_game(game):
+    """One game card dict, shared by the week view and the rolling slate."""
+    return {
+        'event_id': game.event_id,
+        'short_name': game.short_name,
+        'game_datetime': format_game_time(game.game_datetime),
+        'game_datetime_utc': game.game_datetime.isoformat() if game.game_datetime else None,
+        'season': game.season,
+        'week_num': game.week_num,
+        'season_type_id': game.season_type_id,
+        'home_score': game.home_score,
+        'away_score': game.away_score,
+        'status': game.status,
+        'home_team': game.home_team.team_name if game.home_team else 'TBD',
+        'home_team_id': game.home_team.team_id if game.home_team else None,
+        'home_team_abbr': game.home_team.short_name if game.home_team else None,
+        'home_team_record': game.home_team.record if game.home_team else '0-0',
+        'away_team': game.away_team.team_name if game.away_team else 'TBD',
+        'away_team_id': game.away_team.team_id if game.away_team else None,
+        'away_team_abbr': game.away_team.short_name if game.away_team else None,
+        'away_team_record': game.away_team.record if game.away_team else '0-0',
+        'home_team_logo': h.get_team_logo(game.home_team.team_id) if game.home_team else 'default-logo.png',
+        'away_team_logo': h.get_team_logo(game.away_team.team_id) if game.away_team else 'default-logo.png',
+        'odds': safe_get_outcome_data(game, 'spread_display'),
+        'home_win_prob': safe_get_outcome_data(game, 'home_win_prob'),
+        'away_win_prob': safe_get_outcome_data(game, 'away_win_prob'),
+        'pred_diff': safe_get_outcome_data(game, 'pred_diff'),
+        'odds_last_updated': format_game_time(safe_get_outcome_data(game, 'last_updated', None)) if safe_get_outcome_data(game, 'last_updated', None) else 'N/A',
+    }
+
+
+@require_http_methods(["GET"])
+def games_window(request):
+    """Rolling slate: every game from the last 24 hours through the next
+    7 days, in chronological order, grouped into sections by calendar week
+    so the frontend can render week dividers. Spans season-type and season
+    boundaries (e.g. preseason into regular season) naturally."""
+    try:
+        now = timezone.now()
+        start = now - timedelta(hours=24)
+        end = now + timedelta(days=7)
+        qs = (Game.objects
+              .filter(game_datetime__gte=start, game_datetime__lte=end)
+              .select_related('home_team', 'away_team', 'outcome', 'week')
+              .order_by('game_datetime'))
+        sections = []
+        by_key = {}
+        for game in qs:
+            key = (game.season, game.season_type_id, game.week_num)
+            section = by_key.get(key)
+            if section is None:
+                wk = game.week
+                section = {
+                    'season': game.season,
+                    'season_type_id': game.season_type_id,
+                    'season_type_name': wk.season_type_name if wk else None,
+                    'week_num': game.week_num,
+                    'week_name': wk.name if wk else f'Week {game.week_num}',
+                    'week_details': wk.details if wk else None,
+                    'games': [],
+                }
+                by_key[key] = section
+                sections.append(section)
+            try:
+                section['games'].append(serialize_game(game))
+            except Exception as e:
+                logger.error(f"Error processing game {game.event_id}: {e}")
+        return JsonResponse({
+            'window_start': start.isoformat(),
+            'window_end': end.isoformat(),
+            'sections': sections,
+            'total_games': sum(len(s['games']) for s in sections),
+        })
+    except Exception as e:
+        logger.error(f"Error in games_window view: {e}")
+        return JsonResponse({'error': 'Internal server error while fetching games'},
+                            status=500)
+
+
 @require_http_methods(["GET"])
 def games(request, week_num=None):
     """Get games for a week.
@@ -210,33 +290,7 @@ def games(request, week_num=None):
         games_list = []
         for game in games_queryset:
             try:
-                game_data = {
-                    'event_id': game.event_id,
-                    'short_name': game.short_name,
-                    'game_datetime': format_game_time(game.game_datetime),
-                    'season': game.season,
-                    'week_num': game.week_num,
-                    'season_type_id': game.season_type_id,
-                    'home_score': game.home_score,
-                    'away_score': game.away_score,
-                    'status': game.status,
-                    'home_team': game.home_team.team_name if game.home_team else 'TBD',
-                    'home_team_id': game.home_team.team_id if game.home_team else None,
-                    'home_team_abbr': game.home_team.short_name if game.home_team else None,
-                    'home_team_record': game.home_team.record if game.home_team else '0-0',
-                    'away_team': game.away_team.team_name if game.away_team else 'TBD',
-                    'away_team_id': game.away_team.team_id if game.away_team else None,
-                    'away_team_abbr': game.away_team.short_name if game.away_team else None,
-                    'away_team_record': game.away_team.record if game.away_team else '0-0',
-                    'home_team_logo': h.get_team_logo(game.home_team.team_id) if game.home_team else 'default-logo.png',
-                    'away_team_logo': h.get_team_logo(game.away_team.team_id) if game.away_team else 'default-logo.png',
-                    'odds': safe_get_outcome_data(game, 'spread_display'),
-                    'home_win_prob': safe_get_outcome_data(game, 'home_win_prob'),
-                    'away_win_prob': safe_get_outcome_data(game, 'away_win_prob'),
-                    'pred_diff': safe_get_outcome_data(game, 'pred_diff'),
-                    'odds_last_updated': format_game_time(safe_get_outcome_data(game, 'last_updated', None)) if safe_get_outcome_data(game, 'last_updated', None) else 'N/A',
-                }
-                games_list.append(game_data)
+                games_list.append(serialize_game(game))
             except Exception as e:
                 logger.error(f"Error processing game {game.event_id}: {e}")
                 continue
@@ -653,6 +707,114 @@ def matchup(request, event_id):
         }, status=500)
 
 
+def _roster_stat_totals(athlete_ids, season):
+    """Season-to-date regular season totals per athlete from GameStatistic
+    (fresh, boxscore-fed) joined to Game. GameStatistic.event_id is a
+    CharField, so CAST bridges to Game's integer primary key. Returns
+    ({athlete_id: {(category, stat): (sum, max)}}, {athlete_id: games})."""
+    if not athlete_ids:
+        return {}, {}
+    ids = list(athlete_ids)
+    placeholders = ','.join(['%s'] * len(ids))
+    totals_sql = f'''
+        SELECT gs.athlete_id, gs.category_name, gs.stat_name,
+               SUM(CAST(gs.stat_value AS REAL)), MAX(CAST(gs.stat_value AS REAL))
+        FROM nfl_gamestatistic gs
+        JOIN nfl_game g ON CAST(gs.event_id AS INTEGER) = g.event_id
+        WHERE g.season = %s AND g.season_type_id = 2
+          AND gs.athlete_id IN ({placeholders})
+        GROUP BY gs.athlete_id, gs.category_name, gs.stat_name
+    '''
+    games_sql = f'''
+        SELECT gs.athlete_id, COUNT(DISTINCT gs.event_id)
+        FROM nfl_gamestatistic gs
+        JOIN nfl_game g ON CAST(gs.event_id AS INTEGER) = g.event_id
+        WHERE g.season = %s AND g.season_type_id = 2
+          AND gs.athlete_id IN ({placeholders})
+        GROUP BY gs.athlete_id
+    '''
+    from django.db import connection
+    totals, games = {}, {}
+    with connection.cursor() as cursor:
+        cursor.execute(totals_sql, [season, *ids])
+        for aid, cat, name, total, peak in cursor.fetchall():
+            totals.setdefault(aid, {})[(cat, name)] = (total or 0.0, peak or 0.0)
+        cursor.execute(games_sql, [season, *ids])
+        games = dict(cursor.fetchall())
+    return totals, games
+
+
+def _fmt_count(v):
+    return format(int(round(v)), ',')
+
+
+def _sum(t, cat, name):
+    return (t.get((cat, name)) or (0.0, 0.0))[0]
+
+
+def _max(t, cat, name):
+    return (t.get((cat, name)) or (0.0, 0.0))[1]
+
+
+# Key season-to-date metrics per position abbreviation. Each entry maps a
+# column label to a formatter over that athlete's stat totals. Rate stats
+# are recomputed from components (summed per-game rates are meaningless).
+_QB_METRICS = [
+    ('CMP/ATT', lambda t: f"{_fmt_count(_sum(t, 'passing', 'completions'))}/{_fmt_count(_sum(t, 'passing', 'passingAttempts'))}"),
+    ('YDS', lambda t: _fmt_count(_sum(t, 'passing', 'passingYards'))),
+    ('TD', lambda t: _fmt_count(_sum(t, 'passing', 'passingTouchdowns'))),
+    ('INT', lambda t: _fmt_count(_sum(t, 'passing', 'interceptions'))),
+]
+_RB_METRICS = [
+    ('CAR', lambda t: _fmt_count(_sum(t, 'rushing', 'rushingAttempts'))),
+    ('YDS', lambda t: _fmt_count(_sum(t, 'rushing', 'rushingYards'))),
+    ('TD', lambda t: _fmt_count(_sum(t, 'rushing', 'rushingTouchdowns'))),
+    ('REC', lambda t: _fmt_count(_sum(t, 'receiving', 'receptions'))),
+]
+_REC_METRICS = [
+    ('REC', lambda t: _fmt_count(_sum(t, 'receiving', 'receptions'))),
+    ('TGTS', lambda t: _fmt_count(_sum(t, 'receiving', 'receivingTargets'))),
+    ('YDS', lambda t: _fmt_count(_sum(t, 'receiving', 'receivingYards'))),
+    ('TD', lambda t: _fmt_count(_sum(t, 'receiving', 'receivingTouchdowns'))),
+]
+_FRONT7_METRICS = [
+    ('TKL', lambda t: _fmt_count(_sum(t, 'defensive', 'totalTackles'))),
+    ('SACKS', lambda t: f"{_sum(t, 'defensive', 'sacks'):.1f}"),
+    ('TFL', lambda t: _fmt_count(_sum(t, 'defensive', 'tacklesForLoss'))),
+    ('QB HITS', lambda t: _fmt_count(_sum(t, 'defensive', 'QBHits'))),
+]
+_DB_METRICS = [
+    ('TKL', lambda t: _fmt_count(_sum(t, 'defensive', 'totalTackles'))),
+    ('INT', lambda t: _fmt_count(_sum(t, 'interceptions', 'interceptions'))),
+    ('PD', lambda t: _fmt_count(_sum(t, 'defensive', 'passesDefended'))),
+]
+_K_METRICS = [
+    ('FG', lambda t: f"{_fmt_count(_sum(t, 'kicking', 'fieldGoalsMade'))}/{_fmt_count(_sum(t, 'kicking', 'fieldGoalAttempts'))}"),
+    ('LONG', lambda t: _fmt_count(_max(t, 'kicking', 'longFieldGoalMade'))),
+    ('XP', lambda t: f"{_fmt_count(_sum(t, 'kicking', 'extraPointsMade'))}/{_fmt_count(_sum(t, 'kicking', 'extraPointAttempts'))}"),
+    ('PTS', lambda t: _fmt_count(_sum(t, 'kicking', 'totalKickingPoints'))),
+]
+_P_METRICS = [
+    ('PUNTS', lambda t: _fmt_count(_sum(t, 'punting', 'punts'))),
+    ('AVG', lambda t: f"{(_sum(t, 'punting', 'puntYards') / _sum(t, 'punting', 'punts')):.1f}" if _sum(t, 'punting', 'punts') else '0.0'),
+    ('IN 20', lambda t: _fmt_count(_sum(t, 'punting', 'puntsInside20'))),
+    ('LONG', lambda t: _fmt_count(_max(t, 'punting', 'longPunt'))),
+]
+ROSTER_METRICS = {
+    'QB': _QB_METRICS,
+    'RB': _RB_METRICS, 'FB': _RB_METRICS,
+    'WR': _REC_METRICS, 'TE': _REC_METRICS,
+    'DE': _FRONT7_METRICS, 'DT': _FRONT7_METRICS, 'NT': _FRONT7_METRICS,
+    'LB': _FRONT7_METRICS, 'OLB': _FRONT7_METRICS, 'MLB': _FRONT7_METRICS,
+    'ILB': _FRONT7_METRICS, 'EDGE': _FRONT7_METRICS,
+    'CB': _DB_METRICS, 'S': _DB_METRICS, 'FS': _DB_METRICS,
+    'SS': _DB_METRICS, 'DB': _DB_METRICS,
+    'PK': _K_METRICS, 'K': _K_METRICS,
+    'P': _P_METRICS,
+    # OL and long snappers have no boxscore stats; bio columns carry them.
+}
+
+
 @require_http_methods(["GET"])
 def team_roster(request, team_id):
     """Get roster data for a specific team with enhanced error handling"""
@@ -665,9 +827,24 @@ def team_roster(request, team_id):
                 'error': f'Team with ID {team_id} not found',
                 'message': 'Please provide a valid team ID (1-32)'
             }, status=404)
-        
-        # Get all players for the team (not just active ones)
-        players = Athlete.objects.filter(team_id=team_id).order_by('position', 'jersey')
+
+        # Current roster only: rows created by boxscore ingestion for
+        # historical players carry no status and are excluded. Depth-chart
+        # rank orders each position (starters first, NULL depth last).
+        players = (Athlete.objects
+                   .filter(team_id=team_id, status__isnull=False)
+                   .order_by('position',
+                             models.F('depth_rank').asc(nulls_last=True),
+                             'jersey'))
+
+        # Season-to-date key stats: the current season once regular-season
+        # games exist, else last season (clearly labeled in the response).
+        stats_season = h.current_season()
+        athlete_ids = [p.athlete_id for p in players]
+        totals, games_played = _roster_stat_totals(athlete_ids, stats_season)
+        if not totals and stats_season:
+            stats_season -= 1
+            totals, games_played = _roster_stat_totals(athlete_ids, stats_season)
         
         roster_list = []
         for player in players:
@@ -684,6 +861,8 @@ def team_roster(request, team_id):
                 else:
                     name = f"Player #{player.jersey}" if player.jersey else "Unknown Player"
                 
+                metrics = ROSTER_METRICS.get(player.position_abbreviation)
+                stat_totals = totals.get(player.athlete_id, {})
                 player_data = {
                     'athlete_id': player.athlete_id,
                     'jersey': player.jersey,
@@ -697,6 +876,14 @@ def team_roster(request, team_id):
                     'age': player.age,
                     'debut_year': player.debut_year,
                     'status': player.status,
+                    'depth_rank': player.depth_rank,
+                    'depth_slot': player.depth_slot,
+                    'starter': player.depth_rank == 1,
+                    'games_played': games_played.get(player.athlete_id, 0),
+                    'key_stats': [
+                        {'label': label, 'value': fmt(stat_totals)}
+                        for label, fmt in metrics
+                    ] if metrics else [],
                 }
                 roster_list.append(player_data)
             except Exception as e:
@@ -717,7 +904,8 @@ def team_roster(request, team_id):
             'roster': roster_list,
             'roster_by_position': positions,
             'total_players': len(roster_list),
-            'positions_count': len(positions)
+            'positions_count': len(positions),
+            'stats_season': stats_season,
         })
         
     except Exception as e:

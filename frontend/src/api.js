@@ -46,9 +46,12 @@ export function fetchSeasonsCached() {
 }
 
 export const gameService = {
-  fetchGames(weekNum = null, season = null) {
+  fetchGames(weekNum = null, season = null, seasonType = null) {
     const endpoint = weekNum ? `/games/${weekNum}/` : "/games/"
-    return get(endpoint, season ? { season } : null)
+    const params = {}
+    if (season) params.season = season
+    if (seasonType) params.season_type = seasonType
+    return get(endpoint, Object.keys(params).length ? params : null)
   },
   fetchSeasons() {
     return fetchSeasonsCached()
@@ -61,6 +64,12 @@ export const gameService = {
   },
   fetchMatchup(eventId) {
     return get(`/matchup/${eventId}/`)
+  },
+  fetchLive() {
+    return get("/live/")
+  },
+  fetchBoxscore(eventId) {
+    return get(`/game/${eventId}/boxscore/`)
   },
   fetchTeamStats(teamId, season) {
     return get(`/teams/${teamId}/stats/`, { season })

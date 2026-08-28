@@ -86,6 +86,12 @@ class Athlete(models.Model):
     status_id = models.IntegerField(null=True)
     status = models.CharField(max_length=50, null=True)
     injuries = models.CharField(max_length=50, null=True)
+    # Depth chart standing from ESPN's seasonal depth chart: rank 1 within a
+    # slot is the starter. Cleared when the player leaves the team, NULL for
+    # deep reserves the chart does not list.
+    depth_rank = models.IntegerField(null=True)
+    depth_slot = models.IntegerField(null=True)
+    last_updated = models.DateTimeField(null=True)
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
@@ -143,3 +149,20 @@ class StatTeam(models.Model):
                 name='unique_team_season_category_stat'
             )
         ]
+
+
+class DeskUser(models.Model):
+    """A signed-in Google account. Sessions reference this via
+    request.session['desk_user_id']; Sleeper settings live here so they
+    follow the user across devices."""
+    google_sub = models.CharField(max_length=64, unique=True)
+    email = models.EmailField()
+    name = models.CharField(max_length=200, blank=True, default='')
+    picture = models.URLField(blank=True, default='')
+    sleeper_username = models.CharField(max_length=100, blank=True, default='')
+    settings = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.email}'
