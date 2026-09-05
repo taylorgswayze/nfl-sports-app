@@ -23,7 +23,8 @@
     ordered by kickoff, kickoff time printed beside the team names; the
     odds columns carry headers and the FPI figure is printed as a line
     (SEA -3.4) beside the market line, with the disagreement as EDGE; the
-    footnote explains all three with a worked example.
+    footnote explains all three with a worked example. The lead game prints
+    once, at the top; the index begins with the next day that has games.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -90,7 +91,6 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
 .index thead th small{display:block;font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:0;text-transform:none;margin-top:1px}
 .index td.teams{font-family:var(--grot);font-weight:800;font-size:var(--fig);letter-spacing:-.005em}
 .index td.teams .kick{font-family:var(--mono);font-size:var(--cap);font-weight:400;color:var(--ink-soft);margin-left:12px}
-.index td.teams .lead-tag{font-family:var(--grot);font-weight:800;font-size:9.5px;letter-spacing:.16em;color:var(--paper);background:var(--green);padding:2px 6px 1px;margin-left:10px;vertical-align:2px}
 .index td.model{font-family:var(--grot);font-weight:700;font-size:var(--fig);text-align:right;width:120px;color:var(--ink-soft)}
 .index td.rec{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft);width:96px}
 .index td.teams .at{font-family:var(--serif);font-weight:400;font-style:italic;color:var(--ink-soft);margin:0 6px}
@@ -241,13 +241,15 @@ const rows=games.map(g=>{const [day,time,away,home,fav,spread,fpi,ap,hp]=g;
   const fpiFav=fpi>=0?home:away; const edgeTeam=edge>=0?home:away;
   return {day,time,away,home,fav,spread,fpi,ap,hp,marketHome,edge,fpiFav,edgeTeam};});
 const hot=[...rows].sort((a,b)=>Math.abs(b.edge)-Math.abs(a.edge)).slice(0,3).map(r=>r.away+r.home);
-const groups=new Map();rows.forEach(r=>{(groups.get(r.day)||groups.set(r.day,[]).get(r.day)).push(r)});
+// the lead story is printed above at display size; it does not repeat in the index
+const LEAD='NESEA';
+const groups=new Map();rows.filter(r=>r.away+r.home!==LEAD).forEach(r=>{(groups.get(r.day)||groups.set(r.day,[]).get(r.day)).push(r)});
 let html='';
 for(const [day,list] of groups){
   html+=`<div class="window"><h2>${day}</h2><span class="rule"></span><span class="n">${list.length} game${list.length>1?'s':''}</span></div>
   <table class="index"><thead><tr><th>Matchup · kickoff (ET)</th><th class="rec">Records</th><th class="r">Line<small>market, favorite by</small></th><th class="r model">FPI line<small>model, favorite by</small></th><th class="prob">Win probability<small>FPI</small></th><th class="r">Edge<small>model vs market</small></th></tr></thead><tbody>`;
-  for(const r of list){const key=r.away+r.home,lead=key==='NESEA';
-    html+=`<tr${lead?' class="live"':''}><td class="teams">${r.away}<span class="at">at</span>${r.home}<span class="kick">${r.time}</span>${lead?'<span class="lead-tag">Lead</span>':''}</td><td class="rec">0-0 · 0-0</td><td class="line num">${r.fav} -${r.spread}</td><td class="model num">${r.fpiFav} -${Math.abs(r.fpi).toFixed(1)}</td><td class="prob"><span class="pbar" style="--split:${r.ap}%"><span>${r.away} ${r.ap}</span><i></i><b>${r.home} ${r.hp}</b></span></td><td class="edge num ${hot.includes(key)?'hot':''}">${r.edgeTeam} +${Math.abs(r.edge).toFixed(1)}</td></tr>`;}
+  for(const r of list){const key=r.away+r.home;
+    html+=`<tr><td class="teams">${r.away}<span class="at">at</span>${r.home}<span class="kick">${r.time}</span></td><td class="rec">0-0 · 0-0</td><td class="line num">${r.fav} -${r.spread}</td><td class="model num">${r.fpiFav} -${Math.abs(r.fpi).toFixed(1)}</td><td class="prob"><span class="pbar" style="--split:${r.ap}%"><span>${r.away} ${r.ap}</span><i></i><b>${r.home} ${r.hp}</b></span></td><td class="edge num ${hot.includes(key)?'hot':''}">${r.edgeTeam} +${Math.abs(r.edge).toFixed(1)}</td></tr>`;}
   html+='</tbody></table>';
 }
 document.getElementById('index').innerHTML=html;
