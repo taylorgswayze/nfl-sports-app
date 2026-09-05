@@ -1,0 +1,240 @@
+<!--
+  GRIDIRON DESK — Hierarchy mock A: "ABOVE THE FOLD"
+  Brief: the same Night Edition paper, re-edited so one thing leads. The
+  chrome collapses to a single nameplate line (mark, wordmark, sections,
+  account); the week is a pager, not 18 chips. The page opens with ONE
+  lead story (the live game, else the next kickoff / biggest model edge)
+  set at display size, and the rest of the slate prints as a ruled index,
+  one line per game, grouped under kickoff-window heads. On the Fantasy
+  page the GM's lede number is the story and the lineup card comes first.
+
+  PALETTE (unchanged: the brand is settled)
+    --paper #161814  --paper-deep #20231D  --ink #EDE9DD  --ink-soft #A9A491
+    --rule rgba(237,233,221,.22)  --green #4DB47F
+  TYPE ROLES / SCALE (the change)
+    display 56/60 grot 800   lede 28 grot 800   section 18 grot 800
+    body 15 serif            figure 16 grot tabular   caption 11 mono
+    Exactly two small-caps styles survive: the kicker (11 grot .18em) and
+    the footnote (11 mono). Card labels (LINE, TOTAL, WIN PROBABILITY,
+    MODEL EDGE) are gone: the columns of the index say it once.
+  SIGNATURE: the lead story, with the win gauge drawn full width as one
+    hairline and a single green needle.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Gridiron Desk · Mock A · Above the Fold</title>
+<style>
+:root{--paper:#161814;--paper-deep:#20231D;--ink:#EDE9DD;--ink-soft:#A9A491;--rule:rgba(237,233,221,.22);--rule-soft:rgba(237,233,221,.10);--green:#4DB47F;
+--serif:Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;--grot:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+--display:56px;--lede:28px;--section:18px;--body:15px;--fig:16px;--cap:11px;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--serif);font-size:var(--body);line-height:1.5;color:var(--ink);background:var(--paper) repeating-linear-gradient(to bottom,transparent 0,transparent 27px,rgba(237,233,221,.05) 27px,rgba(237,233,221,.05) 28px)}
+a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.num{font-family:var(--grot);font-variant-numeric:tabular-nums}
+.page{max-width:1148px;margin:0 auto;padding:16px 32px 56px}
+/* ---- nameplate: one line of chrome ---- */
+.plate{display:flex;align-items:center;gap:22px;border-bottom:3px solid var(--ink);padding:10px 0 10px;position:sticky;top:0;background:var(--paper);z-index:10}
+.mark{width:34px;height:34px;flex:none}
+.wordmark{font-family:var(--grot);font-weight:800;font-size:20px;letter-spacing:-.02em;text-transform:uppercase;line-height:1;white-space:nowrap}
+.wordmark span{color:var(--green)}
+.sections{display:flex;gap:2px;margin-left:8px}
+.sections a{font-family:var(--grot);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;padding:8px 12px 6px;border-bottom:2px solid transparent}
+.sections a.cur{color:var(--ink);border-bottom-color:var(--green)}
+.acct{margin-left:auto;font-family:var(--grot);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--rule);padding:6px 10px}
+/* ---- week pager: one control, not eighteen ---- */
+.pager{display:flex;align-items:baseline;gap:14px;margin:26px 0 8px;flex-wrap:wrap}
+.pager .wk{white-space:nowrap}
+.pager .wk{font-family:var(--grot);font-weight:800;font-size:var(--lede);letter-spacing:-.01em;text-transform:uppercase;line-height:1}
+.pager .dates{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft)}
+.pager .arrows{margin-left:auto;display:flex;border:1px solid var(--rule)}
+.pager .arrows button{width:40px;height:32px;color:var(--ink);border-right:1px solid var(--rule)}
+.pager .arrows button:last-child{border-right:0}
+.kicker{font-family:var(--grot);font-weight:800;font-size:var(--cap);letter-spacing:.18em;text-transform:uppercase;color:var(--green)}
+/* ---- the lead ---- */
+.lead{border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:22px 0 24px;margin-top:10px;display:grid;grid-template-columns:1.25fr 1fr;gap:28px 48px}
+.lead-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.lead-head .when{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft)}
+.lead-match{display:grid;grid-template-columns:auto 1fr auto;row-gap:14px;column-gap:18px;align-items:center}
+.chip{width:56px;height:56px;border:1px solid var(--rule);display:inline-flex;align-items:center;justify-content:center;font-family:var(--grot);font-weight:800;font-size:15px;letter-spacing:.04em;background:var(--paper-deep)}
+.lead .team{font-family:var(--grot);font-weight:800;font-size:var(--display);line-height:.95;letter-spacing:-.03em}
+.lead .team small{display:block;font-family:var(--serif);font-weight:400;font-size:var(--body);letter-spacing:0;color:var(--ink-soft);margin-top:6px}
+.lead .fig{font-family:var(--grot);font-weight:800;font-size:var(--display);line-height:.95;letter-spacing:-.03em;color:var(--ink-soft)}
+.lead .fig.fav{color:var(--ink)}
+.lead-side{display:flex;flex-direction:column;justify-content:center;gap:14px}
+.lead-side .line{font-family:var(--grot);font-weight:800;font-size:var(--lede);letter-spacing:-.01em}
+.lead-side .line span{font-weight:700;font-size:var(--fig);color:var(--ink-soft);margin-left:10px}
+.lead-side p{color:var(--ink);max-width:44ch}
+.gauge{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;font-family:var(--grot);font-weight:800;font-size:var(--fig)}
+.gauge .bar{position:relative;height:2px;background:var(--rule)}
+.gauge .bar::after{content:"";position:absolute;left:var(--split);top:-9px;width:2px;height:20px;background:var(--green)}
+.gauge .lbl{font-size:var(--cap);letter-spacing:.18em;color:var(--ink-soft);text-align:center;grid-column:1/-1;margin-top:-6px}
+/* ---- the index ---- */
+.window{display:flex;align-items:baseline;gap:12px;margin:34px 0 6px}
+.window h2{font-family:var(--grot);font-weight:800;font-size:var(--section);letter-spacing:.02em;text-transform:uppercase}
+.window .n{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft)}
+.window .rule{flex:1;border-top:1px solid var(--rule);transform:translateY(-5px)}
+.index{width:100%;border-collapse:collapse}
+.index td{padding:11px 10px;border-bottom:1px solid var(--rule-soft);vertical-align:middle;white-space:nowrap}
+.index td.time{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft);width:86px}
+.index td.teams{font-family:var(--grot);font-weight:800;font-size:var(--fig);letter-spacing:-.005em}
+.index td.teams .at{font-family:var(--serif);font-weight:400;font-style:italic;color:var(--ink-soft);margin:0 6px}
+.index td.teams .rec{font-family:var(--mono);font-size:var(--cap);font-weight:400;color:var(--ink-soft);margin-left:8px}
+.index td.line{font-family:var(--grot);font-weight:700;font-size:var(--fig);text-align:right;width:110px}
+.index td.prob{width:220px}
+.index .pbar{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;gap:8px;font-family:var(--grot);font-weight:700;font-size:12px;color:var(--ink-soft)}
+.index .pbar i{position:relative;display:block;height:2px;background:var(--rule)}
+.index .pbar i::after{content:"";position:absolute;left:var(--split);top:-5px;width:2px;height:12px;background:var(--green)}
+.index .pbar b{color:var(--ink)}
+.index td.edge{text-align:right;font-family:var(--grot);font-weight:800;font-size:var(--fig);width:96px}
+.index td.edge.hot{color:var(--green)}
+.index tr:hover td{background:var(--paper-deep)}
+.index tr.live td{background:rgba(77,180,127,.08);border-bottom-color:var(--green)}
+.livechip{font-family:var(--grot);font-weight:800;font-size:10px;letter-spacing:.18em;background:var(--green);color:var(--paper);padding:2px 6px 1px;margin-left:8px}
+/* ---- footnotes ---- */
+.foot{margin-top:40px;border-top:1px solid var(--ink);padding-top:10px;max-width:640px;font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft);line-height:1.6}
+/* ---- mock divider ---- */
+.divider{margin:72px 0 30px;text-align:center;font-family:var(--grot);font-weight:800;font-size:var(--cap);letter-spacing:.24em;color:var(--ink-soft);display:flex;align-items:center;gap:16px}
+.divider::before,.divider::after{content:"";flex:1;border-top:1px dashed var(--rule)}
+/* ---- fantasy page ---- */
+.gm{border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:20px 0 22px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:20px 48px}
+.gm-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline}
+.gm-head .when{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft)}
+.gm .lede{font-family:var(--grot);font-weight:800;font-size:var(--display);letter-spacing:-.03em;line-height:.95;color:var(--green)}
+.gm .lede small{display:block;font-family:var(--serif);font-weight:400;letter-spacing:0;font-size:var(--body);color:var(--ink-soft);margin-top:8px}
+.gm .match{font-family:var(--grot);font-weight:800;font-size:var(--lede);letter-spacing:-.01em;margin-top:10px}
+.gm .match span{color:var(--ink-soft);font-weight:700;font-size:var(--fig)}
+.gm p.note{max-width:60ch;margin-top:14px}
+.card{border-collapse:collapse;width:100%}
+.card caption{text-align:left;font-family:var(--grot);font-weight:800;font-size:var(--section);text-transform:uppercase;letter-spacing:.02em;padding:0 0 8px}
+.card caption small{font-family:var(--mono);font-size:var(--cap);text-transform:none;letter-spacing:0;color:var(--ink-soft);margin-left:10px;font-weight:400}
+.card th{font-family:var(--grot);font-weight:800;font-size:var(--cap);letter-spacing:.14em;text-transform:uppercase;text-align:left;padding:7px 10px;border-bottom:2px solid var(--ink);background:var(--paper-deep)}
+.card td{padding:9px 10px;border-bottom:1px solid var(--rule-soft);font-size:14px}
+.card th.r,.card td.r{text-align:right}
+.card td.p{font-weight:700}
+.card td.to{font-family:var(--grot);font-weight:800;color:var(--green)}
+.card tr.out td{color:var(--ink-soft)}
+.card tr.out td.to{color:var(--ink-soft)}
+.card td.g{font-family:var(--grot);font-weight:800;color:var(--green)}
+.leagues{margin-top:34px;display:grid;gap:14px}
+.lg{display:grid;grid-template-columns:1fr auto auto auto;gap:24px;align-items:baseline;border:1px solid var(--rule);padding:14px 18px}
+.lg .name{font-family:var(--grot);font-weight:800;font-size:var(--fig)}
+.lg .name small{display:block;font-family:var(--mono);font-size:var(--cap);font-weight:400;color:var(--ink-soft);margin-top:2px}
+.lg .stat{font-family:var(--grot);font-weight:800;font-size:var(--fig)}
+.lg .stat small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.06em;color:var(--ink-soft);text-transform:uppercase}
+.lg .stat.hot{color:var(--green)}
+@media (max-width:820px){.lead,.gm{grid-template-columns:1fr}.index td.prob{display:none}.lg{grid-template-columns:1fr 1fr}}
+@media (max-width:680px){:root{--display:40px;--lede:22px}.page{padding:12px 16px 56px}.sections{display:none}.plate{gap:12px}.index td.line{width:auto}.index td.edge{width:auto}.lead .team{font-size:34px}.chip{width:44px;height:44px;font-size:13px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="plate">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" fill="none" stroke="#EDE9DD" stroke-width="2.5"/><line x1="7" y1="10" x2="25" y2="10" stroke="#EDE9DD" stroke-width="2"/><line x1="7" y1="16" x2="25" y2="16" stroke="#EDE9DD" stroke-width="2"/><line x1="7" y1="22" x2="25" y2="22" stroke="#EDE9DD" stroke-width="2"/><line x1="20" y1="6" x2="20" y2="26" stroke="#4DB47F" stroke-width="2.5"/></svg>
+    <div class="wordmark">Gridiron <span>Desk</span></div>
+    <nav class="sections" aria-label="Sections"><a class="cur" href="#">Slate</a><a href="#">Standings</a><a href="#">Fantasy</a><a href="#">Draft Desk</a></nav>
+    <span class="acct">Signed in · Taylor</span>
+  </header>
+
+  <div class="pager">
+    <span class="kicker">The slate</span>
+    <span class="wk">Week 1</span>
+    <span class="dates">Sep 9 to 14 · regular season · 16 games</span>
+    <span class="arrows"><button aria-label="Previous week">&larr;</button><button aria-label="Next week">&rarr;</button></span>
+  </div>
+
+  <section class="lead" aria-labelledby="lead-title">
+    <div class="lead-head"><span class="kicker" id="lead-title">Lead · next kickoff</span><span class="when">Wed Sep 9 · 8:20 PM EDT · Lumen Field</span></div>
+    <div class="lead-match">
+      <span class="chip">NE</span><div class="team">Patriots<small>New England · 0-0</small></div><div class="fig">38%</div>
+      <span class="chip">SEA</span><div class="team">Seahawks<small>at Seattle · 0-0</small></div><div class="fig fav">61%</div>
+    </div>
+    <div class="lead-side">
+      <div class="line">SEA -3.5 <span>total 44.5</span></div>
+      <p>The Desk's model makes Seattle 3.4 points better than the market line: the biggest early-week edge on the board apart from Los Angeles over Arizona.</p>
+      <div class="kicker" style="color:var(--ink-soft)">Model edge <b style="color:var(--green)">+3.4 SEA</b></div>
+    </div>
+    <div class="gauge" style="--split:38%"><span>NE 38</span><span class="bar"></span><span>SEA 61</span><span class="lbl">Win probability</span></div>
+  </section>
+
+  <div id="index"></div>
+
+  <p class="foot">Model edge: the Desk model's predicted line against the market line. Lines from the betting market; probabilities from the Desk's own model. Select a game for its page, a team for its schedule.<br>Data: ESPN public API. Live scores refresh about every half minute during games; odds and season stats hourly.</p>
+
+  <div class="divider">Page 2 · Fantasy, same hierarchy system</div>
+
+  <div class="pager">
+    <span class="kicker">The general manager</span>
+    <span class="wk">855-For-Truth</span>
+    <span class="dates">PPR, superflex · 12 teams · week 1 · printed Fri 11:15 PM · every 12h</span>
+  </div>
+  <section class="gm">
+    <div class="gm-head"><span class="kicker">The GM's note</span><span class="when">vs #1 Josh Allen Hater Club</span></div>
+    <div>
+      <div class="lede">+0.7<small>points on the table with two moves</small></div>
+      <div class="match">110.7 <span>to</span> 109.6 <span>projected</span></div>
+      <p class="note">GM's note, week 1 against #1 Josh Allen Hater Club: we project 110.7 to their 109.6. Lineup card: I am moving Trevor Lawrence from BN to SUPER_FLEX and De'Von Achane from SUPER_FLEX to BN, worth 0.7 more projected points. The wire: put in a claim for Tua Tagovailoa (QB, ATL) and release Oronde Gadsden, about 1.3 lineup points a week the rest of the way. The phones: Dobsons Grave could use Achane; for CeeDee Lamb it nets us 2.7 a week and them 0.5, a call worth making. Next note in 12 hours.</p>
+    </div>
+    <div>
+      <table class="card"><caption>Lineup card <small>2 moves</small></caption>
+        <thead><tr><th>Player</th><th>Pos</th><th>From</th><th>To</th><th class="r">Proj</th></tr></thead>
+        <tbody>
+          <tr><td class="p">Trevor Lawrence</td><td>QB</td><td>BN</td><td class="to">SUPER_FLEX</td><td class="r num">18.1</td></tr>
+          <tr class="out"><td class="p">De'Von Achane</td><td>RB</td><td>SUPER_FLEX</td><td class="to">BN</td><td class="r num">17.4</td></tr>
+        </tbody></table>
+      <table class="card" style="margin-top:22px"><caption>The wire <small>claims and releases</small></caption>
+        <thead><tr><th>Claim</th><th>Release</th><th class="r">This wk</th><th class="r">ROS / wk</th></tr></thead>
+        <tbody><tr><td class="p">Tua Tagovailoa <span style="color:var(--ink-soft);font-weight:400">QB, ATL</span></td><td>Oronde Gadsden <span style="color:var(--ink-soft)">TE</span></td><td class="r num">+0.0</td><td class="r g num">+1.3</td></tr></tbody></table>
+      <table class="card" style="margin-top:22px"><caption>The phones <small>one for one</small></caption>
+        <thead><tr><th>Send</th><th>Get</th><th>To</th><th class="r">You / them</th></tr></thead>
+        <tbody><tr><td class="p">De'Von Achane</td><td class="p">CeeDee Lamb</td><td>Dobsons Grave</td><td class="r g num">+2.7 / +0.5</td></tr>
+        <tr><td class="p">De'Von Achane</td><td class="p">Drake London</td><td>Dobsons Grave</td><td class="r g num">+2.6 / +0.6</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <div class="window"><h2>Other leagues</h2><span class="rule"></span><span class="n">2 pre-draft</span></div>
+  <div class="leagues">
+    <div class="lg"><div class="name">Roger's Dawg Pound<small>PPR, superflex · 10 teams</small></div><div class="stat">Draft pending<small>status</small></div><div class="stat">Sun 7:00 PM<small>draft</small></div><div class="stat" style="color:var(--green)">Live advisor<small>open</small></div></div>
+    <div class="lg"><div class="name">Everyone Watches Women's Sports<small>PPR, superflex · 8 teams</small></div><div class="stat">Draft pending<small>status</small></div><div class="stat">Mon 8:30 PM<small>draft</small></div><div class="stat" style="color:var(--green)">Live advisor<small>open</small></div></div>
+  </div>
+</main>
+<script>
+const games=[
+ ['Wed Sep 9','8:20 PM','NE','SEA','SEA -3.5',38,61,3.4,'Wed · Sep 9'],
+ ['Thu Sep 10','8:35 PM','SF','LAR','LAR -3.5',39,60,2.9,'Thu · Sep 10'],
+ ['Sun Sep 13','1:00 PM','ATL','PIT','PIT -3.5',41,58,2.6,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','BAL','IND','BAL -3.5',59,40,-2.4,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','BUF','HOU','BUF -1.5',53,46,-1.1,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','CHI','CAR','CHI -2.5',59,40,-2.6,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','CLE','JAX','JAX -7.5',22,77,7.8,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','NO','DET','DET -7',28,71,6.8,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','NYJ','TEN','TEN -1.5',42,57,2.1,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','1:00 PM','TB','CIN','CIN -3.5',38,61,3.2,'Sun · Sep 13, 1:00'],
+ ['Sun Sep 13','4:25 PM','ARI','LAC','LAC -10.5',19,80,9.6,'Sun · Sep 13, 4:25'],
+ ['Sun Sep 13','4:25 PM','GB','MIN','MIN -1.5',56,43,-1.8,'Sun · Sep 13, 4:25'],
+ ['Sun Sep 13','4:25 PM','MIA','LV','LV -3.5',40,59,2.8,'Sun · Sep 13, 4:25'],
+ ['Sun Sep 13','4:25 PM','WSH','PHI','PHI -5.5',33,66,4.9,'Sun · Sep 13, 4:25'],
+ ['Sun Sep 13','8:20 PM','DAL','NYG','DAL -2.5',57,42,-2.0,'Sun · Sep 13, 8:20'],
+ ['Mon Sep 14','8:15 PM','DEN','KC','KC -3',41,58,2.5,'Mon · Sep 14'],
+];
+const hot=[...games].sort((a,b)=>Math.abs(b[7])-Math.abs(a[7])).slice(0,3).map(g=>g[2]+g[3]);
+const groups=new Map();
+games.slice(1).forEach(g=>{(groups.get(g[8])||groups.set(g[8],[]).get(g[8])).push(g)});
+let html='';
+for(const [win,rows] of groups){
+  html+=`<div class="window"><h2>${win}</h2><span class="rule"></span><span class="n">${rows.length} game${rows.length>1?'s':''}</span></div><table class="index"><tbody>`;
+  for(const g of rows){
+    const e=g[7],sign=e>0?'+':'',key=g[2]+g[3];
+    html+=`<tr><td class="time">${g[1]}</td><td class="teams">${g[2]}<span class="at">at</span>${g[3]}<span class="rec">0-0 · 0-0</span></td><td class="line num">${g[4]}</td><td class="prob"><span class="pbar" style="--split:${g[5]}%"><span>${g[2]} ${g[5]}</span><i></i><b>${g[3]} ${g[6]}</b></span></td><td class="edge num ${hot.includes(key)?'hot':''}">${sign}${e.toFixed(1)}</td></tr>`;
+  }
+  html+='</tbody></table>';
+}
+document.getElementById('index').innerHTML=html;
+</script>
+</body>
+</html>
