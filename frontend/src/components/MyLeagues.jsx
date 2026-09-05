@@ -57,15 +57,21 @@ function StartersTable({ rows, caption }) {
   )
 }
 
-function LeagueCard({ lg, ins, insState, onReprint, reprinting }) {
+/* One in-season league: a page-head style header, the GM's note as the
+   lead, then the standing line and this week's live matchup. */
+function LeagueBlock({ lg, ins, insState, onReprint, reprinting }) {
   const [showBench, setShowBench] = useState(false)
   const m = lg.matchup
-  const preDraft = lg.status === 'pre_draft' || lg.status === 'drafting'
+  const live = m && (m.starters || []).some((p) => p.game_state === 'in')
   return (
-    <article className={`entry lg-card${m && (m.starters || []).some((p) => p.game_state === 'in') ? ' live' : ''}`}>
-      <div className="entry-head">
-        <span className="entry-no num">{lg.name}</span>
-        <span className="entry-time num">{lg.scoring} · {lg.teams || '?'} TEAMS</span>
+    <article className={`league${live ? ' live' : ''}`} aria-label={lg.name}>
+      <div className="pagehead">
+        <span className="kicker">The general manager</span>
+        <span className="bigname">{lg.name}</span>
+        <span className="meta num">
+          {lg.scoring} · {lg.teams || '?'} teams
+          {ins?.week ? ` · week ${ins.week}` : ''}
+        </span>
       </div>
 
       {ins
@@ -74,16 +80,7 @@ function LeagueCard({ lg, ins, insState, onReprint, reprinting }) {
 
       {lg.error ? (
         <p className="note">{lg.error}.</p>
-      ) : preDraft && !ins ? (
-        <>
-          <p className="note">
-            {lg.status === 'drafting' ? 'Draft is LIVE right now.' : 'Draft not held yet.'}
-          </p>
-          <Link className="ctl advlink" to="/draft/advisor">
-            <span className="lbl">OPEN</span> LIVE ADVISOR
-          </Link>
-        </>
-      ) : preDraft ? null : (
+      ) : (
         <>
           <p className="lg-standing num">
             {lg.record ? `${lg.record.wins}-${lg.record.losses}${lg.record.ties ? `-${lg.record.ties}` : ''}` : ''}
@@ -91,7 +88,7 @@ function LeagueCard({ lg, ins, insState, onReprint, reprinting }) {
             {lg.points_for != null ? ` · ${fmtPts(lg.points_for)} PF` : ''}
           </p>
           {m && (
-            <>
+            <div className="lg-week">
               <div className="lg-score">
                 <span className="side me">
                   <span className="who">{lg.my_team_name || 'MY TEAM'}</span>
@@ -111,11 +108,38 @@ function LeagueCard({ lg, ins, insState, onReprint, reprinting }) {
                 </button>
               )}
               {showBench && <StartersTable rows={m.bench} caption="BENCH" />}
-            </>
+            </div>
           )}
         </>
       )}
     </article>
+  )
+}
+
+/* Leagues without a roster yet print as one line each. */
+function QuietLeagues({ leagues, byLeague }) {
+  if (!leagues.length) return null
+  return (
+    <>
+      <div className="dayhead">
+        <h2>Other leagues</h2>
+        <span className="rule"></span>
+        <span className="n num">{leagues.length} pre-draft</span>
+      </div>
+      <div className="lgrows">
+        {leagues.map((lg) => {
+          const ins = byLeague[lg.league_id]
+          return (
+            <div className="lgrow" key={lg.league_id}>
+              <div className="name">{lg.name}<small>{lg.scoring} · {lg.teams || '?'} teams</small></div>
+              <div className="stat">{lg.status === 'drafting' ? 'Drafting now' : 'Draft pending'}<small>status</small></div>
+              <div className="stat quiet">{ins?.narrative ? 'GM note ready after the draft' : 'No roster yet'}<small>the general manager</small></div>
+              <Link className="stat link" to="/draft/advisor">Live advisor<small>open</small></Link>
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -199,28 +223,30 @@ function MyLeagues() {
 
   const anyLive = (data?.aggregate || []).some((p) => p.game_state === 'in')
 
+  const active = (data?.leagues || []).filter((lg) => !(lg.status === 'pre_draft' || lg.status === 'drafting'))
+  const quiet = (data?.leagues || []).filter((lg) => lg.status === 'pre_draft' || lg.status === 'drafting')
+
   return (
     <>
-      <Masthead vol="My Leagues" controls={null} />
+      <Masthead />
 
-      <section aria-labelledby="sec-leagues">
-        <Folio sec="MY LEAGUES" id="sec-leagues" title="The Standings Desk"
-          cont={data ? `${data.season} · week ${data.week}` : null} />
-        <p className="folio-note">
-          Every Sleeper league on one page: the general manager&rsquo;s note on
-          top (lineup card, the wire, the phones), then records, this week&rsquo;s
-          matchup, and live points while your players are on the field.
-          {anyLive && <> <b className="live-note">Players live now; refreshing.</b></>}
-        </p>
-
-        <div className="advbar">
-          <input className="boardsearch" type="text" placeholder="Sleeper username"
-            value={username} onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') load() }}
-            aria-label="Sleeper username" />
-          <button type="button" className="ctl" onClick={() => load()} disabled={busy}>
-            {busy ? 'LOADING…' : 'LOAD LEAGUES'}
-          </button>
+      <section aria-label="My Leagues">
+        <div className="pagehead">
+          <span className="kicker">Fantasy</span>
+          <span className="bigname">My Leagues</span>
+          <span className="meta num">
+            {data ? `${data.username} · ${data.leagues.length} league${data.leagues.length === 1 ? '' : 's'} · ${data.season} week ${data.week}` : 'every Sleeper league on one page'}
+            {anyLive && <> · <b className="live-note">players live now, refreshing</b></>}
+          </span>
+          <div className="pagehead-ctl">
+            <input className="boardsearch" type="text" placeholder="Sleeper username"
+              value={username} onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') load() }}
+              aria-label="Sleeper username" />
+            <button type="button" className="ctl" onClick={() => load()} disabled={busy}>
+              {busy ? 'LOADING…' : 'LOAD LEAGUES'}
+            </button>
+          </div>
         </div>
 
         {error && <p className="wire">COULD NOT LOAD LEAGUES: <b>{error}</b></p>}
@@ -237,16 +263,14 @@ function MyLeagues() {
           <p className="wire">NO {data.season} LEAGUES FOUND for <b>{data.username}</b>.</p>
         )}
 
-        {data?.leagues?.length > 0 && (
-          <div className="slate two-up">
-            {data.leagues.map((lg) => (
-              <LeagueCard key={lg.league_id} lg={lg}
-                ins={insights.byLeague[lg.league_id]}
-                insState={insights.state}
-                onReprint={reprint} reprinting={reprinting} />
-            ))}
-          </div>
-        )}
+        {active.map((lg) => (
+          <LeagueBlock key={lg.league_id} lg={lg}
+            ins={insights.byLeague[lg.league_id]}
+            insState={insights.state}
+            onReprint={reprint} reprinting={reprinting} />
+        ))}
+
+        <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
       </section>
 
       {data?.aggregate?.length > 0 && (
@@ -300,7 +324,7 @@ function MyLeagues() {
         </section>
       )}
 
-      <Colophon center="My Leagues · The Standings Desk" />
+      <Colophon center="My Leagues · The General Manager" />
     </>
   )
 }

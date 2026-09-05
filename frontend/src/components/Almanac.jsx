@@ -96,40 +96,42 @@ const SUBNAVS = {
   ],
 }
 
-function SectionNav() {
+function SectionLinks() {
+  const { pathname } = useLocation()
+  const openSection = SECTIONS.find((s) => s.match(pathname))
+  return (
+    <nav className="sections" aria-label="Sections">
+      {SECTIONS.map((s) => {
+        const cur = s === openSection
+        return (
+          <Link key={s.to} to={s.to} className={cur ? 'cur' : undefined}
+            aria-current={cur ? 'page' : undefined} title={s.job}>
+            {s.label}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+/* Desks with more than one page print a thin sub-index under the plate. */
+function SubNav() {
   const { pathname } = useLocation()
   const openSection = SECTIONS.find((s) => s.match(pathname))
   const subnav = openSection ? SUBNAVS[openSection.to] : null
+  if (!subnav) return null
   return (
-    <div className="secrail">
-      <nav className="secnav" aria-label="Sections">
-        {SECTIONS.map((s) => {
-          const cur = s === openSection
-          return (
-            <Link key={s.to} to={s.to}
-              className={cur ? 'tab cur' : 'tab'}
-              aria-current={cur ? 'page' : undefined}>
-              <span className="tab-name">{s.label}</span>
-              <span className="tab-job">{s.job}</span>
-            </Link>
-          )
-        })}
-      </nav>
-      {subnav && (
-        <nav className="subnav" aria-label={`${openSection.label} pages`}>
-          {subnav.map((s) => {
-            const cur = s.exact ? pathname === s.to : pathname.startsWith(s.to)
-            return (
-              <Link key={s.to} to={s.to}
-                className={cur ? 'cur' : undefined}
-                aria-current={cur ? 'page' : undefined}>
-                {s.label}
-              </Link>
-            )
-          })}
-        </nav>
-      )}
-    </div>
+    <nav className="subnav" aria-label={`${openSection.label} pages`}>
+      {subnav.map((s) => {
+        const cur = s.exact ? pathname === s.to : pathname.startsWith(s.to)
+        return (
+          <Link key={s.to} to={s.to} className={cur ? 'cur' : undefined}
+            aria-current={cur ? 'page' : undefined}>
+            {s.label}
+          </Link>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -236,24 +238,25 @@ function AccountControl() {
   )
 }
 
-export function Masthead({ vol, stamp, controls }) {
+/* The nameplate: one line of chrome. Mark, wordmark, the paper's
+   sections, then the page's own controls and the account corner. It stays
+   pinned so the sections are always in hand; the pages carry their own
+   identity in their first heading, so the plate never repeats it. */
+export function Masthead({ controls }) {
   return (
     <>
-      <div className="plate">
-        <span className="vol">{vol || 'Front Page'}</span>
-        <AccountControl />
-      </div>
-      <header className="masthead">
-        <div className="brand">
-          <Link className="brand-lock" to="/" aria-label="Gridiron Desk, front page">
-            <DeskMark />
-            <h1>Gridiron<br /><span className="desk">Desk</span></h1>
-          </Link>
+      <header className="plate">
+        <Link className="brand-lock" to="/" aria-label="Gridiron Desk, front page">
+          <DeskMark />
+          <span className="wordmark">Gridiron <span className="desk">Desk</span></span>
+        </Link>
+        <SectionLinks />
+        <div className="plate-right">
+          {controls}
+          <AccountControl />
         </div>
-        {controls && <div className="controls">{controls}</div>}
       </header>
-      <div className="rule-double" role="presentation"></div>
-      <SectionNav />
+      <SubNav />
     </>
   )
 }

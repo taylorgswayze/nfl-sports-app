@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-/* THE WEEK ROOM: the Desk's roster note for one league, printed at the top
-   of its card. Deterministic engine output (optimal lineup, waiver claims
-   with the drop named, trade ideas with both sides' deltas) plus a few
-   sentences of prose, refreshed every 12 hours. */
+/* THE GENERAL MANAGER: the GM's note for one league, printed as the lead
+   of the league's block. Left, the number that matters (points on the
+   table), the projected matchup and the prose; right, the lineup card, the
+   wire and the phones as tables. Deterministic engine output plus a few
+   sentences, refreshed every 12 hours. */
 
 function fmt(v, signed = false) {
   if (v == null) return '–'
@@ -21,33 +22,20 @@ function stamp(iso) {
   return d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 }
 
-function who(p) {
-  if (!p) return '–'
-  const bits = [p.pos, p.team || 'FA'].filter(Boolean).join(', ')
-  return <><b>{p.name}</b> <span className="wr-meta num">({bits})</span></>
-}
-
-function Tag({ kind, children }) {
-  return <span className={`wr-tag ${kind}`}>{children}</span>
-}
-
 function Prose({ text }) {
   if (!text) return null
-  return text.split(/\n+/).filter(Boolean).map((para, i) => <p key={i} className="wr-prose">{para}</p>)
+  return text.split(/\n+/).filter(Boolean).map((para, i) => <p key={i} className="gm-prose">{para}</p>)
 }
 
 export function WeekRoomPending({ state }) {
   return (
-    <div className="wr wr-pending">
-      <div className="wr-head">
-        <span className="wr-kicker">THE GENERAL MANAGER</span>
-      </div>
-      <p className="wire wr-wire">
+    <div className="gm gm-pending">
+      <p className="wire">
         {state === 'generating'
           ? <>THE GM IS ON THE PHONES: projecting your rosters now. <b>A minute at most.</b></>
           : state === 'error'
             ? <>NO NOTE FROM THE GM for this league. <b>It retries at the next refresh.</b></>
-            : <>PULLING THE GM'S NOTE…</>}
+            : <>PULLING THE GM&rsquo;S NOTE…</>}
       </p>
     </div>
   )
@@ -64,71 +52,86 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   const trades = ins.trades || []
   const printed = stamp(ins.generated_at)
 
-  let lede
-  if (ins.error) lede = 'NO REPORT'
-  else if (preDraft) lede = 'DRAFT PENDING'
-  else if (lu.material) lede = `${fmt(lu.gain, true)} POINTS ON THE TABLE`
-  else lede = 'THE CARD STANDS'
+  if (preDraft || ins.error) {
+    return (
+      <div className="gm gm-quiet">
+        <div className="gm-head">
+          <span className="kicker">The GM&rsquo;s note</span>
+          <span className="when num">{printed ? `printed ${printed}` : ''}</span>
+        </div>
+        <p className="gm-lede small">{ins.error ? 'No report' : 'Draft pending'}</p>
+        <Prose text={ins.narrative} />
+        {preDraft && (
+          <Link className="ctl advlink" to="/draft/advisor"><span className="lbl">OPEN</span> LIVE ADVISOR</Link>
+        )}
+      </div>
+    )
+  }
+
+  const lede = lu.material ? fmt(lu.gain, true) : 'Set'
+  const ledeNote = lu.material
+    ? `points on the table with ${moves.length} move${moves.length === 1 ? '' : 's'}`
+    : 'the card stands as written'
 
   return (
-    <div className={`wr${lu.material ? ' hot' : ''}`}>
-      <div className="wr-head">
-        <span className="wr-kicker">THE GENERAL MANAGER{ins.week ? ` · WEEK ${ins.week}` : ''}</span>
-        <span className="wr-stamp num">
-          {printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}
-        </span>
+    <div className={`gm${lu.material ? ' hot' : ''}`}>
+      <div className="gm-head">
+        <span className="kicker">The GM&rsquo;s note</span>
+        <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}</span>
       </div>
 
-      <p className="wr-lede num">{lede}</p>
-      {m && (
-        <p className="wr-match num">
-          Projects <b>{fmt(m.my_total)}</b> to <b>{fmt(m.opp_total)}</b> against {m.opp_name || 'your opponent'}
-          {m.my_current != null && m.my_total != null && Math.abs(m.my_total - m.my_current) >= 0.75
-            ? <> (<b>{fmt(m.my_current)}</b> as set)</> : null}.
-        </p>
-      )}
+      <div className="gm-left">
+        <div className={`gm-lede num${lu.material ? '' : ' quiet'}`}>{lede}<small>{ledeNote}</small></div>
+        {m && (
+          <div className="gm-match num">
+            {fmt(m.my_total)} <span>to</span> {fmt(m.opp_total)} <span>projected vs {m.opp_name || 'your opponent'}</span>
+          </div>
+        )}
+        <Prose text={ins.narrative} />
+        <div className="gm-foot">
+          <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
+            {showLineup ? 'HIDE THE CARD' : 'FULL LINEUP CARD'}
+          </button>
+          {onReprint && (
+            <button type="button" className="benchtoggle" onClick={onReprint} disabled={reprinting}>
+              {reprinting ? 'REPRINTING…' : 'REPRINT NOW'}
+            </button>
+          )}
+          {ins.waiver?.type && (
+            <span className="gm-rules num">
+              {ins.waiver.type}{ins.waiver.position ? ` · you claim #${ins.waiver.position}` : ''}
+              {ins.waiver.budget_left != null ? ` · $${ins.waiver.budget_left} left` : ''}
+              {ins.waiver.runs ? ` · runs ${ins.waiver.runs}` : ''}
+            </span>
+          )}
+        </div>
+      </div>
 
-      <Prose text={ins.narrative} />
-
-      {preDraft && (
-        <Link className="ctl advlink" to="/draft/advisor">
-          <span className="lbl">OPEN</span> LIVE ADVISOR
-        </Link>
-      )}
-
-      {moves.length > 0 && (
-        <>
-          <p className="wr-sub">LINEUP CARD <span className="num">{moves.length} move{moves.length === 1 ? '' : 's'} to the optimal lineup</span></p>
+      <div className="gm-right">
+        <p className="wr-sub">Lineup card <span className="num">{moves.length ? `${moves.length} move${moves.length === 1 ? '' : 's'} to the optimal lineup` : 'no moves: the card stands'}</span></p>
+        {moves.length > 0 && (
           <div className="tablewrap">
             <table className="stats wr-tbl">
               <thead>
-                <tr>
-                  <th scope="col" className="txt">PLAYER</th>
-                  <th scope="col">POS</th>
-                  <th scope="col">FROM</th>
-                  <th scope="col">TO</th>
-                  <th scope="col">PROJ</th>
-                </tr>
+                <tr><th scope="col" className="txt">PLAYER</th><th scope="col">POS</th><th scope="col">FROM</th><th scope="col">TO</th><th scope="col">PROJ</th></tr>
               </thead>
               <tbody>
-                {moves.map((m) => (
-                  <tr key={m.player_id} className={m.to === 'BN' ? 'wr-out' : 'wr-in'}>
-                    <td className="txt player">{m.name}</td>
-                    <td className="team">{m.pos || '–'}</td>
-                    <td className="team">{m.from}</td>
-                    <td className="team to">{m.to}</td>
-                    <td className="n">{fmt(m.proj)}</td>
+                {moves.map((mv) => (
+                  <tr key={mv.player_id} className={mv.to === 'BN' ? 'wr-out' : 'wr-in'}>
+                    <td className="txt player">{mv.name}</td>
+                    <td className="team">{mv.pos || '–'}</td>
+                    <td className="team">{mv.from}</td>
+                    <td className="team to">{mv.to}</td>
+                    <td className="n">{fmt(mv.proj)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </>
-      )}
+        )}
 
-      {waivers.length > 0 && (
-        <>
-          <p className="wr-sub">THE WIRE <span className="num">claims and releases, with the projected upside</span></p>
+        <p className="wr-sub">The wire <span className="num">{waivers.length ? 'claims and releases, with the projected upside' : 'nothing on the wire beats the bench'}</span></p>
+        {waivers.length > 0 && (
           <div className="tablewrap">
             <table className="stats wr-tbl">
               <thead>
@@ -153,71 +156,55 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
               </tbody>
             </table>
           </div>
-        </>
-      )}
+        )}
 
-      {trades.length > 0 && (
-        <>
-          <p className="wr-sub">THE PHONES <span className="num">one for one, both sides scored</span></p>
-          <ul className="wr-moves">
-            {trades.map((t, i) => (
-              <li key={`t${i}`} className="wr-move">
-                <Tag kind="send">SEND</Tag> {who(t.send[0])}
-                <> <Tag kind="get">GET</Tag> {who(t.receive[0])}</>
-                <span className="wr-at">to {t.partner}</span>
-                <span className="wr-delta num">{fmt(t.my_delta, true)} you · {fmt(t.their_delta, true)} them</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {!preDraft && !ins.error && (
-        <div className="wr-foot">
-          <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
-            {showLineup ? 'HIDE THE CARD' : 'FULL LINEUP CARD'}
-          </button>
-          {onReprint && (
-            <button type="button" className="benchtoggle" onClick={onReprint} disabled={reprinting}>
-              {reprinting ? 'REPRINTING…' : 'REPRINT NOW'}
-            </button>
-          )}
-          {ins.waiver?.type && (
-            <span className="wr-rules num">
-              {ins.waiver.type}{ins.waiver.position ? ` · you claim #${ins.waiver.position}` : ''}
-              {ins.waiver.budget_left != null ? ` · $${ins.waiver.budget_left} left` : ''}
-              {ins.waiver.runs ? ` · runs ${ins.waiver.runs}` : ''}
-            </span>
-          )}
-        </div>
-      )}
+        {trades.length > 0 && (
+          <>
+            <p className="wr-sub">The phones <span className="num">one for one, both sides scored</span></p>
+            <div className="tablewrap">
+              <table className="stats wr-tbl">
+                <thead>
+                  <tr><th scope="col" className="txt">SEND</th><th scope="col" className="txt">GET</th><th scope="col" className="txt">PARTNER</th><th scope="col">YOU / THEM</th></tr>
+                </thead>
+                <tbody>
+                  {trades.map((t, i) => (
+                    <tr key={`t${i}`}>
+                      <td className="txt player">{t.send[0]?.name}</td>
+                      <td className="txt player">{t.receive[0]?.name}</td>
+                      <td className="txt wr-meta">{t.partner}</td>
+                      <td className="n sortcol">{fmt(t.my_delta, true)} / {fmt(t.their_delta, true)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
 
       {showLineup && lu.lineup?.length > 0 && (
-        <div className="tablewrap">
-          <table className="stats wr-lineup">
-            <thead>
-              <tr>
-                <th scope="col" className="txt">SLOT</th>
-                <th scope="col" className="txt">PLAYER</th>
-                <th scope="col">POS</th>
-                <th scope="col">TEAM</th>
-                <th scope="col">OPP</th>
-                <th scope="col">PROJ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lu.lineup.map((p, i) => (
-                <tr key={`${p.slot}-${i}`} className={p.injury ? 'wr-flag' : undefined}>
-                  <td className="txt team">{p.slot}</td>
-                  <td className="txt player">{p.name}{p.injury ? <span className="mark"> {p.injury[0]}</span> : null}</td>
-                  <td className="team">{p.pos || '–'}</td>
-                  <td className="team">{p.team || 'FA'}</td>
-                  <td className="team">{p.opp || '–'}</td>
-                  <td className="n sortcol">{fmt(p.proj)}</td>
+        <div className="gm-card">
+          <div className="tablewrap">
+            <table className="stats wr-tbl wr-lineup">
+              <thead>
+                <tr>
+                  <th scope="col" className="txt">SLOT</th><th scope="col" className="txt">PLAYER</th><th scope="col">POS</th><th scope="col">TEAM</th><th scope="col">OPP</th><th scope="col">PROJ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lu.lineup.map((p, i) => (
+                  <tr key={`${p.slot}-${i}`}>
+                    <td className="txt team">{p.slot}</td>
+                    <td className="txt player">{p.name}{p.injury ? <span className="mark"> {p.injury[0]}</span> : null}</td>
+                    <td className="team">{p.pos || '–'}</td>
+                    <td className="team">{p.team || 'FA'}</td>
+                    <td className="team">{p.opp || '–'}</td>
+                    <td className="n sortcol">{fmt(p.proj)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {ins.projection_note && <p className="note wr-note">{ins.projection_note}</p>}
         </div>
       )}

@@ -55,7 +55,7 @@ function DraftBoard() {
 
       <section aria-labelledby="sec-board">
         <Folio sec="THE DRAFT DESK" id="sec-board" title="The Board"
-          cont={board ? `${board.season} · ${board.scoring}` : null} />
+          cont={board ? `${board.season} · ${board.scoring}${board.generated ? ` · values as of ${board.generated}` : ''}` : null} />
         <p className="folio-note">
           {board?.models?.[model] || 'Model-driven player values for the coming season.'}
         </p>

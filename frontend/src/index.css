@@ -17,6 +17,10 @@
   --grot: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --bl: 28px; /* baseline unit */
+  /* the type scale: display for the one thing that leads, lede for page
+     and league names, section for group heads, figure for numbers, caption
+     for the two small styles that survive (kicker, footnote) */
+  --display: 56px; --lede: 28px; --section: 18px; --body: 15px; --fig: 16px; --cap: 11px;
   color-scheme: dark;
 }
 
@@ -52,39 +56,39 @@ img { max-width: 100%; }
 
 .page { max-width: 1148px; margin: 0 auto; padding: 28px 32px 56px; }
 
-/* ---------------- masthead ---------------- */
+/* ---------------- nameplate: one line of chrome ---------------- */
 .plate {
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 6px;
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 16px; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 22px;
+  padding: 10px 0; border-bottom: 3px solid var(--ink);
+  background: var(--paper); margin: 0 -32px; padding-left: 32px; padding-right: 32px;
 }
-/* The account corner rides the plate, compact. */
-.plate .ctl { padding: 4px 10px; }
+.brand-lock { display: inline-flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
+.mark-plate { width: 34px; height: 34px; flex: none; display: block; }
+.wordmark {
+  font-family: var(--grot); font-weight: 800; font-size: 20px; letter-spacing: -.02em;
+  text-transform: uppercase; line-height: 1; white-space: nowrap; color: var(--ink);
+}
+.wordmark .desk { color: var(--green); }
+.sections { display: flex; gap: 2px; margin-left: 6px; }
+.sections a {
+  font-family: var(--grot); font-weight: 700; font-size: 12px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-soft); text-decoration: none;
+  padding: 8px 12px 6px; border-bottom: 2px solid transparent;
+}
+.sections a:hover { color: var(--ink); }
+.sections a.cur { color: var(--ink); border-bottom-color: var(--green); }
+.plate-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.plate .ctl { padding: 5px 10px 4px; }
 .plate .acct-card { top: calc(100% + 10px); }
-.plate .vol {
-  font-family: var(--grot); font-size: 10px; font-weight: 700;
-  letter-spacing: .22em; text-transform: uppercase; color: var(--ink-soft);
+.subnav { display: flex; gap: 0; border-bottom: 1px solid var(--rule-soft); }
+.subnav a {
+  font-family: var(--grot); font-weight: 700; font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--ink-soft); text-decoration: none;
+  padding: 8px 14px 7px; border-bottom: 2px solid transparent; white-space: nowrap;
 }
-.plate .stamp { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--ink-soft); }
-.plate .stamp b { color: var(--ink); font-weight: 700; }
-
-.masthead {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  gap: 24px; flex-wrap: wrap; padding: 22px 0 18px;
-}
-.brand h1, .brand .h1 {
-  font-family: var(--grot); font-weight: 800; font-size: 46px; line-height: .96;
-  letter-spacing: -.025em; text-transform: uppercase; color: var(--ink);
-}
-/* wordmark lockup: the Desk mark set left of the two-line wordmark */
-.brand-lock {
-  display: inline-flex; align-items: center; gap: 16px;
-  color: inherit; text-decoration: none;
-}
-.mark-plate { width: 78px; height: 78px; flex: none; display: block; }
-.brand .desk { color: var(--green); }
-.brand p { font-size: 14px; font-style: italic; color: var(--ink-soft); margin-top: 6px; }
+.subnav a:hover { color: var(--ink); background: var(--paper-deep); }
+.subnav a.cur { color: var(--green); border-bottom-color: var(--green); }
 
 .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ctl {
@@ -108,39 +112,109 @@ img { max-width: 100%; }
 .ctl select:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .ctl select option { background: var(--paper-deep); color: var(--ink); }
 
-/* The slate head: the year bracketed by arrows with the season type
-   beside it, and the week strip beneath, the showing week inked. */
-.slatehead { margin: 26px 0 18px; }
-.slatehead-top { display: flex; justify-content: center; align-items: stretch; gap: 10px; flex-wrap: nowrap; }
-.slatehead-top .ctl { flex: none; }
-.pager-year {
-  display: inline-flex; align-items: center;
-  border-left: 1px solid var(--ink); border-right: 1px solid var(--ink);
-  font-family: var(--grot); font-weight: 800; font-size: 15px;
-  letter-spacing: .1em; padding: 9px 18px 8px;
+/* ---------------- page head: kicker, the name at lede size, meta ---------------- */
+.pagehead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 26px 0 10px; }
+.kicker {
+  font-family: var(--grot); font-weight: 800; font-size: var(--cap); letter-spacing: .18em;
+  text-transform: uppercase; color: var(--green); white-space: nowrap;
 }
-.weekstrip {
-  display: flex; justify-content: safe center; gap: 6px;
-  margin-top: 12px; padding: 2px 0 6px;
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
+.bigname, .bigselect select {
+  font-family: var(--grot); font-weight: 800; font-size: var(--lede); letter-spacing: -.01em;
+  text-transform: uppercase; line-height: 1; color: var(--ink); white-space: nowrap;
 }
-@media (min-width: 681px) { .weekstrip { flex-wrap: wrap; overflow: visible; } }
-.wchip {
-  flex: none; min-width: 44px; padding: 8px 10px 7px;
-  border: 1px solid var(--rule); color: var(--ink-soft);
-  font-family: var(--grot); font-weight: 800; font-size: 11px;
-  letter-spacing: .08em; text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
+.bigselect { position: relative; display: inline-flex; align-items: baseline; gap: 8px; }
+.bigselect select {
+  appearance: none; -webkit-appearance: none; background: none; border: 0; cursor: pointer;
+  padding: 0 18px 0 0; border-bottom: 2px solid var(--rule);
 }
-.wchip:hover { color: var(--ink); background: var(--paper-deep); }
-.wchip.cur { background: var(--green); border-color: var(--green); color: var(--paper); }
-.wchip:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.bigselect select:hover { border-bottom-color: var(--ink); }
+.bigselect select:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; }
+.bigselect select option { font-size: 14px; background: var(--paper-deep); color: var(--ink); text-transform: none; }
+.bigselect .car { position: absolute; right: 2px; bottom: 6px; font-size: 10px; color: var(--ink-soft); pointer-events: none; }
+.pagehead .meta { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.pagehead .meta .live-note { font-family: var(--grot); }
+.pagehead-ctl { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pagehead-ctl .arrows { display: inline-flex; border: 1px solid var(--rule); }
+.pagehead-ctl .arrows button { width: 38px; height: 32px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); border-right: 1px solid var(--rule); }
+.pagehead-ctl .arrows button:last-child { border-right: 0; }
+.pagehead-ctl .arrows button:hover:not(:disabled) { background: var(--paper-deep); }
+.pagehead-ctl .arrows button:disabled { color: var(--ink-soft); opacity: .4; cursor: default; }
+.pagehead .boardsearch { min-width: 180px; padding: 7px 10px 6px; }
 
-/* The teams menu printed under the slate. */
-.teamsrail { display: flex; justify-content: center; margin: 30px 0 4px; }
+/* ---------------- the lead ---------------- */
+.lead {
+  border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+  padding: 22px 0 24px; margin-top: 8px; cursor: pointer;
+  display: grid; grid-template-columns: 1.25fr 1fr; gap: 26px 48px;
+}
+.lead:hover { background: var(--paper-deep); margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+.lead.is-live { border-top-color: var(--green); border-bottom-color: var(--green); }
+.lead-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.lead-head .kicker { display: inline-flex; align-items: center; gap: 8px; }
+.lead-head .kicker .live-dot { background: var(--green); }
+.lead-head .when { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.lead-match { display: grid; grid-template-columns: auto 1fr auto; row-gap: 14px; column-gap: 18px; align-items: center; }
+.lead-match .chip { width: 56px; height: 56px; }
+.lead-match .chip img { width: 46px; height: 46px; }
+.lead .team {
+  font-family: var(--grot); font-weight: 800; font-size: var(--display); line-height: .95;
+  letter-spacing: -.03em; min-width: 0;
+}
+.lead .team small {
+  display: block; font-family: var(--serif); font-weight: 400; font-size: var(--body);
+  letter-spacing: 0; color: var(--ink-soft); margin-top: 6px; text-transform: none;
+}
+.lead .fig { font-family: var(--grot); font-weight: 800; font-size: var(--display); line-height: .95; letter-spacing: -.03em; color: var(--ink-soft); text-align: right; }
+.lead .fig.fav { color: var(--ink); }
+.lead-side { display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; }
+.lead-side .line { font-family: var(--grot); font-weight: 800; font-size: var(--lede); letter-spacing: -.01em; }
+.lead-side .line.sub { font-size: 20px; }
+.lead-side .line span { font-weight: 700; font-size: var(--fig); color: var(--ink-soft); margin-left: 10px; letter-spacing: 0; }
+.lead-side p { color: var(--ink); max-width: 44ch; font-size: var(--body); }
+.lead-side p b { font-family: var(--grot); font-weight: 800; }
+.lead-gauge { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; font-family: var(--grot); font-weight: 800; font-size: var(--fig); }
+.lead-gauge .bar { position: relative; height: 2px; background: var(--rule); }
+.lead-gauge .bar::after { content: ""; position: absolute; left: var(--split); top: -9px; width: 2px; height: 20px; background: var(--green); }
+.lead-gauge .lbl { font-size: var(--cap); letter-spacing: .18em; color: var(--ink-soft); text-align: center; grid-column: 1 / -1; margin-top: -6px; text-transform: uppercase; }
 
-/* The week pager: arrows flanking the season-type-and-week label. The
-   label is a dressed select (the week directory opens on tap). */
+/* ---------------- the index: one line per game, grouped by day ---------------- */
+.dayhead { display: flex; align-items: baseline; gap: 12px; margin: 34px 0 6px; }
+.dayhead h2 { font-family: var(--grot); font-weight: 800; font-size: var(--section); letter-spacing: .02em; text-transform: uppercase; }
+.dayhead .n { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.dayhead .rule { flex: 1; border-top: 1px solid var(--rule); transform: translateY(-5px); }
+.tablewrap.plain { border: 0; }
+table.index { width: 100%; border-collapse: collapse; }
+.index thead th {
+  font-family: var(--grot); font-weight: 800; font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-soft); text-align: left;
+  padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap;
+}
+.index thead th.r { text-align: right; }
+.index thead th small { display: block; font-family: var(--mono); font-weight: 400; font-size: 9.5px; letter-spacing: 0; text-transform: none; margin-top: 1px; }
+.index td { padding: 11px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; white-space: nowrap; }
+.index tbody tr { cursor: pointer; }
+.index tbody tr:hover td { background: var(--paper-deep); }
+.index tbody tr:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.index td.teams { font-family: var(--grot); font-weight: 800; font-size: var(--fig); letter-spacing: -.005em; }
+.index td.teams .at { font-family: var(--serif); font-weight: 400; font-style: italic; color: var(--ink-soft); margin: 0 6px; }
+.index td.teams .kick { font-family: var(--mono); font-size: var(--cap); font-weight: 400; color: var(--ink-soft); margin-left: 12px; }
+.index td.teams .kick.live { color: var(--green); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.index td.teams .kick.live .live-dot { background: var(--green); }
+.index td.rec { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); width: 100px; }
+.index td.line { font-family: var(--grot); font-weight: 700; font-size: var(--fig); text-align: right; width: 110px; }
+.index td.model { font-family: var(--grot); font-weight: 700; font-size: var(--fig); text-align: right; width: 120px; color: var(--ink-soft); }
+.index td.prob { width: 220px; }
+.index .pbar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; font-family: var(--grot); font-weight: 700; font-size: 12px; color: var(--ink-soft); }
+.index .pbar i { position: relative; display: block; height: 2px; background: var(--rule); }
+.index .pbar i::after { content: ""; position: absolute; left: var(--split); top: -5px; width: 2px; height: 12px; background: var(--green); }
+.index .pbar b { color: var(--ink); text-align: right; }
+.index .pbar.none { display: block; text-align: center; color: var(--rule); }
+.index td.delta { text-align: right; font-family: var(--grot); font-weight: 800; font-size: var(--fig); width: 110px; color: var(--ink-soft); }
+.index td.delta.hot { color: var(--green); }
+.index tr.live td { background: rgba(77, 180, 127, .08); border-bottom-color: var(--green); }
+.index tr.final td.teams { color: var(--ink-soft); }
+.teamsrail { display: flex; justify-content: center; margin-top: 30px; }
+
 .pager { display: inline-flex; align-items: stretch; border: 1px solid var(--ink); background: var(--paper); }
 .pager-arrow {
   display: inline-flex; align-items: center; justify-content: center;
@@ -165,56 +239,6 @@ img { max-width: 100%; }
 
 
 .rule-double { border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); height: 6px; }
-
-/* ---------------- section nav (the paper's sections) ---------------- */
-/* ---------------- section rail: bound index tabs ---------------- */
-/* The paper's index: three ruled tabs sharing hairlines like a bound
-   register. The open tab is inked (ink field, paper text) and carries
-   the green needle on its top edge, the DeskMark's own instrument.
-   The rail sticks so the index never leaves the reader's hand. */
-.secrail {
-  position: sticky; top: 0; z-index: 40;
-  background: var(--paper);
-  margin: 0 -32px; padding: 0 32px;
-  box-shadow: 0 1px 0 var(--rule);
-}
-.secnav {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  border-left: 1px solid var(--rule);
-}
-.secnav .tab {
-  display: flex; flex-direction: column; gap: 1px;
-  padding: 9px 14px 10px;
-  border-right: 1px solid var(--rule);
-  border-top: 2px solid transparent;
-  text-decoration: none; color: var(--ink-soft);
-  min-height: 48px; justify-content: center;
-}
-.secnav .tab-name {
-  font-family: var(--grot); font-weight: 800; font-size: 12px;
-  letter-spacing: .14em; text-transform: uppercase;
-}
-.secnav .tab-job {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-soft); opacity: .85;
-}
-.secnav .tab:hover { color: var(--ink); background: var(--paper-deep); }
-.secnav .tab.cur {
-  background: var(--ink); color: var(--paper);
-  border-top-color: var(--green);
-}
-.secnav .tab.cur .tab-job { color: var(--paper); opacity: .7; }
-.subnav {
-  display: flex; gap: 0; border-top: 1px solid var(--rule-soft);
-}
-.subnav a {
-  font-family: var(--grot); font-weight: 700; font-size: 10px; letter-spacing: .18em;
-  text-transform: uppercase; color: var(--ink-soft); text-decoration: none;
-  padding: 7px 14px 6px; border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-.subnav a:hover { color: var(--ink); background: var(--paper-deep); }
-.subnav a.cur { color: var(--green); border-bottom-color: var(--green); }
 
 /* Bottom gutter: the paper's sections in the thumb zone. Hidden on
    desktop, where the index-tab rail carries navigation; under 680px the
@@ -476,9 +500,12 @@ img { max-width: 100%; }
   content: ""; position: absolute; inset: 0; width: var(--pct); background: var(--green);
 }
 
-/* ---------------- my leagues ---------------- */
-.lg-card .entry-head { align-items: center; }
-.lg-standing { font-family: var(--grot); font-weight: 700; font-size: 13px; color: var(--ink-soft); }
+/* ---------------- my leagues: league blocks led by the GM's note ---------------- */
+.league { border-top: 3px solid var(--ink); margin-top: 34px; padding-top: 4px; }
+.league.live { border-top-color: var(--green); }
+.league .pagehead { margin-top: 14px; }
+.lg-standing { font-family: var(--grot); font-weight: 700; font-size: 13px; color: var(--ink-soft); margin-top: 18px; }
+.lg-week { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .lg-score {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 6px 0 2px;
@@ -488,7 +515,7 @@ img { max-width: 100%; }
 .lg-score .who {
   font-family: var(--grot); font-weight: 700; font-size: 11px; letter-spacing: .1em;
   text-transform: uppercase; color: var(--ink-soft);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;
 }
 .lg-score .fval { font-size: 26px; }
 .benchtoggle {
@@ -497,6 +524,7 @@ img { max-width: 100%; }
   padding: 4px 9px 3px; margin-top: 4px;
 }
 .benchtoggle:hover { color: var(--ink); background: var(--paper-deep); }
+.benchtoggle:disabled { opacity: .5; cursor: default; }
 .advlink { align-self: flex-start; }
 .gflag {
   font-family: var(--grot); font-weight: 700; font-size: 9.5px; letter-spacing: .1em;
@@ -508,6 +536,59 @@ img { max-width: 100%; }
 .gflag.pre { color: var(--ink-soft); font-weight: 400; }
 .gflag.none { color: var(--rule); }
 .gflag .live-dot { background: var(--green); }
+
+/* the GM's note: two columns under a hairline, the number leads */
+.gm {
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--ink);
+  padding: 16px 0 20px; margin-top: 6px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px 48px;
+}
+.gm-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.gm-head .when { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.gm-left, .gm-right { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.gm-lede {
+  font-family: var(--grot); font-weight: 800; font-size: var(--display); letter-spacing: -.03em;
+  line-height: .95; color: var(--green);
+}
+.gm-lede.quiet { color: var(--ink); font-size: 40px; }
+.gm-lede.small { font-size: var(--lede); color: var(--ink); letter-spacing: -.01em; text-transform: uppercase; }
+.gm-lede small {
+  display: block; font-family: var(--serif); font-weight: 400; letter-spacing: 0; font-size: var(--body);
+  color: var(--ink-soft); margin-top: 8px; text-transform: none;
+}
+.gm-match { font-family: var(--grot); font-weight: 800; font-size: var(--lede); letter-spacing: -.01em; }
+.gm-match span { color: var(--ink-soft); font-weight: 700; font-size: var(--fig); }
+.gm-prose { max-width: 60ch; font-size: 14.5px; line-height: 1.55; }
+.gm-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.gm-foot .benchtoggle { margin-top: 0; }
+.gm-rules { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); }
+.gm-card { grid-column: 1 / -1; }
+.gm-quiet { grid-template-columns: 1fr; gap: 10px; }
+.gm-pending { grid-template-columns: 1fr; border-bottom: 1px solid var(--rule); }
+.gm-pending .wire { margin-top: 0; }
+.gm .wr-sub {
+  font-family: var(--grot); font-weight: 800; font-size: 10.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink); margin-top: 4px;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.gm .wr-sub .num { font-family: var(--mono); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-soft); font-size: 10.5px; }
+.wr-tbl th, .wr-tbl td { padding: 7px 10px; }
+.wr-tbl tbody td { font-size: 13.5px; }
+.wr-tbl tr.wr-in td.to { color: var(--green); font-weight: 800; }
+.wr-tbl tr.wr-out td { color: var(--ink-soft); }
+.wr-tbl tr.wr-out td.player { font-weight: 400; }
+.wr-tbl td .wr-meta { font-family: var(--grot); font-weight: 600; font-size: 11px; color: var(--ink-soft); }
+.wr-note { padding: 8px 10px; }
+
+/* leagues without a roster: one line each */
+.lgrows { display: grid; gap: 10px; margin-top: 4px; }
+.lgrow { display: grid; grid-template-columns: 1fr auto auto auto; gap: 24px; align-items: baseline; border: 1px solid var(--rule); padding: 12px 16px; }
+.lgrow .name { font-family: var(--grot); font-weight: 800; font-size: var(--fig); }
+.lgrow .name small, .lgrow .stat small { display: block; font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--ink-soft); margin-top: 2px; letter-spacing: .04em; }
+.lgrow .stat { font-family: var(--grot); font-weight: 800; font-size: 14px; color: var(--ink); text-align: right; text-decoration: none; }
+.lgrow .stat small { text-transform: uppercase; }
+.lgrow .stat.quiet { color: var(--ink-soft); font-weight: 700; }
+.lgrow .stat.link { color: var(--green); }
 
 .matchup {
   display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 9px;
@@ -783,23 +864,40 @@ table.h2h { width: 100%; border-collapse: collapse; }
 @media (max-width: 1024px) {
   .slate, .slate.two-up { grid-template-columns: repeat(2, 1fr); }
 }
+@media (max-width: 860px) {
+  .lead, .gm { grid-template-columns: 1fr; }
+  .index td.prob, .index th.prob, .index td.rec, .index th.rec { display: none; }
+  .lgrow { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 680px) {
+  :root { --display: 40px; --lede: 22px; }
   /* clear the fixed bottom gutter (bar is ~86px tall plus the inset) */
-  .page { padding: 20px 16px calc(40px + 86px + env(safe-area-inset-bottom, 0px)); }
-  /* the gutter carries primary navigation; the rail keeps only the
-     sub-index strip (Board / Live Advisor) on desk pages */
-  .secnav { display: none; }
-  .secrail { position: static; margin: 0 -16px; padding: 0 16px; box-shadow: none; }
-  .secrail:not(:has(.subnav)) { display: none; }
+  .page { padding: 12px 16px calc(40px + 86px + env(safe-area-inset-bottom, 0px)); }
+  /* the gutter carries primary navigation; the plate keeps the mark, the
+     wordmark and the account corner */
+  .plate { margin: 0 -16px; padding-left: 16px; padding-right: 16px; gap: 12px; }
+  .sections { display: none; }
+  .subnav { margin: 0 -16px; padding: 0 16px; }
+  .pagehead { gap: 10px; }
+  .pagehead-ctl { margin-left: 0; width: 100%; }
+  .lead .team { font-size: 34px; }
+  .lead .fig { font-size: 34px; }
+  .lead-match .chip { width: 44px; height: 44px; }
+  .lead-match .chip img { width: 36px; height: 36px; }
+  .index td.line, .index td.delta { width: auto; }
+  .index td.model, .index th.model { display: none; }
+  .index thead th { white-space: normal; padding: 6px 8px; }
+  .index thead th small { display: none; }
+  .index td { padding: 10px 8px; }
+  .index td.line, .index td.delta { font-size: 14px; }
+  .index td.teams .kick { display: block; margin: 2px 0 0; }
+  .gm-lede.quiet { font-size: 30px; }
+  .lg-score .who { max-width: 150px; }
+  .lgrow { grid-template-columns: 1fr; gap: 8px; }
+  .lgrow .stat { text-align: left; }
   .weekdiv { flex-wrap: wrap; row-gap: 2px; }
-  .deskrail .pager { width: 100%; }
-  .deskrail .pager .pager-cur { flex: 1; justify-content: center; }
-  .deskrail .pager .pager-cur select { width: 100%; }
   .brand h1, .brand .h1 { font-size: 34px; }
   .slate, .slate.two-up { grid-template-columns: 1fr; }
-  .masthead { padding: 18px 0 14px; }
-  .brand-lock { gap: 12px; }
-  .mark-plate { width: 58px; height: 58px; }
   .folio { margin-top: 42px; }
   /* the middot separator dangles when the cont line wraps; the cont
      itself still prints (it carries the season) */
@@ -827,61 +925,3 @@ table.h2h { width: 100%; border-collapse: collapse; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
-
-/* ---------------- the week room ---------------- */
-/* The roster note, printed on lifted stock at the head of each league
-   card. A green top rule when there are points on the table. */
-.wr {
-  background: var(--paper-deep); border: 1px solid var(--rule); border-top: 3px solid var(--ink);
-  padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 8px;
-}
-.wr.hot { border-top-color: var(--green); }
-.wr-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.wr-kicker {
-  font-family: var(--grot); font-weight: 800; font-size: 10px; letter-spacing: .2em;
-  color: var(--green); text-transform: uppercase;
-}
-.wr-stamp { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-soft); }
-.wr-lede {
-  font-family: var(--grot); font-weight: 800; font-size: 20px; line-height: 1.1;
-  letter-spacing: -.01em; color: var(--ink);
-}
-.wr.hot .wr-lede { color: var(--green); }
-.wr-match { font-size: 13px; color: var(--ink-soft); font-family: var(--serif); }
-.wr-match b { color: var(--ink); font-family: var(--grot); font-weight: 800; }
-.wr-prose { font-size: 13.5px; line-height: 1.5; color: var(--ink); }
-.wr-moves { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--rule-soft); padding-top: 8px; }
-.wr-move {
-  font-size: 13px; line-height: 1.45; color: var(--ink);
-  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 2px;
-}
-.wr-move b { font-weight: 700; }
-.wr-meta { font-size: 11px; color: var(--ink-soft); }
-.wr-at { font-family: var(--grot); font-size: 11px; color: var(--ink-soft); letter-spacing: .02em; }
-.wr-delta { margin-left: auto; font-family: var(--grot); font-weight: 800; font-size: 12px; color: var(--green); white-space: nowrap; }
-.wr-tag {
-  font-family: var(--grot); font-weight: 800; font-size: 9px; letter-spacing: .16em;
-  padding: 2px 6px 1px; border: 1px solid var(--rule); color: var(--ink-soft); white-space: nowrap;
-}
-.wr-tag.start, .wr-tag.add, .wr-tag.get { color: var(--paper); background: var(--green); border-color: var(--green); }
-.wr-tag.sit, .wr-tag.drop, .wr-tag.send { color: var(--ink); border-color: var(--ink); }
-.wr-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.wr-foot .benchtoggle { margin-top: 0; }
-.wr-rules { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); margin-left: auto; }
-.wr .tablewrap { background: var(--paper); }
-.wr-lineup td.txt.team { color: var(--ink-soft); }
-.wr-note { padding: 8px 10px; }
-.wr-pending .wr-wire { padding: 12px 12px; margin-top: 0; }
-.wr .advlink { margin-top: 2px; }
-.wr-sub {
-  font-family: var(--grot); font-weight: 800; font-size: 9.5px; letter-spacing: .18em;
-  text-transform: uppercase; color: var(--ink); margin-top: 4px;
-  display: flex; align-items: baseline; gap: 8px;
-}
-.wr-sub .num { font-weight: 700; letter-spacing: .04em; text-transform: none; color: var(--ink-soft); font-size: 10px; }
-.wr-tbl th, .wr-tbl td { padding: 7px 10px; }
-.wr-tbl tbody td { font-size: 13px; }
-.wr-tbl tr.wr-in td.to { color: var(--green); font-weight: 800; }
-.wr-tbl tr.wr-out td { color: var(--ink-soft); }
-.wr-tbl tr.wr-out td.player { font-weight: 400; }
-.wr-tbl td .wr-meta { font-family: var(--grot); font-weight: 600; }
