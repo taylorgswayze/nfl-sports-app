@@ -8,6 +8,16 @@
 
 This is a full-stack web application that provides comprehensive NFL sports information including game schedules, team statistics, player rosters, and real-time odds data. The application features a Django REST API backend with an SQLite database and a React frontend built with Vite.
 
+## The Week Room (fantasy roster advice)
+
+Each league card on `/leagues` opens with the Week Room: the projected
+optimal lineup vs the one set on Sleeper, free agents worth a claim with the
+drop named, one-for-one trade ideas scored for both sides, and a short note.
+Reports are stored per (Sleeper user, league) and reprinted every 12 hours
+by `nfl.cron.WeekRoomRefresh`; `manage.py fantasy_insights --username X`
+builds them by hand. Engine, validation and design: `PLAN-WEEK-ROOM.md`.
+Optional prose via OpenAI (`OPENAI_API_KEY`, `OPENAI_MODEL` in `.env`).
+
 ## Architecture
 
 ### Backend (Django)

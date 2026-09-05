@@ -166,3 +166,23 @@ class DeskUser(models.Model):
 
     def __str__(self):
         return f'{self.email}'
+
+
+class FantasyInsight(models.Model):
+    """One Week Room report per (Sleeper user, league): the engine payload
+    (lineup, waivers, trades, matchup projection, prose) as printed at
+    generated_at. Refreshed every 12 hours by the cron job and on demand;
+    the row is replaced in place, never versioned."""
+    sleeper_user_id = models.CharField(max_length=32, db_index=True)
+    username = models.CharField(max_length=100)
+    league_id = models.CharField(max_length=32)
+    season = models.IntegerField()
+    week = models.IntegerField()
+    payload = models.JSONField(default=dict)
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['sleeper_user_id', 'league_id']
+
+    def __str__(self):
+        return f'{self.username} / {self.league_id} wk {self.week}'

@@ -38,3 +38,14 @@ class UpdatePlayerStats(CronJobBase):
 
     def do(self):
         call_command('update_recent_player_stats')
+
+
+class WeekRoomRefresh(CronJobBase):
+    """Every 12 hours: rebuild the Week Room (lineup, waiver and trade
+    advice) for every Sleeper user the Desk knows: signed-in accounts with
+    a saved handle plus any handle that has loaded the page."""
+    schedule = Schedule(run_every_mins=720)
+    code = 'nfl.week_room_refresh'
+
+    def do(self):
+        call_command('fantasy_insights', '--all')

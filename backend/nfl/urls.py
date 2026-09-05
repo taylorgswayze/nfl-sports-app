@@ -23,6 +23,7 @@ urlpatterns = [
     path('game/<int:event_id>/boxscore/', live_views.game_boxscore, name='game_boxscore'),  # Player boxscore, live or past
     path('draft/<str:endpoint>/', draft_proxy.proxy, name='draft_proxy'),  # Federated Draft Room API
     path('fantasy/overview/', fantasy_views.overview, name='fantasy_overview'),  # Multi-league Sleeper dashboard
+    path('fantasy/insights/', fantasy_views.insights, name='fantasy_insights'),  # The Week Room: per-league roster advice
 
     path('teams/<int:team_id>/roster/', views.team_roster, name='team_roster'),  # Team roster
     path('teams/<int:team_id>/stats/', views.team_stats, name='team_stats'),  # Team statistics

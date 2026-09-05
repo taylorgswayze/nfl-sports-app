@@ -45,7 +45,27 @@ export function fetchSeasonsCached() {
   return seasonsPromise
 }
 
+/* Account endpoints. Sign-in itself is a full-page redirect to
+   /api/auth/login/ (Google), so only me-reads and settings-writes live here. */
+export const accountService = {
+  fetchMe() {
+    return get("/me/")
+  },
+  async saveMe(patch) {
+    const response = await fetch("/api/me/", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    })
+    if (!response.ok) throw new Error(`API error: ${response.status}`)
+    return response.json()
+  },
+}
+
 export const gameService = {
+  fetchGamesWindow() {
+    return get("/games/window/")
+  },
   fetchGames(weekNum = null, season = null, seasonType = null) {
     const endpoint = weekNum ? `/games/${weekNum}/` : "/games/"
     const params = {}
@@ -68,8 +88,26 @@ export const gameService = {
   fetchLive() {
     return get("/live/")
   },
+  fetchStandings() {
+    return get("/standings/")
+  },
   fetchBoxscore(eventId) {
     return get(`/game/${eventId}/boxscore/`)
+  },
+  fetchDraftBoard() {
+    return get("/draft/board/")
+  },
+  fetchDraftLeagues(username) {
+    return get("/draft/leagues/", { username })
+  },
+  fetchAdvise(leagueId, username, model) {
+    return get("/draft/advise/", { league_id: leagueId, username, model })
+  },
+  fetchFantasyOverview(username) {
+    return get("/fantasy/overview/", { username })
+  },
+  fetchFantasyInsights(username, refresh = false) {
+    return get("/fantasy/insights/", refresh ? { username, refresh: 1 } : { username })
   },
   fetchTeamStats(teamId, season) {
     return get(`/teams/${teamId}/stats/`, { season })

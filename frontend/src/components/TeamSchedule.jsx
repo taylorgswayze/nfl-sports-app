@@ -9,14 +9,16 @@ const POSITION_GROUPS = {
   'Running Back': ['RB', 'FB'],
   'Wide Receiver': ['WR'],
   'Tight End': ['TE'],
-  'Offensive Line': ['OL', 'G', 'T', 'C'],
-  'Defensive Line': ['DL', 'DE', 'DT'],
-  'Linebacker': ['LB'],
-  'Defensive Back': ['DB', 'CB', 'S'],
-  'Kicker': ['K'],
+  'Offensive Line': ['OL', 'G', 'OG', 'T', 'OT', 'C'],
+  'Defensive Line': ['DL', 'DE', 'DT', 'NT', 'EDGE'],
+  'Linebacker': ['LB', 'OLB', 'MLB', 'ILB'],
+  'Defensive Back': ['DB', 'CB', 'S', 'FS', 'SS'],
+  'Kicker': ['K', 'PK'],
   'Punter': ['P'],
   'Special Teams': ['LS'],
 };
+
+const SEASON_TYPE_LABELS = { 1: 'Preseason', 2: 'Regular Season', 3: 'Postseason' }
 
 const TAB_LABELS = { schedule: 'Schedule', stats: 'Team Stats', roster: 'Roster' }
 
@@ -116,6 +118,7 @@ function TeamSchedule() {
   const [teamStats, setTeamStats] = useState([])
   const [statsStatus, setStatsStatus] = useState("idle")
   const [roster, setRoster] = useState([])
+  const [statsSeason, setStatsSeason] = useState(null)
   const [seasons, setSeasons] = useState([])
   const [selectedSeason, setSelectedSeason] = useState(null)
 
@@ -172,6 +175,7 @@ function TeamSchedule() {
     try {
       const data = await gameService.fetchTeamRoster(teamId)
       setRoster(data.roster || [])
+      setStatsSeason(data.stats_season || null)
     } catch (err) {
       console.error("Failed to load roster:", err)
     }
@@ -327,49 +331,87 @@ function TeamSchedule() {
   const groupedRoster = groupRosterByPosition(roster)
   const orderedGroups = getOrderedPositionGroups(groupedRoster)
 
-  const renderRosterTable = (positionGroup) => (
-    <div key={positionGroup}>
-      <h3 className="subhead">
-        {positionGroup} <span className="count num">{groupedRoster[positionGroup].length}</span>
-      </h3>
-      <div className="tablewrap">
-        <table className="stats">
-          <thead>
-            <tr>
-              <th scope="col">No.</th>
-              <th scope="col" className="txt">Player</th>
-              <th scope="col" className="txt">Position</th>
-              <th scope="col">Age</th>
-              <th scope="col">Ht</th>
-              <th scope="col">Wt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groupedRoster[positionGroup].map(player => (
-              <tr key={player.athlete_id}>
-                <td className="n">{player.jersey ?? '–'}</td>
-                <td className="txt player">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePlayerClick(player, positionGroup);
-                    }}
-                  >
-                    {player.display_name || `${player.first_name} ${player.last_name}`}
-                  </a>
-                </td>
-                <td className="txt team">{player.position}</td>
-                <td className="n">{player.age ?? '–'}</td>
-                <td className="n">{player.height ?? '–'}</td>
-                <td className="n">{player.weight ?? '–'}</td>
+  /* Depth order inside each group: starters (rank 1, green band with the
+     dagger) first, then the chart's backups, then unranked reserves. Skill
+     positions swap the bio columns for season-to-date key figures. */
+  const renderRosterTable = (positionGroup) => {
+    const players = [...groupedRoster[positionGroup]].sort((a, b) =>
+      ((a.depth_rank ?? 99) - (b.depth_rank ?? 99))
+      || String(a.position || '').localeCompare(String(b.position || ''))
+      || ((a.jersey ?? 999) - (b.jersey ?? 999)))
+    const statCols = players.find((p) => p.key_stats?.length)?.key_stats.map((s) => s.label) || []
+    return (
+      <div key={positionGroup}>
+        <h3 className="subhead">
+          {positionGroup} <span className="count num">{players.length}</span>
+        </h3>
+        <div className="tablewrap">
+          <table className="stats">
+            <thead>
+              <tr>
+                <th scope="col">No.</th>
+                <th scope="col" className="txt">Player</th>
+                <th scope="col" className="txt">Position</th>
+                <th scope="col">Depth</th>
+                {statCols.length > 0 ? (
+                  <>
+                    <th scope="col">GP</th>
+                    {statCols.map((label) => <th scope="col" key={label}>{label}</th>)}
+                  </>
+                ) : (
+                  <>
+                    <th scope="col">Age</th>
+                    <th scope="col">Ht</th>
+                    <th scope="col">Wt</th>
+                  </>
+                )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {players.map(player => (
+                <tr key={player.athlete_id} className={player.starter ? 'leader' : undefined}>
+                  <td className="n">{player.jersey ?? '-'}</td>
+                  <td className="txt player">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePlayerClick(player, positionGroup);
+                      }}
+                    >
+                      {player.display_name || `${player.first_name} ${player.last_name}`}
+                    </a>
+                    {player.starter && <span className="mark" title="Projected starter">&dagger;</span>}
+                    {player.status && player.status !== 'Active' && (
+                      <span className="team"> · {player.status}</span>
+                    )}
+                  </td>
+                  <td className="txt team">{player.position}</td>
+                  <td className="n">{player.depth_rank ?? '-'}</td>
+                  {statCols.length > 0 ? (
+                    <>
+                      <td className="n">{player.games_played ?? 0}</td>
+                      {statCols.map((label) => (
+                        <td className="n" key={label}>
+                          {player.key_stats?.find((s) => s.label === label)?.value ?? '-'}
+                        </td>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <td className="n">{player.age ?? '-'}</td>
+                      <td className="n">{player.height ?? '-'}</td>
+                      <td className="n">{player.weight ?? '-'}</td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const seasonValue = selectedSeason || ''
   const seasonOptions = seasons.length
@@ -377,6 +419,18 @@ function TeamSchedule() {
     : (seasonValue ? [seasonValue] : [])
   const results = games.map(gameResult)
   const played = results.filter(Boolean)
+
+  // Games arrive in kickoff order, so season types are contiguous: one
+  // pass yields the Preseason / Regular Season / Postseason sections.
+  const scheduleSections = []
+  for (const game of games) {
+    const last = scheduleSections[scheduleSections.length - 1]
+    if (!last || last.seasonTypeId !== game.season_type_id) {
+      scheduleSections.push({ seasonTypeId: game.season_type_id, games: [game] })
+    } else {
+      last.games.push(game)
+    }
+  }
   const wins = played.filter((r) => r.won).length
 
   return (
@@ -426,11 +480,29 @@ function TeamSchedule() {
             ) : error ? (
               <p className="wire">COULD NOT LOAD THE SCHEDULE: <b>{error}</b>. Reload the page to try again.</p>
             ) : games.length > 0 ? (
-              <div className="slate">
-                {games.map((game) => (
-                  <ScheduleEntry key={game.event_id} game={game} />
-                ))}
-              </div>
+              scheduleSections.map((sec) => {
+                const secResults = sec.games.map(gameResult).filter(Boolean)
+                const wins = secResults.filter((r) => r.won).length
+                const losses = secResults.filter((r) => !r.won && r.teamScore !== r.oppScore).length
+                const ties = secResults.length - wins - losses
+                const record = secResults.length
+                  ? `${wins}-${losses}${ties > 0 ? `-${ties}` : ''}`
+                  : `${sec.games.length} game${sec.games.length === 1 ? '' : 's'}`
+                return (
+                  <div key={sec.seasonTypeId}>
+                    <div className="weekdiv" role="heading" aria-level="3">
+                      <span className="wk-type">{SEASON_TYPE_LABELS[sec.seasonTypeId] || 'Season'}</span>
+                      <span className="wk-rule" role="presentation"></span>
+                      <span className="wk-season num">{record}</span>
+                    </div>
+                    <div className="slate">
+                      {sec.games.map((game) => (
+                        <ScheduleEntry key={game.event_id} game={game} />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
             ) : (
               <p className="wire">NO GAMES ON FILE for this team yet.</p>
             )}
@@ -504,8 +576,10 @@ function TeamSchedule() {
         {currentView === 'roster' && (
           <>
             <p className="folio-note">
-              The roster by unit and position. Select any player to open the league leaders
-              at that position.
+              The roster by unit and position, depth-chart order: the green band with
+              the {' '}<span className="mark">&dagger;</span> is the projected starter.
+              {statsSeason && <> Key figures are season-to-date from the <b className="num">{statsSeason}</b> regular season.</>}
+              {' '}Select any player to open the league leaders at that position.
             </p>
             {Object.keys(groupedRoster).length > 0 ? (
               <>

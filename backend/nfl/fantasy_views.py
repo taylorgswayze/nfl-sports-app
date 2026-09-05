@@ -200,3 +200,44 @@ def overview(request):
         logger.error(f'fantasy overview failed for {username}: {e}')
         return JsonResponse({'error': 'fantasy overview unavailable',
                              'message': str(e)}, status=502)
+
+
+@require_http_methods(["GET"])
+def insights(request):
+    """The Week Room for every league of a Sleeper user.
+
+    Stored reports return immediately (status 'ready', with each league's
+    generated_at). When none exist for the username, or ?refresh=1 asks for
+    a fresh set and the stored one is older than 20 minutes, generation
+    starts in the background and the response says 'generating'; the page
+    polls until the rows land. The cron job keeps saved users fresh on a
+    12-hour cadence regardless."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from . import fantasy_insights as fi
+
+    username = (request.GET.get('username') or '').strip()
+    if not username:
+        return JsonResponse({'error': 'username parameter is required'}, status=400)
+    try:
+        user = sleeper.user(username)
+    except Exception as e:
+        return JsonResponse({'error': 'sleeper unavailable', 'message': str(e)}, status=502)
+    if not user or not user.get('user_id'):
+        return JsonResponse({'error': f"Sleeper user '{username}' not found"}, status=404)
+    user_id = user['user_id']
+    rows = fi.stored(user_id)
+    want_refresh = request.GET.get('refresh') in ('1', 'true')
+    stale_enough = (not rows) or (timezone.now() - min(r.generated_at for r in rows) > timedelta(minutes=20))
+    generating = fi.in_progress(user_id)
+    if (not rows or (want_refresh and stale_enough)) and not generating:
+        generating = fi.generate_in_background(username, user_id)
+    payloads = [r.payload for r in rows]
+    return JsonResponse({
+        'username': username, 'user_id': user_id,
+        'status': 'ready' if rows else ('generating' if generating else 'empty'),
+        'generating': generating,
+        'generated_at': min(r.generated_at for r in rows).isoformat() if rows else None,
+        'refresh_hours': fi.REFRESH_HOURS,
+        'leagues': payloads,
+    })

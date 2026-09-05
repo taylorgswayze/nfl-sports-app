@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { gameService } from '../api'
 import { isNumberLike, figureOrDash } from '../utils'
-import { Masthead, Folio, Chip, Footnotes, Colophon, ProbGauge } from './Almanac'
+import { Masthead, Chip, Footnotes, Colophon, ProbGauge, TeamsMenu } from './Almanac'
 
 const FALLBACK_SEASONS = ['2026', '2025', '2024', '2023', '2022']
 
@@ -173,7 +173,7 @@ function GameEntry({ game, index, live }) {
         <div className="fig">
           <span className="flbl">TOTAL</span>
           <span className={`fval num${total == null ? ' dim' : ''}`}>
-            {total == null ? '–' : `O/U ${total}`}
+            {total == null ? '-' : `O/U ${total}`}
           </span>
         </div>
       </div>
@@ -194,6 +194,8 @@ function GameEntry({ game, index, live }) {
 }
 
 function GameDisplay() {
+  // The front page opens on the current week's slate; the head's chips
+  // and season controls browse everywhere else.
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -201,6 +203,8 @@ function GameDisplay() {
   const [selectedWeek, setSelectedWeek] = useState({})
   const [seasons, setSeasons] = useState([])
   const [selectedSeason, setSelectedSeason] = useState('')
+  // Which season type the week strip shows; null follows the shown week.
+  const [selectedType, setSelectedType] = useState(null)
   const [liveMap, setLiveMap] = useState({})
 
   useEffect(() => {
@@ -249,6 +253,7 @@ function GameDisplay() {
       setWeeks(data.weeks || [])
       const week = data.current_week || (data.weeks || [])[0] || {}
       setSelectedWeek(week)
+      setSelectedType(week.season_type_id ?? null)
       if (week.season) {
         setSelectedSeason((prev) => prev || String(week.season))
       }
@@ -262,7 +267,6 @@ function GameDisplay() {
   /* Week identity is (season type, week number): week numbers repeat across
      preseason, regular season and the playoffs. */
   const weekKey = (w) => (w ? `${w.season_type_id}:${w.week_num}` : '')
-  const weekIndex = weeks.findIndex((w) => weekKey(w) === weekKey(selectedWeek))
 
   const goToWeek = (week) => {
     if (!week) return
@@ -272,91 +276,122 @@ function GameDisplay() {
     }
   }
 
-  const handleWeekSelect = (event) => {
-    goToWeek(weeks.find((w) => weekKey(w) === event.target.value))
-  }
-
-  const handleSeasonChange = (event) => {
-    const season = event.target.value
-    setSelectedSeason(season)
-    fetchGamesForWeek(null, season)
-  }
-
-  const stamp = games.map((g) => g.odds_last_updated).find((t) => t && t !== 'N/A')
   const seasonLabel = selectedSeason || selectedWeek?.season || ''
-  const weekNo = selectedWeek?.week_num
 
-  const controls = (
-    <>
-      <label className="ctl">
-        <span className="lbl">SEASON</span>
-        <select value={seasonLabel} onChange={handleSeasonChange} aria-label="Season">
-          {seasons.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-          {seasonLabel && !seasons.includes(String(seasonLabel)) && (
-            <option value={seasonLabel}>{seasonLabel}</option>
-          )}
-        </select>
-        <span className="car" aria-hidden="true">&#9662;</span>
-      </label>
-      {weeks.length > 0 && (
-      <div className="weekset" role="group" aria-label="Week">
-        <button type="button" aria-label="Previous week"
-          disabled={weekIndex <= 0}
-          onClick={() => goToWeek(weeks[weekIndex - 1])}>&#8249;</button>
-        <span className="cur">
-          <select value={weekKey(selectedWeek)} onChange={handleWeekSelect} aria-label="Select week">
-            {weeks.map((week) => (
-              <option key={weekKey(week)} value={weekKey(week)}>{week.name}</option>
-            ))}
-          </select>
-        </span>
-        <button type="button" aria-label="Next week"
-          disabled={weekIndex < 0 || weekIndex >= weeks.length - 1}
-          onClick={() => goToWeek(weeks[weekIndex + 1])}>&#8250;</button>
+  // The slate head: the year bracketed by arrows with the season type
+  // beside it, and beneath them the week strip, the showing week inked.
+  const SEASON_TYPE_LABELS = { 1: 'Preseason', 2: 'Regular Season', 3: 'Postseason' }
+
+  const arrow = (dir) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {dir === 'prev' ? <path d="M14.5 6 L8.5 12 L14.5 18" /> : <path d="M9.5 6 L15.5 12 L9.5 18" />}
+    </svg>
+  )
+
+  /* Short chip labels: HOF, P1-P3, W1-W18, WC, DIV, CONF, SB. */
+  const chipLabel = (w) => {
+    const n = w.name || `Week ${w.week_num}`
+    let m
+    if (/hof/i.test(n)) return 'HOF'
+    if ((m = /^pre.*?(\d+)$/i.exec(n))) return `P${m[1]}`
+    if ((m = /^week\s*(\d+)$/i.exec(n))) return `W${m[1]}`
+    if (/wild/i.test(n)) return 'WC'
+    if (/division/i.test(n)) return 'DIV'
+    if (/conference/i.test(n)) return 'CONF'
+    if (/super/i.test(n)) return 'SB'
+    return n
+  }
+
+  const availableTypes = [...new Set(weeks.map((w) => w.season_type_id))].sort()
+  const shownType = selectedType ?? selectedWeek?.season_type_id ?? availableTypes[0]
+  const typeWeeks = weeks.filter((w) => w.season_type_id === shownType)
+  const yearList = [...new Set(seasons.map(Number).filter(Boolean))].sort((a, b) => a - b)
+  const yearNum = Number(seasonLabel) || yearList[yearList.length - 1]
+  const yearIdx = yearList.indexOf(yearNum)
+
+  const changeSeason = (year) => {
+    setSelectedSeason(String(year))
+    setSelectedType(null)
+    fetchGamesForWeek(null, year)
+  }
+
+  const slatehead = (
+    <div className="slatehead">
+      <div className="slatehead-top" role="toolbar" aria-label="Season">
+        <div className="pager yearpager" role="group" aria-label="Season year">
+          <button type="button" className="pager-arrow" aria-label="Previous season"
+            disabled={yearIdx <= 0}
+            onClick={() => changeSeason(yearList[yearIdx - 1])}>
+            {arrow('prev')}
+          </button>
+          <span className="pager-year num">{yearNum || ''}</span>
+          <button type="button" className="pager-arrow" aria-label="Next season"
+            disabled={yearIdx < 0 || yearIdx >= yearList.length - 1}
+            onClick={() => changeSeason(yearList[yearIdx + 1])}>
+            {arrow('next')}
+          </button>
+        </div>
+        {availableTypes.length > 0 && (
+          <label className="ctl">
+            <span className="lbl">TYPE</span>
+            <select value={shownType} onChange={(e) => setSelectedType(Number(e.target.value))}
+              aria-label="Season type">
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>{SEASON_TYPE_LABELS[t] || `Type ${t}`}</option>
+              ))}
+            </select>
+            <span className="car" aria-hidden="true">&#9662;</span>
+          </label>
+        )}
       </div>
+      {weeks.length > 0 && (
+        <div className="weekstrip" role="group" aria-label="Week">
+          {typeWeeks.map((week) => {
+            const cur = weekKey(week) === weekKey(selectedWeek)
+            return (
+              <button key={weekKey(week)} type="button"
+                className={`wchip${cur ? ' cur' : ''}`}
+                aria-pressed={cur}
+                title={week.name}
+                onClick={() => goToWeek(week)}>
+                {chipLabel(week)}
+              </button>
+            )
+          })}
+        </div>
       )}
-    </>
+    </div>
   )
 
   const hasEdges = games.some((g) => isNumberLike(g.pred_diff) && Number(g.pred_diff) !== 0)
-
-  // Live games print first; everything else keeps kickoff order (the sort
-  // is stable, so within each group the server's ordering holds).
   const liveFor = (g) => liveMap[String(g.event_id)]
   const isLiveNow = (g) => liveFor(g)?.state === 'in'
-  const orderedGames = [...games].sort((a, b) => Number(isLiveNow(b)) - Number(isLiveNow(a)))
   const liveCount = games.filter(isLiveNow).length
+
+  // Live games print first; the sort is stable, so everything else keeps
+  // kickoff order.
+  const orderedGames = [...games].sort((a, b) => Number(isLiveNow(b)) - Number(isLiveNow(a)))
 
   return (
     <>
       <Masthead
         vol={`Front Page${seasonLabel ? ` · ${seasonLabel} Season` : ''}`}
-        stamp={stamp}
-        controls={controls}
+        controls={null}
       />
 
-      <section aria-labelledby="sec-slate">
-        <Folio
-          sec="THE SLATE"
-          id="sec-slate"
-          title={selectedWeek?.name || 'This Week'}
-          cont={seasonLabel ? `${seasonLabel} Season` : null}
-        />
-        {games.length > 0 && (
+      <section aria-label="The Slate">
+        {slatehead}
+        {liveCount > 0 && (
           <p className="folio-note">
-            {games.length} game{games.length === 1 ? '' : 's'}
-            {liveCount > 0
-              ? <>; <b className="live-note">{liveCount} live now</b>, printed first, then kickoff order.</>
-              : ', listed in kickoff order.'}
+            <b className="live-note">{liveCount} live now</b>, printed first.
           </p>
         )}
 
         {loading ? (
-          <p className="wire">LOADING THE WEEK&rsquo;S GAMES&hellip; <b>stand by</b></p>
+          <p className="wire">LOADING THE SLATE&hellip; <b>stand by</b></p>
         ) : error ? (
-          <p className="wire">COULD NOT LOAD THE WEEK&rsquo;S GAMES: <b>{error}</b>. Reload the page to try again.</p>
+          <p className="wire">COULD NOT LOAD THE SLATE: <b>{error}</b>. Reload the page to try again.</p>
         ) : games.length > 0 ? (
           <div className="slate">
             {orderedGames.map((game, i) => (
@@ -366,6 +401,10 @@ function GameDisplay() {
         ) : (
           <p className="wire">NO GAMES LISTED for this week. <b>Pick another week above.</b></p>
         )}
+
+        <div className="teamsrail">
+          <TeamsMenu />
+        </div>
 
         <Footnotes>
           {hasEdges && (
@@ -380,12 +419,8 @@ function GameDisplay() {
         </Footnotes>
       </section>
 
-      <Colophon center={weekNo
-        ? selectedWeek?.season_type_id === 1
-          ? `Preseason, ${selectedWeek?.name || `Week ${weekNo}`}`
-          : selectedWeek?.season_type_id === 3
-            ? `Postseason, Round ${weekNo}`
-            : `Week ${weekNo} of ${weeks.filter((w) => w.season_type_id === 2).length || 18}`
+      <Colophon center={selectedWeek?.name
+        ? `${SEASON_TYPE_LABELS[selectedWeek.season_type_id] || ''} ${selectedWeek.name}`.trim()
         : null} />
     </>
   )

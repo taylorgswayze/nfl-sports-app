@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 CRON_CLASSES = [
     'nfl.cron.UpdateSeasonData',
+    'nfl.cron.WeekRoomRefresh',
     'nfl.cron.UpdateTeamStats',
     'nfl.cron.UpdateRosters',
     'nfl.cron.UpdatePlayerStats',
