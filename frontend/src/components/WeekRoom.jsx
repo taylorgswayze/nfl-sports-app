@@ -59,7 +59,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   const preDraft = ins.status === 'pre_draft' || ins.status === 'drafting'
   const lu = ins.lineup || {}
   const m = ins.matchup
-  const changes = (lu.changes || []).filter((c) => c.start)
+  const moves = lu.moves || []
   const waivers = ins.waivers || []
   const trades = ins.trades || []
   const printed = stamp(ins.generated_at)
@@ -96,33 +96,80 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
         </Link>
       )}
 
-      {(changes.length > 0 || waivers.length > 0 || trades.length > 0) && (
-        <ul className="wr-moves">
-          {changes.map((c, i) => (
-            <li key={`c${i}`} className="wr-move">
-              <Tag kind="start">START</Tag> {who(c.start)}
-              {c.sit ? <> <Tag kind="sit">SIT</Tag> {who(c.sit)}</> : null}
-              <span className="wr-at num">{c.slot ? `at ${c.slot}` : ''}</span>
-              <span className="wr-delta num">{fmt(c.delta, true)}</span>
-            </li>
-          ))}
-          {waivers.map((w, i) => (
-            <li key={`w${i}`} className="wr-move">
-              <Tag kind="add">CLAIM</Tag> {who(w.add)}
-              <> <Tag kind="drop">DROP</Tag> {who(w.drop)}</>
-              <span className="wr-at">{w.starts ? 'starts now' : 'depth'}{w.trending ? ` · ${Number(w.trending).toLocaleString()} adds` : ''}</span>
-              <span className="wr-delta num">{fmt(w.gain, true)} ros</span>
-            </li>
-          ))}
-          {trades.map((t, i) => (
-            <li key={`t${i}`} className="wr-move">
-              <Tag kind="send">SEND</Tag> {who(t.send[0])}
-              <> <Tag kind="get">GET</Tag> {who(t.receive[0])}</>
-              <span className="wr-at">to {t.partner}</span>
-              <span className="wr-delta num">{fmt(t.my_delta, true)} you · {fmt(t.their_delta, true)} them</span>
-            </li>
-          ))}
-        </ul>
+      {moves.length > 0 && (
+        <>
+          <p className="wr-sub">ROSTER MOVES <span className="num">{moves.length} to the optimal lineup</span></p>
+          <div className="tablewrap">
+            <table className="stats wr-tbl">
+              <thead>
+                <tr>
+                  <th scope="col" className="txt">PLAYER</th>
+                  <th scope="col">POS</th>
+                  <th scope="col">FROM</th>
+                  <th scope="col">TO</th>
+                  <th scope="col">PROJ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {moves.map((m) => (
+                  <tr key={m.player_id} className={m.to === 'BN' ? 'wr-out' : 'wr-in'}>
+                    <td className="txt player">{m.name}</td>
+                    <td className="team">{m.pos || '–'}</td>
+                    <td className="team">{m.from}</td>
+                    <td className="team to">{m.to}</td>
+                    <td className="n">{fmt(m.proj)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {waivers.length > 0 && (
+        <>
+          <p className="wr-sub">WAIVER WIRE <span className="num">claim and drop, with the projected upside</span></p>
+          <div className="tablewrap">
+            <table className="stats wr-tbl">
+              <thead>
+                <tr>
+                  <th scope="col" className="txt">CLAIM</th>
+                  <th scope="col" className="txt">DROP</th>
+                  <th scope="col">THIS WK<span className="was">pts</span></th>
+                  <th scope="col">ROS<span className="was">pts / wk</span></th>
+                  <th scope="col" className="txt">NOTE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {waivers.map((w, i) => (
+                  <tr key={`w${i}`}>
+                    <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span></td>
+                    <td className="txt">{w.drop.name} <span className="wr-meta">{w.drop.pos}</span></td>
+                    <td className="n">{fmt(w.week_gain, true)}</td>
+                    <td className="n sortcol">{fmt(w.gain, true)}</td>
+                    <td className="txt wr-meta">{w.starts ? 'starts now' : 'depth'}{w.trending ? ` · ${Number(w.trending).toLocaleString()} adds` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {trades.length > 0 && (
+        <>
+          <p className="wr-sub">TRADE IDEAS <span className="num">one for one, both sides scored</span></p>
+          <ul className="wr-moves">
+            {trades.map((t, i) => (
+              <li key={`t${i}`} className="wr-move">
+                <Tag kind="send">SEND</Tag> {who(t.send[0])}
+                <> <Tag kind="get">GET</Tag> {who(t.receive[0])}</>
+                <span className="wr-at">to {t.partner}</span>
+                <span className="wr-delta num">{fmt(t.my_delta, true)} you · {fmt(t.their_delta, true)} them</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {!preDraft && !ins.error && (

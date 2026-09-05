@@ -24,13 +24,15 @@ SYSTEM = (
     "Write in plain, direct English, second person (you), like a sharp beat writer. "
     "Two or three short paragraphs, 110 to 170 words total. Use only the facts in the "
     "JSON; never invent players, injuries, stats or opponents. "
-    "Paragraph one: the matchup (your projected total vs theirs) and the lineup. "
-    "lineup.changes lists start/sit swaps with the slot and the point gain; if it is "
+    "Paragraph one: the matchup (your projected total vs theirs), then the exact "
+    "roster moves in lineup.moves, each named with its from and to slot (move X from "
+    "BN to FLEX, move Y from FLEX to BN), and the total gain. If lineup.moves is "
     "empty, say the lineup is already the projected optimum and move on. A waiver "
     "claim is never a lineup change. "
     "Paragraph two: waivers. These are recommended claims, not moves already made: "
-    "say claim X and drop Y, with the rest-of-season gain, plus anything in watch "
-    "(byes, injuries). If waivers is empty, say no free agent clears the bench. "
+    "say claim X and drop Y, with the rest-of-season gain per week and the this-week "
+    "gain, plus anything in watch (byes, injuries). If waivers is empty, say no free "
+    "agent clears the bench. "
     "Paragraph three, only if trades is non-empty: one trade idea with both sides' "
     "deltas, framed as an idea to float. "
     "Numbers to one decimal. No em dashes, no emojis, no headings, no bullet points, "
@@ -81,11 +83,12 @@ def _facts(p):
         'lineup': {
             'current_total': r1(lu.get('current_total')), 'optimal_total': r1(lu.get('optimal_total')),
             'gain': r1(lu.get('gain')),
-            'changes': [{'slot': c.get('slot'), 'start': brief(c.get('start')), 'sit': brief(c.get('sit')),
-                         'delta': r1(c.get('delta')), 'reason': c.get('reason')} for c in (lu.get('changes') or [])[:4]],
+            'moves': [{'name': m.get('name'), 'pos': m.get('pos'), 'from': m.get('from'), 'to': m.get('to'),
+                       'proj': r1(m.get('proj'))} for m in (lu.get('moves') or [])[:8]],
         },
         'watch': [{'name': f['name'], 'flags': f['flags']} for f in (p.get('flags') or [])[:4]],
-        'waivers': [{'add': brief(w['add']), 'drop': brief(w['drop']), 'gain': r1(w['gain']),
+        'waivers': [{'add': brief(w['add']), 'drop': brief(w['drop']), 'ros_gain_per_week': r1(w['gain']),
+                     'this_week_gain': r1(w.get('week_gain')),
                      'trending_adds': w.get('trending'), 'reason': w.get('reason')} for w in (p.get('waivers') or [])[:3]],
         'waiver_rules': p.get('waiver'),
         'trades': [{'partner': t['partner'], 'send': [brief(x) for x in t['send']],

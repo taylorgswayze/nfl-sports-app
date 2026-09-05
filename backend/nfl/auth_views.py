@@ -130,16 +130,25 @@ def me(request):
     user = current_user(request)
     if not user:
         return JsonResponse({'authenticated': False}, status=200)
+    week_room = None
     if request.method == 'PATCH':
         try:
             body = json.loads(request.body or b'{}')
         except ValueError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        linked = False
         if 'sleeper_username' in body:
-            user.sleeper_username = str(body['sleeper_username'] or '').strip()[:100]
+            new_name = str(body['sleeper_username'] or '').strip()[:100]
+            linked = bool(new_name) and new_name.lower() != (user.sleeper_username or '').lower()
+            user.sleeper_username = new_name
         if 'settings' in body and isinstance(body['settings'], dict):
             user.settings = {**user.settings, **body['settings']}
         user.save()
+        if linked:
+            # Linking a Sleeper account is the moment the Week Room starts:
+            # build this user's reports now; the 12-hour cron takes over after.
+            from . import fantasy_insights
+            week_room = 'generating' if fantasy_insights.kick_for_username(user.sleeper_username) else 'ready'
     return JsonResponse({
         'authenticated': True,
         'email': user.email,
@@ -147,4 +156,5 @@ def me(request):
         'picture': user.picture,
         'sleeper_username': user.sleeper_username,
         'settings': user.settings,
+        'week_room': week_room,
     })

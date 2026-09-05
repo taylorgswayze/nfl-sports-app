@@ -32,7 +32,7 @@ PRIOR_W_CAP = 0.30        # season-prior weight at week 1
 PRIOR_K = 3.0             # prior weight = min(cap, K / (K + weeks played))
 OUT_STATUSES = {'Out', 'IR', 'PUP', 'Sus', 'NA', 'COV', 'DNR'}
 DOUBTFUL_MULT = 0.25
-NOISE_FLOOR = 0.75        # smallest projected gain worth printing as a lineup change
+NOISE_FLOOR = 0.05        # any real projected gain prints as roster moves; pure ties do not
 WAIVER_FLOOR = 0.5        # smallest ROS lineup-value gain worth a waiver line
 TRADE_FLOOR = 1.0
 PPR = {'pass_yd': 0.04, 'pass_td': 4.0, 'pass_int': -2.0, 'pass_2pt': 2.0,
@@ -233,6 +233,31 @@ def _brief(v):
     return {k: v.get(k) for k in ('player_id', 'name', 'pos', 'team', 'proj', 'ros', 'injury', 'opp', 'flags')}
 
 
+def _stabilize(free_idx, slots, chosen, positions, current_slot):
+    """Re-seat the chosen starters so as many as possible keep the slot they
+    already hold (every legal seating of the same players scores the same,
+    so the report should not print pointless RB-for-FLEX shuffles).
+    Returns {slot_index: pid} or None when no full seating exists."""
+    n = len(chosen)
+    best = {0: (0, {})}
+    for i in free_idx:
+        elig = set(SLOT_ELIG.get(slots[i], ()))
+        nxt = dict(best)  # leaving the slot empty is always allowed
+        for mask, (kept, asg) in best.items():
+            for j, pid in enumerate(chosen):
+                if mask & (1 << j) or not (set(positions.get(pid, ())) & elig):
+                    continue
+                k2 = kept + (1 if current_slot.get(pid) == i else 0)
+                m2 = mask | (1 << j)
+                cur = nxt.get(m2)
+                if cur is None or cur[0] < k2:
+                    a2 = dict(asg); a2[i] = pid
+                    nxt[m2] = (k2, a2)
+        best = nxt
+    full = (1 << n) - 1
+    return best[full][1] if full in best else None
+
+
 def lineup_report(slots, roster_pids, starters, values, reserve=None):
     """Optimal lineup vs the current one. starters aligns with slots (Sleeper
     order); '0'/None marks an empty slot. Locked starters (game under way or
@@ -253,6 +278,13 @@ def lineup_report(slots, roster_pids, starters, values, reserve=None):
     cands = [(pid, values[pid]['positions'], values[pid]['proj']) for pid in roster_pids
              if pid in values and not values[pid]['locked'] and pid not in reserve]
     opt_total, asg = optimal_lineup(slots, cands, fixed)
+    current_slot = {s: i for i, s in enumerate(starters[:len(slots)]) if s}
+    free_idx = [i for i in range(len(slots)) if slots[i] in SLOT_ELIG and i not in fixed]
+    chosen = [asg[i] for i in free_idx if i in asg]
+    seating = _stabilize(free_idx, slots, chosen, {p: values[p]['positions'] for p in chosen}, current_slot)
+    if seating is not None:
+        asg = {i: p for i, p in asg.items() if i not in free_idx}
+        asg.update(seating)
     current_total = sum(values[s]['proj'] for i, s in enumerate(starters[:len(slots)])
                         if s and s in values and slots[i] in SLOT_ELIG)
     cur_set = {s for i, s in enumerate(starters[:len(slots)]) if s and slots[i] in SLOT_ELIG}
@@ -289,9 +321,26 @@ def lineup_report(slots, roster_pids, starters, values, reserve=None):
                             'delta': round(-values[pid]['proj'], 2), 'reason': 'no replacement needed'})
     gain = opt_total - current_total
     material = gain >= NOISE_FLOOR
-    if not material:
-        # below the noise floor the current lineup stands: print it, not a
-        # reshuffle worth less than a point
+    # the explicit path from the lineup as set to the optimal one: every
+    # player whose slot changes, bench included, in slot order
+    moves = []
+    if material:
+        opt_slot = {pid: i for i, pid in asg.items() if slots[i] in SLOT_ELIG}
+        cur_mod = {pid: i for pid, i in current_slot.items() if slots[i] in SLOT_ELIG}
+        for pid in set(cur_mod) | set(opt_slot):
+            frm, to = cur_mod.get(pid), opt_slot.get(pid)
+            if frm == to:
+                continue
+            v = values.get(pid) or {'player_id': pid, 'name': pid, 'pos': None, 'team': None, 'proj': 0.0}
+            moves.append({
+                'player_id': pid, 'name': v.get('name'), 'pos': v.get('pos'), 'team': v.get('team'),
+                'proj': v.get('proj'), 'from': slots[frm] if frm is not None else 'BN',
+                'to': slots[to] if to is not None else 'BN',
+                '_k': (0, to) if to is not None else (1, frm),
+            })
+        moves.sort(key=lambda m: m.pop('_k'))
+    else:
+        # a tie or a rounding-sized gain: the lineup as set stands
         changes = []
         asg = {i: s for i, s in enumerate(starters[:len(slots)]) if s}
     lineup = [{'slot': slots[i], **(_brief(values[pid]) if pid in values else {'player_id': pid, 'name': pid})}
@@ -299,7 +348,7 @@ def lineup_report(slots, roster_pids, starters, values, reserve=None):
     empty = [slots[i] for i in range(len(slots)) if i not in asg and slots[i] in SLOT_ELIG]
     return {
         'current_total': round(current_total, 2), 'optimal_total': round(opt_total, 2),
-        'gain': round(gain, 2), 'material': material, 'changes': changes, 'lineup': lineup,
+        'gain': round(gain, 2), 'material': material, 'changes': changes, 'moves': moves, 'lineup': lineup,
         'starting': sorted(opt_set if material else cur_set),
         'empty_slots': empty,
         'locked': [pid for pid in roster_pids if pid in values and values[pid]['locked']],
@@ -333,6 +382,7 @@ def waiver_report(slots, my_pids, values, free_agents, fa_values, reserve=None,
     trending = trending or {}
     my = [p for p in my_pids if p in values and p not in reserve]
     base = roster_ros_value(slots, my, values)
+    base_week = optimal_lineup(slots, [(p, values[p]['positions'], values[p]['proj']) for p in my])[0]
     by_pos = {}
     for pid in free_agents:
         v = fa_values.get(pid)
@@ -364,11 +414,15 @@ def waiver_report(slots, my_pids, values, free_agents, fa_values, reserve=None,
             if gain < WAIVER_FLOOR:
                 continue
             starts = fa['player_id'] in started
+            after = [p for p in pids if p != drop]
+            week_after = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['proj']) for p in after])[0]
+            week_gain = week_after - base_week
             reason = 'starts right away' if starts else 'depth over the current bench'
             if fa.get('opp'):
                 reason += f", {fa['opp']} this week"
             lines.append({
                 'add': _brief(fa), 'drop': _brief(merged[drop]), 'gain': round(gain, 2),
+                'week_gain': round(week_gain, 2),
                 'starts': starts, 'trending': trending.get(fa['player_id']), 'reason': reason,
             })
     lines.sort(key=lambda l: (-l['gain'], -(l['trending'] or 0)))
@@ -494,18 +548,10 @@ def template_narrative(p):
     if m.get('opp_name'):
         parts.append(f"Week {week} against {m['opp_name']}: you project {_fmt(m.get('my_total') or 0)} "
                      f"to their {_fmt(m.get('opp_total') or 0)}.")
-    changes = [c for c in lu.get('changes') or [] if c.get('start')]
-    if lu.get('gain', 0) >= NOISE_FLOOR and changes:
-        c = changes[0]
-        sit = c['sit']
-        line = f"Start {c['start']['name']} ({c['start']['pos']}, {_fmt(c['start']['proj'])})"
-        if sit:
-            line += f" over {sit['name']} ({_fmt(sit['proj'])})"
-        line += f" at {c['slot']}"
-        if len(changes) > 1:
-            line += f", plus {len(changes) - 1} more change{'s' if len(changes) > 2 else ''}"
-        line += f": {_fmt(lu['gain'])} points on the table."
-        parts.append(line)
+    moves = lu.get('moves') or []
+    if lu.get('material') and moves:
+        steps = ', '.join(f"{m['name']} from {m['from']} to {m['to']}" for m in moves)
+        parts.append(f"To reach the optimal lineup, move {steps}: {_fmt(lu['gain'])} more projected points.")
     else:
         parts.append("Your lineup is already the projected optimum; nothing to change today.")
     flagged = [f"{x['name']} ({', '.join(x['flags'])})" for x in (p.get('flags') or [])[:3]]
@@ -514,9 +560,11 @@ def template_narrative(p):
     w = p.get('waivers') or []
     if w:
         a, d = w[0]['add'], w[0]['drop']
-        parts.append(f"Waivers: claim {a['name']} ({a['pos']}, {a['team']}) and drop {d['name']}, "
-                     f"worth about {_fmt(w[0]['gain'])} rest-of-season lineup points"
-                     + (f"; {len(w) - 1} more claim{'s' if len(w) > 2 else ''} listed." if len(w) > 1 else '.'))
+        wk = w[0].get('week_gain') or 0.0
+        parts.append(f"Waivers: claim {a['name']} ({a['pos']}, {a['team']}) and drop {d['name']}: "
+                     f"about {_fmt(w[0]['gain'])} rest-of-season lineup points a week"
+                     + (f" and {_fmt(wk)} this week" if wk >= 0.5 else '')
+                     + (f"; {len(w) - 1} more claim{'s' if len(w) > 2 else ''} in the table." if len(w) > 1 else '.'))
     else:
         parts.append("No free agent clears your bench by enough to claim.")
     t = p.get('trades') or []

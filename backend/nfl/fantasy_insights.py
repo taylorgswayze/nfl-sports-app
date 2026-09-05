@@ -7,7 +7,9 @@ FantasyInsight row per league. The cron job refreshes every saved user
 every 12 hours; the API generates on first sight of a username.
 """
 import logging
+import os
 import threading
+import time
 from datetime import timedelta
 
 from django.utils import timezone
@@ -25,8 +27,11 @@ REFRESH_HOURS = 12
 SLEEPER_TO_ESPN = {'WAS': 'WSH'}
 WAIVER_TYPES = {0: 'rolling priority', 1: 'reverse standings', 2: 'FAAB bidding'}
 DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-_inflight = set()
-_inflight_lock = threading.Lock()
+# One generation per Sleeper user at a time across gunicorn workers and the
+# cron driver: a lock file per user under backend/data/locks (stale after
+# LOCK_STALE seconds, in case a process died mid-run).
+LOCK_DIR = sleeper.DATA_DIR / 'locks'
+LOCK_STALE = 15 * 60
 
 
 def _scoring_label(league):
@@ -318,26 +323,72 @@ def is_fresh(rows, hours=REFRESH_HOURS):
     return timezone.now() - oldest < timedelta(hours=hours)
 
 
-def generate_in_background(username, user_id):
+def _lock_path(user_id):
+    return LOCK_DIR / f'weekroom-{user_id}.lock'
+
+
+def _acquire(user_id):
+    LOCK_DIR.mkdir(parents=True, exist_ok=True)
+    path = _lock_path(user_id)
+    try:
+        if path.exists() and time.time() - path.stat().st_mtime > LOCK_STALE:
+            path.unlink()
+    except OSError:
+        pass
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False
+    os.write(fd, str(os.getpid()).encode())
+    os.close(fd)
+    return True
+
+
+def _release(user_id):
+    try:
+        _lock_path(user_id).unlink()
+    except OSError:
+        pass
+
+
+def in_progress(user_id):
+    path = _lock_path(user_id)
+    try:
+        return path.exists() and time.time() - path.stat().st_mtime <= LOCK_STALE
+    except OSError:
+        return False
+
+
+def generate_in_background(username, user_id, use_llm=True):
     """Start one generation per user at a time; returns True when started."""
-    with _inflight_lock:
-        if user_id in _inflight:
-            return False
-        _inflight.add(user_id)
+    if not _acquire(user_id):
+        return False
 
     def run():
         try:
-            generate_for_user(username)
+            generate_for_user(username, use_llm=use_llm)
         except Exception as e:
             logger.error(f'background week room for {username} failed: {e}')
         finally:
-            with _inflight_lock:
-                _inflight.discard(user_id)
+            _release(user_id)
 
     threading.Thread(target=run, name=f'weekroom-{username}', daemon=True).start()
     return True
 
 
-def in_progress(user_id):
-    with _inflight_lock:
-        return user_id in _inflight
+def kick_for_username(username):
+    """First-time link of a Sleeper handle (or a change of handle): build the
+    Week Room right away unless a fresh set already exists. Returns True when
+    a generation was started. Never raises: linking must not fail because
+    Sleeper is down."""
+    try:
+        su = sleeper.user(username)
+        if not su or not su.get('user_id'):
+            return False
+        rows = stored(su['user_id'])
+        if is_fresh(rows):
+            return False
+        return generate_in_background(username, su['user_id'])
+    except Exception as e:
+        logger.warning(f'week room kick for {username} failed: {e}')
+        return False

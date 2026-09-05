@@ -76,13 +76,35 @@ class LineupTests(TestCase):
         self.assertEqual(sat, {'w3', 'r2'})
         self.assertIn('q2', rep['starting'])  # locked starter kept
         self.assertAlmostEqual(rep['gain'], (11 - 4) + (14 - 9))
+        # explicit moves: two in, two out, everyone else stays seated
+        moves = {m['player_id']: (m['from'], m['to']) for m in rep['moves']}
+        self.assertEqual(moves['w2'], ('BN', 'WR'))
+        self.assertEqual(moves['r3'], ('BN', 'FLEX'))
+        self.assertEqual(moves['w3'], ('WR', 'BN'))
+        self.assertEqual(moves['r2'], ('FLEX', 'BN'))
+        self.assertEqual(len(rep['moves']), 4)
+        self.assertEqual([m['to'] for m in rep['moves']][:2], ['WR', 'FLEX'])  # into the lineup first
 
-    def test_sub_floor_gain_prints_the_current_lineup(self):
-        values = {'q1': V('q1', 'QB', 20), 'q2': V('q2', 'QB', 19.5)}
+    def test_equal_players_are_not_shuffled_between_slots(self):
+        values = {'r1': V('r1', 'RB', 12), 'r2': V('r2', 'RB', 12), 'w1': V('w1', 'WR', 9), 'x': V('x', 'WR', 15)}
+        rep = fe.lineup_report(['RB', 'FLEX', 'WR'], list(values), ['r2', 'r1', 'w1'], values)
+        self.assertTrue(rep['material'])
+        self.assertEqual([(m['player_id'], m['from'], m['to']) for m in rep['moves']],
+                         [('x', 'BN', 'WR'), ('w1', 'WR', 'BN')])
+
+    def test_tie_prints_the_current_lineup(self):
+        values = {'q1': V('q1', 'QB', 20), 'q2': V('q2', 'QB', 19.98)}
         rep = fe.lineup_report(['QB'], ['q1', 'q2'], ['q2'], values)
         self.assertFalse(rep['material'])
         self.assertEqual(rep['changes'], [])
+        self.assertEqual(rep['moves'], [])
         self.assertEqual(rep['starting'], ['q2'])
+
+    def test_small_real_gain_is_still_printed(self):
+        values = {'q1': V('q1', 'QB', 20), 'q2': V('q2', 'QB', 19.5)}
+        rep = fe.lineup_report(['QB'], ['q1', 'q2'], ['q2'], values)
+        self.assertTrue(rep['material'])
+        self.assertEqual([(m['player_id'], m['to']) for m in rep['moves']], [('q1', 'QB'), ('q2', 'BN')])
 
     def test_reserve_players_cannot_start(self):
         values = {'q1': V('q1', 'QB', 20), 'q2': V('q2', 'QB', 10)}
@@ -141,6 +163,7 @@ class WaiverAndTradeTests(TestCase):
         self.assertEqual(lines[0]['drop']['player_id'], 'd2')  # benched DEF costs nothing
         self.assertTrue(lines[0]['starts'])
         self.assertGreater(lines[0]['gain'], fe.WAIVER_FLOOR)
+        self.assertAlmostEqual(lines[0]['week_gain'], 14 - 11)  # fa1 replaces w2 in this week's lineup
 
     def test_weak_free_agent_is_not_a_claim(self):
         fa = {'fa1': V('fa1', 'WR', 2, team='MIA')}
@@ -170,15 +193,16 @@ class ProseTests(TestCase):
         payload = {
             'name': 'L', 'week': 3, 'status': 'in_season',
             'matchup': {'opp_name': 'Foes', 'my_total': 101.2, 'opp_total': 98.4},
-            'lineup': {'gain': 4.4, 'material': True, 'changes': [
-                {'slot': 'FLEX', 'start': {'name': 'A', 'pos': 'RB', 'proj': 14.0},
-                 'sit': {'name': 'B', 'pos': 'RB', 'proj': 9.6}, 'delta': 4.4}]},
-            'waivers': [{'add': {'name': 'C', 'pos': 'WR', 'team': 'MIA'}, 'drop': {'name': 'D'}, 'gain': 2.1}],
+            'lineup': {'gain': 4.4, 'material': True, 'changes': [], 'moves': [
+                {'name': 'A', 'pos': 'RB', 'from': 'BN', 'to': 'FLEX', 'proj': 14.0},
+                {'name': 'B', 'pos': 'RB', 'from': 'FLEX', 'to': 'BN', 'proj': 9.6}]},
+            'waivers': [{'add': {'name': 'C', 'pos': 'WR', 'team': 'MIA'}, 'drop': {'name': 'D'}, 'gain': 2.1,
+                         'week_gain': 1.2}],
             'trades': [], 'flags': [],
         }
         text = fe.template_narrative(payload)
         self.assertNotIn('—', text)
-        for name in ('Foes', 'A', 'B', 'C', 'D', 'FLEX'):
+        for name in ('Foes', 'A from BN to FLEX', 'B from FLEX to BN', 'C', 'D'):
             self.assertIn(name, text)
 
     def test_llm_clean_strips_dashes_and_emoji(self):
@@ -229,3 +253,50 @@ class InsightsViewTests(TestCase):
         row = FantasyInsight.objects.create(sleeper_user_id='u1', username='x', league_id='L1',
                                             season=2026, week=1, payload={})
         self.assertTrue(fi.is_fresh([row]))
+
+
+class LinkTriggerTests(TestCase):
+    def _sign_in(self):
+        from nfl.models import DeskUser
+        u = DeskUser.objects.create(google_sub='sub1', email='x@example.com', name='X')
+        session = self.client.session
+        session['desk_user_id'] = u.id
+        session.save()
+        return u
+
+    @mock.patch('nfl.fantasy_insights.kick_for_username', return_value=True)
+    def test_linking_a_handle_kicks_the_week_room(self, kick):
+        self._sign_in()
+        r = self.client.patch('/api/me/', data=json.dumps({'sleeper_username': 'newbie'}),
+                              content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.loads(r.content)['week_room'], 'generating')
+        kick.assert_called_once_with('newbie')
+        # saving the same handle again is not a new link
+        kick.reset_mock()
+        r = self.client.patch('/api/me/', data=json.dumps({'sleeper_username': 'Newbie'}),
+                              content_type='application/json')
+        self.assertIsNone(json.loads(r.content)['week_room'])
+        kick.assert_not_called()
+
+    @mock.patch('nfl.fantasy_insights.generate_in_background', return_value=True)
+    @mock.patch('nfl.fantasy_insights.sleeper.user', return_value={'user_id': 'u9'})
+    def test_kick_skips_fresh_reports(self, _user, gen):
+        self.assertTrue(fi.kick_for_username('someone'))
+        gen.assert_called_once_with('someone', 'u9')
+        FantasyInsight.objects.create(sleeper_user_id='u9', username='someone', league_id='L1',
+                                      season=2026, week=1, payload={})
+        gen.reset_mock()
+        self.assertFalse(fi.kick_for_username('someone'))
+        gen.assert_not_called()
+
+    def test_lock_is_exclusive_per_user(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(fi, 'LOCK_DIR', Path(d)):
+            self.assertFalse(fi.in_progress('u1'))
+            self.assertTrue(fi._acquire('u1'))
+            self.assertTrue(fi.in_progress('u1'))
+            self.assertFalse(fi._acquire('u1'))
+            fi._release('u1')
+            self.assertFalse(fi.in_progress('u1'))
