@@ -36,8 +36,14 @@ the tests measure decisions, not just point errors. Test bed: the user's own
 17 weeks of Sleeper matchups (every roster's players, starters and
 league-scored points), Sleeper's stored 2025 weekly projections and actuals,
 and the modeling repo's walk-forward 2025 season predictions (a legitimate
-pre-season forecast, not a refit). Harness: scratch scripts, 8 seconds to
-run; the numbers below are reproducible from the same public data.
+pre-season forecast, not a refit). Harness: `tools/week_room_backtest.py`,
+which runs the production engine code (scoring, lineup solver, blend
+weights) against the cached public data in a few seconds:
+
+    venv/bin/python tools/week_room_backtest.py --league 1256102582414233600 --season 2025 \
+        --prior backend/data/backtest/season_prior_2025.json
+
+It is the gate for any change to the blend or the ROS formula.
 
 1. Scoring fidelity: my scoring of Sleeper's actual stat lines vs Sleeper's
    own `players_points`. Must match exactly for every modeled position, or
@@ -97,7 +103,7 @@ Test 3, lineup decision quality (136 roster-weeks; human lineups averaged
 | season prior only | 117.0 | -13.4 | -6.8 | negative |
 | trailing 3 weeks | 119.7 | -10.7 | -5.0 | negative |
 | 0.8 SLP + 0.2 prior | 134.9 | +4.5 | 3.4 | 19% |
-| shrinkage blend | 134.7 | +4.3 | 3.2 | 18% |
+| shrinkage blend, as shipped (prior weight min(0.30, 3/(3+weeks played))) | 135.0 | +4.6 | 3.5 | 19% |
 | 0.85 SLP + 0.15 trailing-3 | 133.7 | +3.3 | 2.3 | 14% |
 
 Passes. The weekly projection is essential (the season model on its own
@@ -113,7 +119,7 @@ per position, weeks 1-13; the average free agent scores about 2):
 |---|---|---|---|---|---|
 | next-week projection only | 12.7 | 10.3 | 10.7 | 10.3 | 11.0 |
 | 0.5 next-week + 0.5 long-run (prior, trailing-3, season snapshot) | 13.1 | 11.3 | 11.8 | 9.2 | 11.4 |
-| 0.5 next-week + 0.5 mean(prior, trailing-3) | 12.9 | 11.1 | 11.6 | 9.3 | 11.2 |
+| 0.5 next-week + 0.5 mean(prior, trailing-3), as shipped (`production ROS` in the tool) | 11.6 | 11.0 | 10.9 | 9.1 | 10.7 |
 | trailing 3 weeks only | 10.7 | 9.8 | 9.0 | 8.3 | 9.5 |
 | season prior only | 10.1 | 10.6 | 6.1 | 8.8 | 8.9 |
 
@@ -123,10 +129,12 @@ next-week alone; 0.35 for the variant that also includes the pre-season
 season snapshot (stale by mid-season); 0.42 trailing-3; 0.36 prior only.
 
 Decision: ROS value = 0.5 x this week's projection + 0.5 x mean(season
-prior, trailing-3 actual ppg), each part used when available. It is within
-noise of the best free-agent ranker and clearly the best drop ranker. The
-pre-season season snapshot is used only as a fallback for players with no
-prior and no games.
+prior, trailing-3 actual ppg), each part used when available. On the
+free-agent test it sits within noise of the next-week ranker (10.7 vs 11.0
+mean over four positions, 13 weeks of top-3 picks) while being clearly the
+best drop ranker (0.52 vs 0.48), and drop decisions are where a stale
+single-week number does the most damage. The pre-season season snapshot is
+used only as a fallback for players with no prior and no games.
 
 ## 4. What was built
 
