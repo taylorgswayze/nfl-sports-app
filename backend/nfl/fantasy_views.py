@@ -232,6 +232,12 @@ def insights(request):
     generating = fi.in_progress(user_id)
     if (not rows or (want_refresh and stale_enough)) and not generating:
         generating = fi.generate_in_background(username, user_id)
+        if generating:
+            from .auth_views import current_user
+            from .usage import track
+            viewer = current_user(request)
+            if viewer:
+                track('week_room_refresh', user=viewer.email, username=username)
     payloads = [r.payload for r in rows]
     return JsonResponse({
         'username': username, 'user_id': user_id,

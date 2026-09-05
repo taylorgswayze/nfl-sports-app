@@ -23,6 +23,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import DeskUser
+from .usage import track
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ def callback(request):
         })
     request.session['desk_user_id'] = user.id
     request.session.set_expiry(60 * 60 * 24 * 90)
+    track('login', user=user.email)
     resp = HttpResponseRedirect('/')
     resp.delete_cookie(STATE_COOKIE)
     return resp
@@ -149,6 +151,7 @@ def me(request):
             # build this user's reports now; the 12-hour cron takes over after.
             from . import fantasy_insights
             week_room = 'generating' if fantasy_insights.kick_for_username(user.sleeper_username) else 'ready'
+            track('sleeper_linked', user=user.email, username=user.sleeper_username)
     return JsonResponse({
         'authenticated': True,
         'email': user.email,
