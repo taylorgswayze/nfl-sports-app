@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Gridiron Desk mark: the laces. One green seam, four bone stitches, on
+       press-room stock. Reads as a football's laces at a glance and as a
+       ruled instrument on second look, in the Desk's own palette. -->
+  <rect width="512" height="512" rx="112" fill="#161814"/>
+  <line x1="118" y1="256" x2="394" y2="256" stroke="#4DB47F" stroke-width="24" stroke-linecap="round"/>
+  <g stroke="#EDE9DD" stroke-width="22" stroke-linecap="round">
+    <line x1="182" y1="196" x2="182" y2="316"/>
+    <line x1="231" y1="196" x2="231" y2="316"/>
+    <line x1="281" y1="196" x2="281" y2="316"/>
+    <line x1="330" y1="196" x2="330" y2="316"/>
+  </g>
+</svg>
