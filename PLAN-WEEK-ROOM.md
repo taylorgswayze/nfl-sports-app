@@ -203,3 +203,13 @@ and `deploy/build.sh` builds from it.
 - A home-grown weekly model (opponent, usage, Vegas) is the only way to
   beat the base signal by more than the prior does; the harness in section
   2 is the gate for it.
+
+## 6. Voice (2026-09-05)
+
+The panel prints as THE GENERAL MANAGER: the prose is the GM's note to the
+owner (you), in a front-office voice, with three fixed sections that the
+tables mirror: the lineup card (exact from/to moves), the wire (claims and
+releases with this-week and rest-of-season upside), and the phones (trade
+calls with both sides' deltas), closing with what to do first and when the
+next note prints. The OpenAI prompt and the template fallback share the
+structure, so the copy reads the same whether or not a key is configured.

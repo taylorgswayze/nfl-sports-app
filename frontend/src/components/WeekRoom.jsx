@@ -40,14 +40,14 @@ export function WeekRoomPending({ state }) {
   return (
     <div className="wr wr-pending">
       <div className="wr-head">
-        <span className="wr-kicker">THE WEEK ROOM</span>
+        <span className="wr-kicker">THE GENERAL MANAGER</span>
       </div>
       <p className="wire wr-wire">
         {state === 'generating'
-          ? <>SETTING TYPE: the desk is projecting your rosters. <b>A minute at most.</b></>
+          ? <>THE GM IS ON THE PHONES: projecting your rosters now. <b>A minute at most.</b></>
           : state === 'error'
-            ? <>THE WEEK ROOM IS DOWN for this league. <b>It retries at the next refresh.</b></>
-            : <>LOADING THE WEEK ROOM…</>}
+            ? <>NO NOTE FROM THE GM for this league. <b>It retries at the next refresh.</b></>
+            : <>PULLING THE GM'S NOTE…</>}
       </p>
     </div>
   )
@@ -68,12 +68,12 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   if (ins.error) lede = 'NO REPORT'
   else if (preDraft) lede = 'DRAFT PENDING'
   else if (lu.material) lede = `${fmt(lu.gain, true)} POINTS ON THE TABLE`
-  else lede = 'LINEUP SET'
+  else lede = 'THE CARD STANDS'
 
   return (
     <div className={`wr${lu.material ? ' hot' : ''}`}>
       <div className="wr-head">
-        <span className="wr-kicker">THE WEEK ROOM{ins.week ? ` · WEEK ${ins.week}` : ''}</span>
+        <span className="wr-kicker">THE GENERAL MANAGER{ins.week ? ` · WEEK ${ins.week}` : ''}</span>
         <span className="wr-stamp num">
           {printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}
         </span>
@@ -98,7 +98,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
 
       {moves.length > 0 && (
         <>
-          <p className="wr-sub">ROSTER MOVES <span className="num">{moves.length} to the optimal lineup</span></p>
+          <p className="wr-sub">LINEUP CARD <span className="num">{moves.length} move{moves.length === 1 ? '' : 's'} to the optimal lineup</span></p>
           <div className="tablewrap">
             <table className="stats wr-tbl">
               <thead>
@@ -128,13 +128,13 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
 
       {waivers.length > 0 && (
         <>
-          <p className="wr-sub">WAIVER WIRE <span className="num">claim and drop, with the projected upside</span></p>
+          <p className="wr-sub">THE WIRE <span className="num">claims and releases, with the projected upside</span></p>
           <div className="tablewrap">
             <table className="stats wr-tbl">
               <thead>
                 <tr>
                   <th scope="col" className="txt">CLAIM</th>
-                  <th scope="col" className="txt">DROP</th>
+                  <th scope="col" className="txt">RELEASE</th>
                   <th scope="col">THIS WK<span className="was">pts</span></th>
                   <th scope="col">ROS<span className="was">pts / wk</span></th>
                   <th scope="col" className="txt">NOTE</th>
@@ -158,7 +158,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
 
       {trades.length > 0 && (
         <>
-          <p className="wr-sub">TRADE IDEAS <span className="num">one for one, both sides scored</span></p>
+          <p className="wr-sub">THE PHONES <span className="num">one for one, both sides scored</span></p>
           <ul className="wr-moves">
             {trades.map((t, i) => (
               <li key={`t${i}`} className="wr-move">
@@ -175,7 +175,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
       {!preDraft && !ins.error && (
         <div className="wr-foot">
           <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
-            {showLineup ? 'HIDE LINEUP' : 'RECOMMENDED LINEUP'}
+            {showLineup ? 'HIDE THE CARD' : 'FULL LINEUP CARD'}
           </button>
           {onReprint && (
             <button type="button" className="benchtoggle" onClick={onReprint} disabled={reprinting}>

@@ -207,9 +207,9 @@ function MyLeagues() {
         <Folio sec="MY LEAGUES" id="sec-leagues" title="The Standings Desk"
           cont={data ? `${data.season} · week ${data.week}` : null} />
         <p className="folio-note">
-          Every Sleeper league on one page: the Week Room&rsquo;s roster note on
-          top (lineup, waivers, trades), then records, this week&rsquo;s matchup,
-          and live points while your players are on the field.
+          Every Sleeper league on one page: the general manager&rsquo;s note on
+          top (lineup card, the wire, the phones), then records, this week&rsquo;s
+          matchup, and live points while your players are on the field.
           {anyLive && <> <b className="live-note">Players live now; refreshing.</b></>}
         </p>
 
@@ -286,11 +286,11 @@ function MyLeagues() {
             </table>
           </div>
           <Footnotes>
-            <p>The Week Room projects every player under each league&rsquo;s own
-              scoring rules from Sleeper&rsquo;s weekly stat projections, blended with
-              the Desk&rsquo;s season model, and prints the best legal lineup, the
-              free agents worth a claim (with the drop), and one-for-one trade ideas
-              scored for both sides. It reprints every 12 hours.</p>
+            <p>The general manager&rsquo;s note projects every player under each
+              league&rsquo;s own scoring rules from Sleeper&rsquo;s weekly stat projections,
+              blended with the Desk&rsquo;s season model, and prints the lineup card, the
+              claims worth making (with the release), and one-for-one trade calls scored
+              for both sides. It reprints every 12 hours.</p>
             <p>Points are each league&rsquo;s own scoring, as Sleeper reports them;
               the WK PTS column sums a player&rsquo;s points across every league
               that rosters them.</p>

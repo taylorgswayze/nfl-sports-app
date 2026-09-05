@@ -536,40 +536,42 @@ def _fmt(v):
 
 
 def template_narrative(p):
-    """Deterministic prose for the payload; the fallback when no LLM key is
-    configured or the call fails. Plain sentences, no em dashes."""
+    """The GM's note in deterministic prose; the fallback when no LLM key is
+    configured or the call fails. Front-office voice, plain sentences, no em
+    dashes."""
     week = p.get('week')
     m = p.get('matchup') or {}
     lu = p.get('lineup') or {}
     parts = []
     if p.get('status') in ('pre_draft', 'drafting'):
-        return (f"{p.get('name')} has not drafted yet. The Week Room prints lineup, waiver and "
-                f"trade notes here once rosters exist; the Live Advisor covers draft night.")
+        return (f"GM's note: {p.get('name')} has not drafted yet, so there is no lineup card to "
+                f"write. The Live Advisor works draft night; the first note prints once the roster exists.")
     if m.get('opp_name'):
-        parts.append(f"Week {week} against {m['opp_name']}: you project {_fmt(m.get('my_total') or 0)} "
+        parts.append(f"GM's note, week {week} against {m['opp_name']}: we project {_fmt(m.get('my_total') or 0)} "
                      f"to their {_fmt(m.get('opp_total') or 0)}.")
     moves = lu.get('moves') or []
     if lu.get('material') and moves:
-        steps = ', '.join(f"{m['name']} from {m['from']} to {m['to']}" for m in moves)
-        parts.append(f"To reach the optimal lineup, move {steps}: {_fmt(lu['gain'])} more projected points.")
+        steps = ', '.join(f"{mv['name']} from {mv['from']} to {mv['to']}" for mv in moves)
+        parts.append(f"Lineup card: I am moving {steps}, worth {_fmt(lu['gain'])} more projected points.")
     else:
-        parts.append("Your lineup is already the projected optimum; nothing to change today.")
+        parts.append("Lineup card: the card stands as written; it is already the projected optimum.")
     flagged = [f"{x['name']} ({', '.join(x['flags'])})" for x in (p.get('flags') or [])[:3]]
     if flagged:
-        parts.append("Watch: " + '; '.join(flagged) + '.')
+        parts.append("On watch: " + '; '.join(flagged) + '.')
     w = p.get('waivers') or []
     if w:
         a, d = w[0]['add'], w[0]['drop']
         wk = w[0].get('week_gain') or 0.0
-        parts.append(f"Waivers: claim {a['name']} ({a['pos']}, {a['team']}) and drop {d['name']}: "
-                     f"about {_fmt(w[0]['gain'])} rest-of-season lineup points a week"
-                     + (f" and {_fmt(wk)} this week" if wk >= 0.5 else '')
-                     + (f"; {len(w) - 1} more claim{'s' if len(w) > 2 else ''} in the table." if len(w) > 1 else '.'))
+        parts.append(f"The wire: put in a claim for {a['name']} ({a['pos']}, {a['team']}) and release {d['name']}: "
+                     f"about {_fmt(w[0]['gain'])} lineup points a week the rest of the way"
+                     + (f", {_fmt(wk)} of it this week" if wk >= 0.5 else '')
+                     + (f"; {len(w) - 1} more claim{'s' if len(w) > 2 else ''} on the card below." if len(w) > 1 else '.'))
     else:
-        parts.append("No free agent clears your bench by enough to claim.")
+        parts.append("The wire: nothing available beats what we have on the bench.")
     t = p.get('trades') or []
     if t:
-        parts.append(f"Trade idea: send {t[0]['send'][0]['name']} to {t[0]['partner']} for "
-                     f"{t[0]['receive'][0]['name']} ({_fmt(t[0]['my_delta'])} for you, "
-                     f"{_fmt(t[0]['their_delta'])} for them).")
+        parts.append(f"The phones: {t[0]['partner']} could use {t[0]['send'][0]['name']}; "
+                     f"for {t[0]['receive'][0]['name']} it nets us {_fmt(t[0]['my_delta'])} a week and them "
+                     f"{_fmt(t[0]['their_delta'])}, a call worth making.")
+    parts.append("Next note in 12 hours.")
     return ' '.join(parts)
