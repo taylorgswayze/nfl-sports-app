@@ -15,6 +15,9 @@ from django.views.decorators.http import require_http_methods
 logger = logging.getLogger(__name__)
 
 UPSTREAM = os.environ.get('DRAFT_API_UPSTREAM', 'http://127.0.0.1:8010')
+# The Draft Room sits behind its own Google gate; the Desk's server-side hop
+# carries a shared secret instead (DESK_PROXY_KEY in both .env files).
+PROXY_KEY = os.environ.get('DESK_PROXY_KEY', '')
 
 ENDPOINTS = {
     'board': '/board.json',
@@ -33,7 +36,8 @@ def proxy(request, endpoint):
                             status=404)
     try:
         upstream = proxy_session.get(
-            f'{UPSTREAM}{path}', params=request.GET.dict(), timeout=30)
+            f'{UPSTREAM}{path}', params=request.GET.dict(), timeout=30,
+            headers={'X-Desk-Key': PROXY_KEY} if PROXY_KEY else None)
     except requests.RequestException as e:
         logger.error(f'draft proxy {endpoint} unreachable: {e}')
         return JsonResponse({'error': 'draft service unavailable',
