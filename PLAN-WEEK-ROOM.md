@@ -150,16 +150,28 @@ Backend (Django, this repo):
 - `nfl/fantasy_engine.py`: pure functions. Exact scoring; optimal legal
   lineup by bitmask DP per slot component (flex, superflex, locked
   starters, IR/taxi, unmodeled slot types); weekly blend with injury and
-  bye handling; ROS value; lineup report with a 0.75 point noise floor;
+  bye handling; ROS value; lineup report as the explicit list of roster
+  moves (every player whose slot changes, from and to, bench included)
+  after a stabilizing pass that keeps everyone who can stay seated in
+  place, printed for any real gain (a 0.05 tie guard, not a noise floor);
   waiver report (each claim paired with the exact cheapest drop under the
-  lineup-value function, never this week's starter, never IR); drop
-  candidates; one-for-one trade ideas from surplus into deficit, printed
-  only when the user gains at least 1 ROS lineup point a week and the
-  partner does not lose (both deltas shown); deterministic template prose.
+  lineup-value function, never this week's starter, never IR, with the
+  projected upside as this week's lineup gain and the ROS lineup-value gain
+  per week); drop candidates; one-for-one trade ideas from surplus into
+  deficit, printed only when the user gains at least 1 ROS lineup point a
+  week and the partner does not lose (both deltas shown); deterministic
+  template prose that names the moves slot by slot.
 - `nfl/fantasy_insights.py`: per-user, per-league orchestration; matchup
   projection for both sides; byes and kickoff locks from the Desk's own
   schedule; one `FantasyInsight` row per (user, league), replaced in
-  place; background generation with a per-user lock.
+  place; background generation guarded by a per-user lock file shared by
+  the gunicorn workers and the cron driver.
+- New users: linking a Sleeper handle to a signed-in account (PATCH
+  `/api/me/` with a new `sleeper_username`, which My Leagues does the first
+  time it loads a handle) builds that user's reports immediately, prose
+  included, and the 12-hour cron takes over from there. An anonymous
+  handle gets the same treatment on its first `/api/fantasy/insights/`
+  read.
 - `utils/llm.py`: optional OpenAI narrative (the budget app's key,
   `OPENAI_MODEL`, default gpt-4o-mini) with a strict facts-only prompt, em
   dash and emoji scrubbing, and the template as the fallback on any error.
@@ -170,8 +182,10 @@ Backend (Django, this repo):
 - Tests: `nfl/test_fantasy.py` (engine, prose, view).
 
 Frontend: `WeekRoom.jsx` at the top of every league card on `/leagues`
-(lede, matchup projection, prose, START/SIT, CLAIM/DROP, SEND/GET ledger,
-recommended lineup, reprint), polling while the desk generates. The React
+(lede, matchup projection, prose, a ROSTER MOVES table with from and to
+slots, a WAIVER WIRE table with this-week and ROS upside, a TRADE IDEAS
+ledger, the recommended lineup, reprint), polling while the desk
+generates. The React
 source for the whole Draft Desk UI, recovered from the Mac, is tracked again
 and `deploy/build.sh` builds from it.
 
