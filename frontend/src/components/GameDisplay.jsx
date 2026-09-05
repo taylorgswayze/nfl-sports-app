@@ -186,7 +186,7 @@ function GameEntry({ game, index, live }) {
       {hasEdge && (
         <span className="edge num">
           <span className="dag">&dagger;</span>
-          MODEL EDGE {Number(game.pred_diff) > 0 ? '+' : ''}{Number(game.pred_diff).toFixed(1)}
+          FPI LINE {Number(game.pred_diff) >= 0 ? abbr.home : abbr.away} -{Math.abs(Number(game.pred_diff)).toFixed(1)}
         </span>
       )}
     </article>
@@ -409,12 +409,14 @@ function GameDisplay() {
         <Footnotes>
           {hasEdges && (
             <p>
-              <span className="mark">&dagger;</span> Model edge: the Desk model&rsquo;s predicted
-              line differs from the market line by the points shown.
+              <span className="mark">&dagger;</span> FPI line: the expected margin from
+              ESPN&rsquo;s Football Power Index, printed like the market line (DET -6.8 means the
+              model has Detroit by 6.8). Compare it with the market line above it: where they
+              differ, the model likes one side more than the market does.
             </p>
           )}
           <p>Records run through the latest completed week.</p>
-          <p>Lines come from the betting market; win probabilities come from the Desk&rsquo;s own model.</p>
+          <p>Lines come from the betting market; win probabilities and the FPI line come from ESPN&rsquo;s Football Power Index.</p>
           <p>Select any game to open its page, with head-to-head figures. Select a team&rsquo;s logo to open its schedule.</p>
         </Footnotes>
       </section>

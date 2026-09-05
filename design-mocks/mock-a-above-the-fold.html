@@ -19,6 +19,11 @@
     MODEL EDGE) are gone: the columns of the index say it once.
   SIGNATURE: the lead story, with the win gauge drawn full width as one
     hairline and a single green needle.
+  ROUND 2 TWEAKS (owner review, 2026-09-05): index grouped by DAY and
+    ordered by kickoff, kickoff time printed beside the team names; the
+    odds columns carry headers and the FPI figure is printed as a line
+    (SEA -3.4) beside the market line, with the disagreement as EDGE; the
+    footnote explains all three with a worked example.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -80,8 +85,14 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
 .window .rule{flex:1;border-top:1px solid var(--rule);transform:translateY(-5px)}
 .index{width:100%;border-collapse:collapse}
 .index td{padding:11px 10px;border-bottom:1px solid var(--rule-soft);vertical-align:middle;white-space:nowrap}
-.index td.time{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft);width:86px}
+.index thead th{font-family:var(--grot);font-weight:800;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);text-align:left;padding:6px 10px;border-bottom:1px solid var(--rule)}
+.index thead th.r{text-align:right}
+.index thead th small{display:block;font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:0;text-transform:none;margin-top:1px}
 .index td.teams{font-family:var(--grot);font-weight:800;font-size:var(--fig);letter-spacing:-.005em}
+.index td.teams .kick{font-family:var(--mono);font-size:var(--cap);font-weight:400;color:var(--ink-soft);margin-left:12px}
+.index td.teams .lead-tag{font-family:var(--grot);font-weight:800;font-size:9.5px;letter-spacing:.16em;color:var(--paper);background:var(--green);padding:2px 6px 1px;margin-left:10px;vertical-align:2px}
+.index td.model{font-family:var(--grot);font-weight:700;font-size:var(--fig);text-align:right;width:120px;color:var(--ink-soft)}
+.index td.rec{font-family:var(--mono);font-size:var(--cap);color:var(--ink-soft);width:96px}
 .index td.teams .at{font-family:var(--serif);font-weight:400;font-style:italic;color:var(--ink-soft);margin:0 6px}
 .index td.teams .rec{font-family:var(--mono);font-size:var(--cap);font-weight:400;color:var(--ink-soft);margin-left:8px}
 .index td.line{font-family:var(--grot);font-weight:700;font-size:var(--fig);text-align:right;width:110px}
@@ -90,8 +101,9 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
 .index .pbar i{position:relative;display:block;height:2px;background:var(--rule)}
 .index .pbar i::after{content:"";position:absolute;left:var(--split);top:-5px;width:2px;height:12px;background:var(--green)}
 .index .pbar b{color:var(--ink)}
-.index td.edge{text-align:right;font-family:var(--grot);font-weight:800;font-size:var(--fig);width:96px}
+.index td.edge{text-align:right;font-family:var(--grot);font-weight:800;font-size:var(--fig);width:110px;color:var(--ink-soft)}
 .index td.edge.hot{color:var(--green)}
+.index td.edge .who{font-weight:700;font-size:12px;margin-left:6px}
 .index tr:hover td{background:var(--paper-deep)}
 .index tr.live td{background:rgba(77,180,127,.08);border-bottom-color:var(--green)}
 .livechip{font-family:var(--grot);font-weight:800;font-size:10px;letter-spacing:.18em;background:var(--green);color:var(--paper);padding:2px 6px 1px;margin-left:8px}
@@ -127,8 +139,8 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
 .lg .stat{font-family:var(--grot);font-weight:800;font-size:var(--fig)}
 .lg .stat small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.06em;color:var(--ink-soft);text-transform:uppercase}
 .lg .stat.hot{color:var(--green)}
-@media (max-width:820px){.lead,.gm{grid-template-columns:1fr}.index td.prob{display:none}.lg{grid-template-columns:1fr 1fr}}
-@media (max-width:680px){:root{--display:40px;--lede:22px}.page{padding:12px 16px 56px}.sections{display:none}.plate{gap:12px}.index td.line{width:auto}.index td.edge{width:auto}.lead .team{font-size:34px}.chip{width:44px;height:44px;font-size:13px}}
+@media (max-width:820px){.lead,.gm{grid-template-columns:1fr}.index td.prob,.index th.prob,.index td.rec,.index th.rec{display:none}.lg{grid-template-columns:1fr 1fr}}
+@media (max-width:680px){:root{--display:40px;--lede:22px}.page{padding:12px 16px 56px}.sections{display:none}.plate{gap:12px}.index td.line,.index td.edge,.index td.model{width:auto}.index td.model,.index th.model{display:none}.lead .team{font-size:34px}.chip{width:44px;height:44px;font-size:13px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -155,16 +167,16 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
       <span class="chip">SEA</span><div class="team">Seahawks<small>at Seattle · 0-0</small></div><div class="fig fav">61%</div>
     </div>
     <div class="lead-side">
-      <div class="line">SEA -3.5 <span>total 44.5</span></div>
-      <p>The Desk's model makes Seattle 3.4 points better than the market line: the biggest early-week edge on the board apart from Los Angeles over Arizona.</p>
-      <div class="kicker" style="color:var(--ink-soft)">Model edge <b style="color:var(--green)">+3.4 SEA</b></div>
+      <div class="line">SEA -3.5 <span>market line</span></div>
+      <div class="line" style="font-size:20px">SEA -3.4 <span>FPI line · 61% to win</span></div>
+      <p>Market and model agree within a tenth of a point here. The week's real disagreement is Green Bay at Minnesota, where FPI has the Packers by 1.8 and the market has the Vikings by 1.5.</p>
     </div>
     <div class="gauge" style="--split:38%"><span>NE 38</span><span class="bar"></span><span>SEA 61</span><span class="lbl">Win probability</span></div>
   </section>
 
   <div id="index"></div>
 
-  <p class="foot">Model edge: the Desk model's predicted line against the market line. Lines from the betting market; probabilities from the Desk's own model. Select a game for its page, a team for its schedule.<br>Data: ESPN public API. Live scores refresh about every half minute during games; odds and season stats hourly.</p>
+  <p class="foot">How to read the odds columns. LINE is the betting market's point spread, printed for the favorite: DET -7 means the market has Detroit winning by seven. FPI LINE is the same idea from ESPN's Football Power Index, the model behind the win probabilities: DET -6.8 means the model has Detroit by 6.8. EDGE is where the two disagree, printed for the team the model likes more than the market does: NO +0.2 means the model gives New Orleans two tenths of a point more than the market. Green edges are the week's three largest. Records run through the latest completed week.<br>Data: ESPN public API. Live scores refresh about every half minute during games; odds and season stats hourly.</p>
 
   <div class="divider">Page 2 · Fantasy, same hierarchy system</div>
 
@@ -204,34 +216,38 @@ a{color:var(--green)} button{font:inherit;color:inherit;background:none;border:0
   </div>
 </main>
 <script>
+// [day, time, away, home, market favorite, market spread (favorite by), FPI home margin, away win%, home win%]
 const games=[
- ['Wed Sep 9','8:20 PM','NE','SEA','SEA -3.5',38,61,3.4,'Wed · Sep 9'],
- ['Thu Sep 10','8:35 PM','SF','LAR','LAR -3.5',39,60,2.9,'Thu · Sep 10'],
- ['Sun Sep 13','1:00 PM','ATL','PIT','PIT -3.5',41,58,2.6,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','BAL','IND','BAL -3.5',59,40,-2.4,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','BUF','HOU','BUF -1.5',53,46,-1.1,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','CHI','CAR','CHI -2.5',59,40,-2.6,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','CLE','JAX','JAX -7.5',22,77,7.8,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','NO','DET','DET -7',28,71,6.8,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','NYJ','TEN','TEN -1.5',42,57,2.1,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','1:00 PM','TB','CIN','CIN -3.5',38,61,3.2,'Sun · Sep 13, 1:00'],
- ['Sun Sep 13','4:25 PM','ARI','LAC','LAC -10.5',19,80,9.6,'Sun · Sep 13, 4:25'],
- ['Sun Sep 13','4:25 PM','GB','MIN','MIN -1.5',56,43,-1.8,'Sun · Sep 13, 4:25'],
- ['Sun Sep 13','4:25 PM','MIA','LV','LV -3.5',40,59,2.8,'Sun · Sep 13, 4:25'],
- ['Sun Sep 13','4:25 PM','WSH','PHI','PHI -5.5',33,66,4.9,'Sun · Sep 13, 4:25'],
- ['Sun Sep 13','8:20 PM','DAL','NYG','DAL -2.5',57,42,-2.0,'Sun · Sep 13, 8:20'],
- ['Mon Sep 14','8:15 PM','DEN','KC','KC -3',41,58,2.5,'Mon · Sep 14'],
+ ['Wednesday, September 9','8:20 PM','NE','SEA','SEA',3.5,3.4,38,61],
+ ['Thursday, September 10','8:35 PM','SF','LAR','LAR',3.5,2.9,39,60],
+ ['Sunday, September 13','1:00 PM','ATL','PIT','PIT',3.5,2.6,41,58],
+ ['Sunday, September 13','1:00 PM','BAL','IND','BAL',3.5,-2.4,59,40],
+ ['Sunday, September 13','1:00 PM','BUF','HOU','BUF',1.5,-1.1,53,46],
+ ['Sunday, September 13','1:00 PM','CHI','CAR','CHI',2.5,-2.6,59,40],
+ ['Sunday, September 13','1:00 PM','CLE','JAX','JAX',7.5,7.8,22,77],
+ ['Sunday, September 13','1:00 PM','NO','DET','DET',7,6.8,28,71],
+ ['Sunday, September 13','1:00 PM','NYJ','TEN','TEN',1.5,2.1,42,57],
+ ['Sunday, September 13','1:00 PM','TB','CIN','CIN',3.5,3.2,38,61],
+ ['Sunday, September 13','4:25 PM','ARI','LAC','LAC',10.5,9.6,19,80],
+ ['Sunday, September 13','4:25 PM','GB','MIN','MIN',1.5,-1.8,56,43],
+ ['Sunday, September 13','4:25 PM','MIA','LV','LV',3.5,2.8,40,59],
+ ['Sunday, September 13','4:25 PM','WSH','PHI','PHI',5.5,4.9,33,66],
+ ['Sunday, September 13','8:20 PM','DAL','NYG','DAL',2.5,-2.0,57,42],
+ ['Monday, September 14','8:15 PM','DEN','KC','KC',3,2.5,41,58],
 ];
-const hot=[...games].sort((a,b)=>Math.abs(b[7])-Math.abs(a[7])).slice(0,3).map(g=>g[2]+g[3]);
-const groups=new Map();
-games.slice(1).forEach(g=>{(groups.get(g[8])||groups.set(g[8],[]).get(g[8])).push(g)});
+// edge: FPI home margin minus the market's home margin; positive favors the home team
+const rows=games.map(g=>{const [day,time,away,home,fav,spread,fpi,ap,hp]=g;
+  const marketHome=fav===home?spread:-spread; const edge=fpi-marketHome;
+  const fpiFav=fpi>=0?home:away; const edgeTeam=edge>=0?home:away;
+  return {day,time,away,home,fav,spread,fpi,ap,hp,marketHome,edge,fpiFav,edgeTeam};});
+const hot=[...rows].sort((a,b)=>Math.abs(b.edge)-Math.abs(a.edge)).slice(0,3).map(r=>r.away+r.home);
+const groups=new Map();rows.forEach(r=>{(groups.get(r.day)||groups.set(r.day,[]).get(r.day)).push(r)});
 let html='';
-for(const [win,rows] of groups){
-  html+=`<div class="window"><h2>${win}</h2><span class="rule"></span><span class="n">${rows.length} game${rows.length>1?'s':''}</span></div><table class="index"><tbody>`;
-  for(const g of rows){
-    const e=g[7],sign=e>0?'+':'',key=g[2]+g[3];
-    html+=`<tr><td class="time">${g[1]}</td><td class="teams">${g[2]}<span class="at">at</span>${g[3]}<span class="rec">0-0 · 0-0</span></td><td class="line num">${g[4]}</td><td class="prob"><span class="pbar" style="--split:${g[5]}%"><span>${g[2]} ${g[5]}</span><i></i><b>${g[3]} ${g[6]}</b></span></td><td class="edge num ${hot.includes(key)?'hot':''}">${sign}${e.toFixed(1)}</td></tr>`;
-  }
+for(const [day,list] of groups){
+  html+=`<div class="window"><h2>${day}</h2><span class="rule"></span><span class="n">${list.length} game${list.length>1?'s':''}</span></div>
+  <table class="index"><thead><tr><th>Matchup · kickoff (ET)</th><th class="rec">Records</th><th class="r">Line<small>market, favorite by</small></th><th class="r model">FPI line<small>model, favorite by</small></th><th class="prob">Win probability<small>FPI</small></th><th class="r">Edge<small>model vs market</small></th></tr></thead><tbody>`;
+  for(const r of list){const key=r.away+r.home,lead=key==='NESEA';
+    html+=`<tr${lead?' class="live"':''}><td class="teams">${r.away}<span class="at">at</span>${r.home}<span class="kick">${r.time}</span>${lead?'<span class="lead-tag">Lead</span>':''}</td><td class="rec">0-0 · 0-0</td><td class="line num">${r.fav} -${r.spread}</td><td class="model num">${r.fpiFav} -${Math.abs(r.fpi).toFixed(1)}</td><td class="prob"><span class="pbar" style="--split:${r.ap}%"><span>${r.away} ${r.ap}</span><i></i><b>${r.home} ${r.hp}</b></span></td><td class="edge num ${hot.includes(key)?'hot':''}">${r.edgeTeam} +${Math.abs(r.edge).toFixed(1)}</td></tr>`;}
   html+='</tbody></table>';
 }
 document.getElementById('index').innerHTML=html;
