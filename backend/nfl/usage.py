@@ -12,7 +12,7 @@ import threading
 import time
 import urllib.request
 
-USAGE_URL = 'https://usage.taylorswayze.com/collect'
+USAGE_URL = os.environ.get("USAGE_URL", "http://rpi5.local/collect")
 APP_NAME = 'nfl'
 HEARTBEAT_SECONDS = 15 * 60
 
