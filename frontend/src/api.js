@@ -22,7 +22,9 @@ export async function get(endpoint, params = null) {
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const err = new Error(response.status === 401 ? 'sign in required' : `API error: ${response.status}`);
+      err.status = response.status;
+      throw err;
     }
 
     return await response.json();

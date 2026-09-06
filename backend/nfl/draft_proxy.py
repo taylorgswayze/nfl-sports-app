@@ -12,6 +12,8 @@ import requests
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from .auth_views import login_required_api
+
 logger = logging.getLogger(__name__)
 
 UPSTREAM = os.environ.get('DRAFT_API_UPSTREAM', 'http://127.0.0.1:8010')
@@ -29,6 +31,7 @@ proxy_session = requests.Session()
 
 
 @require_http_methods(["GET"])
+@login_required_api
 def proxy(request, endpoint):
     path = ENDPOINTS.get(endpoint)
     if not path:

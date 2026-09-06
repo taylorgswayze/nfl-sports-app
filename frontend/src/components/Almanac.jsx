@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getLogoUrl } from '../utils'
 import { gameService } from '../api'
-import { useMe } from '../auth'
+import { useMe, loginUrl } from '../auth'
 
 /* Shared pieces of the almanac page furniture:
    the Desk mark, masthead plate, teams menu, folio section headers,
@@ -207,10 +207,11 @@ export function BottomGutter() {
    in. Sign-in is a full-page trip to Google and back. */
 function AccountControl() {
   const me = useMe()
+  const { pathname } = useLocation()
   if (!me) return null
   if (!me.authenticated) {
     return (
-      <a className="ctl acct-in" href="/api/auth/login/">
+      <a className="ctl acct-in" href={loginUrl(pathname)}>
         <span className="lbl">ACCOUNT</span>
         <span>SIGN IN</span>
       </a>
@@ -345,6 +346,27 @@ export function ProbGauge({ awayAbbr, homeAbbr, awayPct, homePct }) {
         <span className="scale"></span>
         <span className="needle"></span>
       </div>
+    </div>
+  )
+}
+
+/* The subscribers' gate: the fantasy side of the Desk (My Leagues, the
+   GM's note, the draft desk) prints only for signed-in readers. Pages call
+   it with the reader's state; while the profile is still loading it prints
+   a quiet wire line instead of flashing the gate. */
+export function SignInGate({ me, what }) {
+  const { pathname } = useLocation()
+  if (!me) return <p className="wire">CHECKING YOUR SUBSCRIPTION&hellip; <b>stand by</b></p>
+  return (
+    <div className="gate">
+      <span className="kicker">Subscribers only</span>
+      <p className="gate-lede">Sign in to open {what}.</p>
+      <p className="gate-note">
+        Your Sleeper handle saves to your account, the general manager writes his
+        note for your leagues every 12 hours, and the draft desk follows your live
+        drafts. Any Google account works; it takes one click.
+      </p>
+      <a className="ctl advgo" href={loginUrl(pathname)}><span className="lbl">GOOGLE</span> SIGN IN</a>
     </div>
   )
 }

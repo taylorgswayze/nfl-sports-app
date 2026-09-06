@@ -930,3 +930,13 @@ table.h2h { width: 100%; border-collapse: collapse; }
 .stats td.earlier { color: var(--green); font-weight: 800; }
 .stats td.later { color: var(--ink-soft); }
 .stats td.dim { color: var(--ink-soft); font-weight: 400; }
+
+/* ---------------- the subscribers' gate ---------------- */
+.gate {
+  border: 1px solid var(--rule); border-top: 3px solid var(--green);
+  background: var(--paper-deep); padding: 22px 24px 24px; margin-top: 8px;
+  display: flex; flex-direction: column; gap: 10px; max-width: 560px;
+}
+.gate-lede { font-family: var(--grot); font-weight: 800; font-size: var(--lede); letter-spacing: -.01em; line-height: 1.05; }
+.gate-note { color: var(--ink-soft); max-width: 52ch; }
+.gate .ctl { align-self: flex-start; margin-top: 6px; }

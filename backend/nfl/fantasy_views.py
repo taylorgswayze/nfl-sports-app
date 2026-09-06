@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 
 from utils import sleeper
 from . import live_views
+from .auth_views import login_required_api
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ def _live_team_map():
 
 
 @require_http_methods(["GET"])
+@login_required_api
 def overview(request):
     username = (request.GET.get('username') or '').strip()
     if not username:
@@ -203,6 +205,7 @@ def overview(request):
 
 
 @require_http_methods(["GET"])
+@login_required_api
 def insights(request):
     """The Week Room for every league of a Sleeper user.
 

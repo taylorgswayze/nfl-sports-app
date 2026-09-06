@@ -11,6 +11,7 @@ username, notification settings) lives on DeskUser via /api/me/.
 """
 
 import base64
+import functools
 import json
 import logging
 import os
@@ -36,6 +37,24 @@ AUTH_URI = 'https://accounts.google.com/o/oauth2/auth'
 TOKEN_URI = 'https://oauth2.googleapis.com/token'
 
 STATE_COOKIE = 'oauth_state'
+NEXT_COOKIE = 'oauth_next'
+
+
+def _safe_next(value):
+    """Only same-site paths come back from the sign-in trip."""
+    v = (value or '').strip()
+    return v if v.startswith('/') and not v.startswith('//') and '\\' not in v else '/'
+
+
+def login_required_api(view):
+    """The fantasy side of the Desk is for signed-in readers: 401 JSON with
+    the sign-in URL so the page can print its gate instead of an error."""
+    @functools.wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not current_user(request):
+            return JsonResponse({'error': 'sign in required', 'login': '/api/auth/login/'}, status=401)
+        return view(request, *args, **kwargs)
+    return wrapped
 
 
 def _is_https(request):
@@ -65,6 +84,8 @@ def login(request):
     }
     resp = HttpResponseRedirect(f'{AUTH_URI}?{urllib.parse.urlencode(params)}')
     resp.set_cookie(STATE_COOKIE, state, max_age=600, httponly=True,
+                    secure=_is_https(request), samesite='Lax')
+    resp.set_cookie(NEXT_COOKIE, _safe_next(request.GET.get('next')), max_age=600, httponly=True,
                     secure=_is_https(request), samesite='Lax')
     return resp
 
@@ -112,8 +133,9 @@ def callback(request):
     request.session['desk_user_id'] = user.id
     request.session.set_expiry(60 * 60 * 24 * 90)
     track('login', user=user.email)
-    resp = HttpResponseRedirect('/')
+    resp = HttpResponseRedirect(_safe_next(request.COOKIES.get(NEXT_COOKIE)))
     resp.delete_cookie(STATE_COOKIE)
+    resp.delete_cookie(NEXT_COOKIE)
     return resp
 
 

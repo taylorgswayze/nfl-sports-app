@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { gameService } from '../api'
 import { useMe, rememberSleeperUsername } from '../auth'
-import { Masthead, Folio, Footnotes, Colophon } from './Almanac'
+import { Masthead, Folio, Footnotes, Colophon, SignInGate } from './Almanac'
 import WeekRoom, { WeekRoomPending } from './WeekRoom'
 
 /* MY LEAGUES: every Sleeper league on one page. Each league prints as a
@@ -206,17 +206,15 @@ function MyLeagues() {
       .finally(() => setBusy(false))
   }
 
-  useEffect(() => {
-    if (username) load(username)
-    return () => { stop(); stopIns() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => () => { stop(); stopIns() }, [])
 
-  /* The signed-in profile's saved handle fills an empty page on arrival. */
+  /* Signed-in readers only: the saved handle loads the page on arrival. */
   useEffect(() => {
-    if (!username && !data && me?.authenticated && me.sleeper_username) {
-      setUsername(me.sleeper_username)
-      load(me.sleeper_username)
+    if (!me?.authenticated || data) return
+    const saved = me.sleeper_username || username
+    if (saved) {
+      setUsername(saved)
+      load(saved)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me])
@@ -225,6 +223,22 @@ function MyLeagues() {
 
   const active = (data?.leagues || []).filter((lg) => !(lg.status === 'pre_draft' || lg.status === 'drafting'))
   const quiet = (data?.leagues || []).filter((lg) => lg.status === 'pre_draft' || lg.status === 'drafting')
+
+  if (!me?.authenticated) {
+    return (
+      <>
+        <Masthead />
+        <section aria-label="My Leagues">
+          <div className="pagehead">
+            <span className="kicker">Fantasy</span>
+            <span className="bigname">My Leagues</span>
+          </div>
+          <SignInGate me={me} what="your leagues and the general manager&rsquo;s note" />
+        </section>
+        <Colophon center="My Leagues · The General Manager" />
+      </>
+    )
+  }
 
   return (
     <>
@@ -252,10 +266,7 @@ function MyLeagues() {
         {error && <p className="wire">COULD NOT LOAD LEAGUES: <b>{error}</b></p>}
         {!data && !error && !busy && (
           <p className="wire">
-            ENTER YOUR SLEEPER USERNAME to print your leagues.{' '}
-            {me?.authenticated
-              ? <b>It saves to your account for next time.</b>
-              : <b>It stays on this device; <a href="/api/auth/login/">sign in</a> to keep it across devices.</b>}
+            ENTER YOUR SLEEPER USERNAME to print your leagues. <b>It saves to your account for next time.</b>
           </p>
         )}
 

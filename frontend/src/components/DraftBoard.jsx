@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { gameService } from '../api'
-import { Masthead, Folio, Footnotes, Colophon } from './Almanac'
+import { Masthead, Folio, Footnotes, Colophon, SignInGate } from './Almanac'
+import { useMe } from '../auth'
 
 /* The Draft Desk board: the players in the order the model drafts them,
    printed as an almanac table. Data comes from the federated Draft Room
@@ -35,14 +36,16 @@ function DraftBoard() {
   const [model, setModel] = useState('v1')
   const [pos, setPos] = useState('ALL')
   const [query, setQuery] = useState('')
+  const me = useMe()
 
   useEffect(() => {
+    if (!me?.authenticated) return undefined
     let alive = true
     gameService.fetchDraftBoard()
       .then((d) => { if (alive) setBoard(d) })
       .catch((err) => { if (alive) setError(err.message) })
     return () => { alive = false }
-  }, [])
+  }, [me])
 
   const players = useMemo(() => {
     if (!board?.players) return []
@@ -80,6 +83,8 @@ function DraftBoard() {
           {board?.models?.[model] || 'Model-driven player values for the coming season.'}
         </p>
 
+        {!me?.authenticated ? <SignInGate me={me} what="the draft board" /> : (
+        <>
         <div className="boardbar">
           <div className="posset" role="group" aria-label="Position filter">
             {POSITIONS.map((p) => (
@@ -138,6 +143,9 @@ function DraftBoard() {
               </tbody>
             </table>
           </div>
+        )}
+
+        </>
         )}
 
         <Footnotes>

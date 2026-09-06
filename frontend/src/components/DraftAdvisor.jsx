@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { gameService } from '../api'
 import { useMe, rememberSleeperUsername } from '../auth'
-import { Masthead, Folio, Footnotes, Colophon } from './Almanac'
+import { Masthead, Folio, Footnotes, Colophon, SignInGate } from './Almanac'
 
 /* The live advisor desk. Draft night is latency-first: the current
    recommendation is the lead story, alternatives print as a ledger with
@@ -31,8 +31,10 @@ function DraftAdvisor() {
   const [busy, setBusy] = useState(false)
   const timer = useRef(null)
 
-  const loadLeagues = () => {
-    const name = username.trim()
+  const loadLeagues = () => loadLeaguesFor(username)
+
+  const loadLeaguesFor = (raw) => {
+    const name = (raw || '').trim()
     if (!name) return
     setError(null)
     setLeagues(null)
@@ -46,10 +48,14 @@ function DraftAdvisor() {
       .catch((err) => setError(err.message))
   }
 
-  /* The signed-in profile's saved handle fills the field on arrival. */
+  /* Signed-in readers only: the saved handle fills the field and loads the
+     leagues on arrival. */
   useEffect(() => {
-    if (!username && me?.authenticated && me.sleeper_username) {
-      setUsername(me.sleeper_username)
+    if (!me?.authenticated || leagues) return
+    const saved = me.sleeper_username || username
+    if (saved) {
+      setUsername(saved)
+      loadLeaguesFor(saved)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me])
@@ -76,10 +82,6 @@ function DraftAdvisor() {
   }
 
   useEffect(() => () => stopPolling(), [])
-  useEffect(() => {
-    if (username && !leagues) loadLeagues()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const live = advice?.draft_status === 'drafting'
 
@@ -97,6 +99,8 @@ function DraftAdvisor() {
           alternative survives until your next turn.
         </p>
 
+        {!me?.authenticated ? <SignInGate me={me} what="the live draft advisor" /> : (
+        <>
         <div className="advbar">
           <input className="boardsearch" type="text" placeholder="Sleeper username"
             value={username} onChange={(e) => setUsername(e.target.value)}
@@ -205,6 +209,9 @@ function DraftAdvisor() {
           </>
         )}
         {advice?.error && <p className="wire">{String(advice.error).toUpperCase()}</p>}
+
+        </>
+        )}
 
         <Footnotes>
           <p>The engine simulates thousands of draft continuations from the live

@@ -226,9 +226,19 @@ class ProseTests(TestCase):
             self.assertEqual(llm.provider()[0], 'openai')
 
 
+def sign_in(client):
+    from nfl.models import DeskUser
+    u, _ = DeskUser.objects.get_or_create(google_sub='sub-test', defaults={'email': 't@example.com', 'name': 'T'})
+    session = client.session
+    session['desk_user_id'] = u.id
+    session.save()
+    return u
+
+
 class InsightsViewTests(TestCase):
     def setUp(self):
         self.client = Client()
+        sign_in(self.client)
 
     def test_requires_username(self):
         r = self.client.get('/api/fantasy/insights/')
@@ -331,3 +341,30 @@ class GmVoiceTests(TestCase):
         self.assertEqual(len(prior), 1)
         self.assertIn('second note', prior[0]['content'])
         self.assertIn('Do not reuse', prior[0]['content'])
+
+
+class FantasyGateTests(TestCase):
+    """The fantasy side (leagues, the GM's note, the draft desk) is for
+    signed-in readers; anonymous calls get a 401 with the sign-in URL."""
+
+    def test_anonymous_calls_are_refused_with_the_login_url(self):
+        c = Client()
+        for path in ('/api/fantasy/insights/?username=x', '/api/fantasy/overview/?username=x',
+                     '/api/draft/board/', '/api/draft/leagues/?username=x'):
+            r = c.get(path)
+            self.assertEqual(r.status_code, 401, path)
+            self.assertEqual(json.loads(r.content)['login'], '/api/auth/login/')
+
+    def test_public_pages_stay_open(self):
+        c = Client()
+        self.assertEqual(c.get('/api/me/').status_code, 200)
+        self.assertNotEqual(c.get('/api/seasons/').status_code, 401)
+
+    def test_login_remembers_a_safe_next_path(self):
+        from nfl import auth_views
+        with mock.patch.object(auth_views, 'CLIENT_ID', 'id'), mock.patch.object(auth_views, 'CLIENT_SECRET', 'secret'):
+            r = Client().get('/api/auth/login/?next=/leagues')
+            self.assertEqual(r.status_code, 302)
+            self.assertEqual(r.cookies['oauth_next'].value, '/leagues')
+            r = Client().get('/api/auth/login/?next=https://evil.example/x')
+            self.assertEqual(r.cookies['oauth_next'].value, '/')

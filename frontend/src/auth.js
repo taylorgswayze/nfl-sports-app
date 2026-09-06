@@ -64,3 +64,9 @@ export function rememberSleeperUsername(username) {
   if (meValue) write(meValue)
   else loadMe().then(write)
 }
+
+/* The sign-in trip returns to `next` (a same-site path) after Google. */
+export function loginUrl(next) {
+  const path = next || (typeof window !== 'undefined' ? window.location.pathname : '/')
+  return `/api/auth/login/?next=${encodeURIComponent(path)}`
+}

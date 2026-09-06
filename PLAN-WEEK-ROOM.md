@@ -216,3 +216,12 @@ releases with this-week and rest-of-season upside), and the phones (trade
 calls with both sides' deltas), closing with what to do first and when the
 next note prints. The OpenAI prompt and the template fallback share the
 structure, so the copy reads the same whether or not a key is configured.
+
+## 7. Access (2026-09-06)
+
+The fantasy side of the Desk is for signed-in readers: My Leagues with the
+GM's note, the draft board and the live advisor. The APIs behind them
+(`/api/fantasy/*`, `/api/draft/*`) answer anonymous calls with 401 and the
+sign-in URL; the pages print a subscribers' gate with a Google sign-in that
+returns to the page it was opened from (`/api/auth/login/?next=`). Any Google
+account qualifies. The Slate, standings, game and team desks stay public.
