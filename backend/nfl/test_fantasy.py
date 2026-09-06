@@ -300,3 +300,23 @@ class LinkTriggerTests(TestCase):
             self.assertFalse(fi._acquire('u1'))
             fi._release('u1')
             self.assertFalse(fi.in_progress('u1'))
+
+
+class GmVoiceTests(TestCase):
+    def test_refusals_and_stubs_fall_back_to_the_template(self):
+        self.assertTrue(llm.looks_refused("I'm sorry, but I can't write that."))
+        self.assertTrue(llm.looks_refused('Too short to be a note.'))
+        self.assertFalse(llm.looks_refused('Listen up, numbnuts. ' * 40))
+
+    @mock.patch('utils.llm.requests.post')
+    def test_previous_notes_ride_along_and_are_not_reused(self, post):
+        post.return_value.status_code = 200
+        post.return_value.json.return_value = {'choices': [{'message': {'content': 'Listen up. ' * 40}}]}
+        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': 'k'}):
+            text = llm.narrate({'name': 'L'}, previous=['first note about numbnuts', 'second note'])
+        self.assertTrue(text)
+        body = post.call_args.kwargs['json']
+        prior = [m for m in body['messages'] if 'Earlier notes' in m['content']]
+        self.assertEqual(len(prior), 1)
+        self.assertIn('second note', prior[0]['content'])
+        self.assertIn('Do not reuse', prior[0]['content'])

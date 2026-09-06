@@ -145,7 +145,10 @@ def _team_name(users, roster, fallback):
     return ((u.get('metadata') or {}).get('team_name') or u.get('display_name') or fallback)
 
 
-def league_insight(base, lg, user_id, use_llm=True):
+HISTORY_KEEP = 3
+
+
+def league_insight(base, lg, user_id, use_llm=True, previous=None):
     league_id = lg['league_id']
     settings = lg.get('scoring_settings') or {}
     lg_settings = lg.get('settings') or {}
@@ -272,7 +275,7 @@ def league_insight(base, lg, user_id, use_llm=True):
                                                -((r.get('settings') or {}).get('fpts', 0))))
     payload['rank'] = next((i + 1 for i, r in enumerate(standings) if r['roster_id'] == mine['roster_id']), None)
 
-    text = llm.narrate(payload) if use_llm else None
+    text = llm.narrate(payload, previous=previous) if use_llm else None
     payload['narrative'] = text or fe.template_narrative(payload)
     payload['narrative_source'] = 'openai' if text else 'template'
     return payload
@@ -289,10 +292,19 @@ def generate_for_user(username, use_llm=True):
         raise ValueError(f"Sleeper user '{username}' not found")
     user_id = user['user_id']
     base = build_base_context(season, week)
+    # the GM's earlier notes per league, so each reprint finds new material
+    history = {}
+    for row in FantasyInsight.objects.filter(sleeper_user_id=user_id):
+        prev = list((row.payload or {}).get('narrative_history') or [])
+        if (row.payload or {}).get('narrative_source') == 'openai' and row.payload.get('narrative'):
+            prev.append(row.payload['narrative'])
+        history[row.league_id] = prev[-HISTORY_KEEP:]
     out = []
     for lg in sleeper.leagues(user_id, season)[:MAX_LEAGUES]:
         try:
-            payload = league_insight(base, lg, user_id, use_llm=use_llm)
+            payload = league_insight(base, lg, user_id, use_llm=use_llm,
+                                     previous=history.get(lg['league_id']))
+            payload['narrative_history'] = history.get(lg['league_id'], [])
         except Exception as e:
             logger.exception(f'week room failed for league {lg.get("league_id")}: {e}')
             payload = {'league_id': lg['league_id'], 'name': lg.get('name'), 'season': season,
