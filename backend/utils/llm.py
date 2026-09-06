@@ -1,10 +1,14 @@
-"""OpenAI narrative for the Week Room: turns the engine's structured
-payload into a few sentences in the Desk's voice. Optional: without
-OPENAI_API_KEY (or on any error) the engine's template prose is printed
-instead, so the product never depends on the call.
+"""LLM narrative for the GM's note: turns the engine's structured payload
+into a few paragraphs in the GM's voice. Optional: without a key (or on any
+error or refusal) the engine's template prose is printed instead, so the
+product never depends on the call.
 
-Uses the same OpenAI account as the budget app (OPENAI_API_KEY in .env);
-one short chat completion per league per refresh, a few cents a day.
+Providers (chat-completions format, picked from the environment):
+  XAI_API_KEY   -> xAI Grok at https://api.x.ai/v1 (model XAI_MODEL,
+                   default grok-4.3); preferred when set
+  OPENAI_API_KEY-> OpenAI (model OPENAI_MODEL, default gpt-4o-mini)
+LLM_PROVIDER=openai|xai forces one. One short completion per league per
+refresh, pennies a day on either.
 """
 import json
 import logging
@@ -16,8 +20,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-API_URL = 'https://api.openai.com/v1/chat/completions'
-DEFAULT_MODEL = 'gpt-4o-mini'
+PROVIDERS = {
+    'xai': {'url': 'https://api.x.ai/v1/chat/completions', 'key': 'XAI_API_KEY',
+            'model_env': 'XAI_MODEL', 'model': 'grok-4.3'},
+    'openai': {'url': 'https://api.openai.com/v1/chat/completions', 'key': 'OPENAI_API_KEY',
+               'model_env': 'OPENAI_MODEL', 'model': 'gpt-4o-mini'},
+}
 
 SYSTEM = (
     "You are the general manager of the reader's fantasy football franchise: a gruff "
@@ -96,8 +104,20 @@ def _setting(name, default=None):
     return os.environ.get(name) or _dotenv(name) or default
 
 
+def provider():
+    """(name, url, key, model) for the provider in use, or None."""
+    forced = (_setting('LLM_PROVIDER') or '').strip().lower()
+    order = [forced] if forced in PROVIDERS else ['xai', 'openai']
+    for name in order:
+        cfg = PROVIDERS[name]
+        key = _setting(cfg['key'])
+        if key:
+            return name, cfg['url'], key, _setting(cfg['model_env'], cfg['model'])
+    return None
+
+
 def configured():
-    return bool(_setting('OPENAI_API_KEY'))
+    return provider() is not None
 
 
 def _facts(p):
@@ -154,10 +174,10 @@ def narrate(payload, previous=None, timeout=45):
 
     previous: the league's last few notes, passed so the GM does not repeat
     his own material from one reprint to the next."""
-    key = _setting('OPENAI_API_KEY')
-    if not key:
+    prov = provider()
+    if not prov:
         return None
-    model = _setting('OPENAI_MODEL', DEFAULT_MODEL)
+    name, url, key, model = prov
     messages = [{'role': 'system', 'content': SYSTEM}]
     prior = [p for p in (previous or []) if p][-2:]
     if prior:
@@ -165,18 +185,18 @@ def narrate(payload, previous=None, timeout=45):
                          'their nicknames, jokes or openers:\n\n' + '\n\n---\n\n'.join(p[:1200] for p in prior)})
     messages.append({'role': 'user', 'content': 'Facts for this league and week:\n' + json.dumps(_facts(payload))})
     try:
-        r = requests.post(API_URL, timeout=timeout, headers={
+        r = requests.post(url, timeout=timeout, headers={
             'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
             json={'model': model, 'temperature': 0.95, 'max_tokens': 480, 'messages': messages})
         if r.status_code != 200:
-            logger.error(f'openai {model} returned {r.status_code}: {r.text[:200]}')
+            logger.error(f'{name} {model} returned {r.status_code}: {r.text[:200]}')
             return None
         text = ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or ''
         text = clean(text)
         if looks_refused(text):
-            logger.warning(f'openai {model} returned a refusal or a stub; using the template')
+            logger.warning(f'{name} {model} returned a refusal or a stub; using the template')
             return None
         return text
     except Exception as e:
-        logger.error(f'openai narrative failed: {e}')
+        logger.error(f'{name} narrative failed: {e}')
         return None

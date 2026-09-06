@@ -277,7 +277,8 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
 
     text = llm.narrate(payload, previous=previous) if use_llm else None
     payload['narrative'] = text or fe.template_narrative(payload)
-    payload['narrative_source'] = 'openai' if text else 'template'
+    prov = llm.provider() if text else None
+    payload['narrative_source'] = f'{prov[0]}:{prov[3]}' if prov else 'template'
     return payload
 
 
@@ -296,7 +297,7 @@ def generate_for_user(username, use_llm=True):
     history = {}
     for row in FantasyInsight.objects.filter(sleeper_user_id=user_id):
         prev = list((row.payload or {}).get('narrative_history') or [])
-        if (row.payload or {}).get('narrative_source') == 'openai' and row.payload.get('narrative'):
+        if (row.payload or {}).get('narrative_source', 'template') != 'template' and row.payload.get('narrative'):
             prev.append(row.payload['narrative'])
         history[row.league_id] = prev[-HISTORY_KEEP:]
     out = []

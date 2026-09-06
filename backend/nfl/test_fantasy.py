@@ -210,10 +210,20 @@ class ProseTests(TestCase):
         self.assertEqual(llm.clean('weeks 10–12'), 'weeks 10 to 12')
 
     def test_llm_without_key_returns_none(self):
-        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': ''}), \
+        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': '', 'XAI_API_KEY': '', 'LLM_PROVIDER': ''}), \
                 mock.patch.object(llm, '_dotenv', return_value=None):
             self.assertIsNone(llm.narrate({}))
             self.assertFalse(llm.configured())
+
+    def test_xai_key_is_preferred_and_forcing_works(self):
+        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': 'o', 'XAI_API_KEY': 'x', 'XAI_MODEL': 'grok-4.6', 'LLM_PROVIDER': ''}), \
+                mock.patch.object(llm, '_dotenv', return_value=None):
+            name, url, key, model = llm.provider()
+            self.assertEqual((name, model), ('xai', 'grok-4.6'))
+            self.assertIn('api.x.ai', url)
+        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': 'o', 'XAI_API_KEY': 'x', 'LLM_PROVIDER': 'openai'}), \
+                mock.patch.object(llm, '_dotenv', return_value=None):
+            self.assertEqual(llm.provider()[0], 'openai')
 
 
 class InsightsViewTests(TestCase):
@@ -312,7 +322,8 @@ class GmVoiceTests(TestCase):
     def test_previous_notes_ride_along_and_are_not_reused(self, post):
         post.return_value.status_code = 200
         post.return_value.json.return_value = {'choices': [{'message': {'content': 'Listen up. ' * 40}}]}
-        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': 'k'}):
+        with mock.patch.dict('os.environ', {'OPENAI_API_KEY': 'k', 'XAI_API_KEY': '', 'LLM_PROVIDER': ''}), \
+                mock.patch.object(llm, '_dotenv', return_value=None):
             text = llm.narrate({'name': 'L'}, previous=['first note about numbnuts', 'second note'])
         self.assertTrue(text)
         body = post.call_args.kwargs['json']
