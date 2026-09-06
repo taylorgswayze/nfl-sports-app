@@ -925,3 +925,8 @@ table.h2h { width: 100%; border-collapse: collapse; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* draft board: the model's pick against Sleeper ADP */
+.stats td.earlier { color: var(--green); font-weight: 800; }
+.stats td.later { color: var(--ink-soft); }
+.stats td.dim { color: var(--ink-soft); font-weight: 400; }
