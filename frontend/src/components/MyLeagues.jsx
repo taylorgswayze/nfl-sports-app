@@ -59,10 +59,13 @@ function StartersTable({ rows, caption }) {
 
 /* One in-season league: a page-head style header, the GM's note as the
    lead, then the standing line and this week's live matchup. */
-function LeagueBlock({ lg, ins, insState, onReprint, reprinting }) {
+function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
   const [showBench, setShowBench] = useState(false)
   const m = lg.matchup
   const live = m && (m.starters || []).some((p) => p.game_state === 'in')
+  // the note still says pre-draft but the league has drafted: the desk is
+  // rewriting it, so print the wait rather than the stale note
+  const stale = !!ins && (ins.status === 'pre_draft' || ins.status === 'drafting') && (rewriting || lg.status === 'in_season')
   return (
     <article className={`league${live ? ' live' : ''}`} aria-label={lg.name}>
       <div className="pagehead">
@@ -74,9 +77,9 @@ function LeagueBlock({ lg, ins, insState, onReprint, reprinting }) {
         </span>
       </div>
 
-      {ins
+      {ins && !stale
         ? <WeekRoom ins={ins} onReprint={onReprint} reprinting={reprinting} />
-        : insState ? <WeekRoomPending state={insState} /> : null}
+        : insState ? <WeekRoomPending state={stale ? 'generating' : insState} /> : null}
 
       {lg.error ? (
         <p className="note">{lg.error}.</p>
@@ -149,7 +152,7 @@ function MyLeagues() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [insights, setInsights] = useState({ state: null, byLeague: {}, generatedAt: null })
+  const [insights, setInsights] = useState({ state: null, byLeague: {}, generatedAt: null, regenerating: [] })
   const [reprinting, setReprinting] = useState(false)
   const timer = useRef(null)
   const insTimer = useRef(null)
@@ -167,8 +170,9 @@ function MyLeagues() {
         const byLeague = {}
         for (const p of d.leagues || []) byLeague[p.league_id] = p
         const ready = d.status === 'ready' && !(refresh && d.generating)
-        setInsights({ state: ready ? 'ready' : 'generating', byLeague, generatedAt: d.generated_at })
-        if (d.generating && insTries.current < 40) {
+        setInsights({ state: ready ? 'ready' : 'generating', byLeague, generatedAt: d.generated_at,
+          regenerating: d.regenerating || [] })
+        if (d.generating && insTries.current < 60) {
           insTries.current += 1
           insTimer.current = setTimeout(() => loadInsights(user), 6000)
         } else {
@@ -196,7 +200,7 @@ function MyLeagues() {
         setData(d)
         rememberSleeperUsername(user)
         insTries.current = 0
-        setInsights({ state: 'loading', byLeague: {}, generatedAt: null })
+        setInsights({ state: 'loading', byLeague: {}, generatedAt: null, regenerating: [] })
         loadInsights(user)
         stop()
         const anyLive = (d.aggregate || []).some((p) => p.game_state === 'in')
@@ -278,6 +282,7 @@ function MyLeagues() {
           <LeagueBlock key={lg.league_id} lg={lg}
             ins={insights.byLeague[lg.league_id]}
             insState={insights.state}
+            rewriting={(insights.regenerating || []).includes(lg.league_id)}
             onReprint={reprint} reprinting={reprinting} />
         ))}
 

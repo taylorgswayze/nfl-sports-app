@@ -22,8 +22,17 @@ class Command(BaseCommand):
         parser.add_argument('--username', action='append', default=[])
         parser.add_argument('--all', action='store_true')
         parser.add_argument('--no-llm', action='store_true')
+        parser.add_argument('--drafted', action='store_true',
+                            help='only leagues that drafted since their note was printed')
 
     def handle(self, *args, **opts):
+        if opts['drafted']:
+            done = fi.refresh_newly_drafted(use_llm=not opts['no_llm'])
+            if not done:
+                self.stdout.write('draft watch: nothing newly drafted')
+            for name, ids in done.items():
+                self.stdout.write(f'draft watch: {name}: wrote notes for {", ".join(ids)}')
+            return
         names = list(opts['username'])
         if opts['all']:
             names += [u for u in DeskUser.objects.exclude(sleeper_username='')

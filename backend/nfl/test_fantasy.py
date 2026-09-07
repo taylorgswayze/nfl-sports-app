@@ -368,3 +368,51 @@ class FantasyGateTests(TestCase):
             self.assertEqual(r.cookies['oauth_next'].value, '/leagues')
             r = Client().get('/api/auth/login/?next=https://evil.example/x')
             self.assertEqual(r.cookies['oauth_next'].value, '/')
+
+
+class DraftWatchTests(TestCase):
+    LEAGUES = [{'league_id': 'L1', 'status': 'in_season'}, {'league_id': 'L2', 'status': 'in_season'},
+               {'league_id': 'L3', 'status': 'pre_draft'}]
+
+    def setUp(self):
+        FantasyInsight.objects.create(sleeper_user_id='u1', username='someone', league_id='L1',
+                                      season=2026, week=1, payload={'league_id': 'L1', 'status': 'in_season'})
+        FantasyInsight.objects.create(sleeper_user_id='u1', username='someone', league_id='L2',
+                                      season=2026, week=1, payload={'league_id': 'L2', 'status': 'pre_draft'})
+        FantasyInsight.objects.create(sleeper_user_id='u1', username='someone', league_id='L3',
+                                      season=2026, week=1, payload={'league_id': 'L3', 'status': 'pre_draft'})
+
+    @mock.patch('nfl.fantasy_insights.sleeper.leagues')
+    def test_only_the_freshly_drafted_league_is_flagged(self, leagues):
+        leagues.return_value = self.LEAGUES
+        self.assertEqual(fi.newly_drafted_leagues('u1', 2026), ['L2'])
+
+    @mock.patch('nfl.fantasy_insights.sleeper.leagues')
+    def test_a_league_without_a_note_is_flagged_too(self, leagues):
+        leagues.return_value = self.LEAGUES + [{'league_id': 'L4', 'status': 'in_season'}]
+        self.assertEqual(fi.newly_drafted_leagues('u1', 2026), ['L2', 'L4'])
+
+    @mock.patch('nfl.fantasy_insights.generate_in_background', return_value=True)
+    @mock.patch('nfl.fantasy_insights.newly_drafted_leagues', return_value=['L2'])
+    @mock.patch('nfl.fantasy_views.sleeper.state', return_value={'season': '2026', 'week': 1})
+    @mock.patch('nfl.fantasy_views.sleeper.user', return_value={'user_id': 'u1'})
+    def test_reading_the_page_rewrites_the_drafted_league_now(self, _user, _state, _changed, gen):
+        client = Client()
+        sign_in(client)
+        r = client.get('/api/fantasy/insights/?username=someone')
+        body = json.loads(r.content)
+        self.assertEqual(body['regenerating'], ['L2'])
+        self.assertTrue(body['generating'])
+        gen.assert_called_once_with('someone', 'u1', league_ids=['L2'])
+
+    @mock.patch('nfl.fantasy_insights.generate_for_user')
+    @mock.patch('nfl.fantasy_insights.sleeper.leagues')
+    @mock.patch('nfl.fantasy_insights.sleeper.state', return_value={'season': '2026', 'week': 1})
+    def test_the_watcher_writes_only_what_changed(self, _state, leagues, gen):
+        leagues.return_value = self.LEAGUES
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(fi, 'LOCK_DIR', Path(d)):
+            done = fi.refresh_newly_drafted()
+        self.assertEqual(done, {'someone': ['L2']})
+        gen.assert_called_once_with('someone', use_llm=True, league_ids=['L2'])

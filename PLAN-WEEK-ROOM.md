@@ -225,3 +225,14 @@ GM's note, the draft board and the live advisor. The APIs behind them
 sign-in URL; the pages print a subscribers' gate with a Google sign-in that
 returns to the page it was opened from (`/api/auth/login/?next=`). Any Google
 account qualifies. The Slate, standings, game and team desks stay public.
+
+## 8. Draft detection (2026-09-06)
+
+A league that drafts after its note was printed does not wait for the
+12-hour clock. Every read of `/api/fantasy/insights/` compares each stored
+note's status with Sleeper's live league status (cached five minutes); a
+note that says pre-draft for a league now in season is rewritten in the
+background for that league only, and the page prints the wait instead of
+the stale note. `nfl.cron.DraftWatch` does the same sweep every 30 minutes
+for every stored user (`manage.py fantasy_insights --drafted`), so the note
+is ready even before the owner opens the page.

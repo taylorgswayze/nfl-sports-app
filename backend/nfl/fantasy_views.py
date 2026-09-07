@@ -233,6 +233,17 @@ def insights(request):
     want_refresh = request.GET.get('refresh') in ('1', 'true')
     stale_enough = (not rows) or (timezone.now() - min(r.generated_at for r in rows) > timedelta(minutes=20))
     generating = fi.in_progress(user_id)
+    # a league that drafted since its note was printed gets a fresh note now,
+    # whatever the clock says; the others keep theirs
+    regenerating = []
+    if rows and not generating:
+        try:
+            season = int(sleeper.state().get('season'))
+            regenerating = fi.newly_drafted_leagues(user_id, season)
+        except Exception as e:
+            logger.warning(f'draft check for {username} skipped: {e}')
+        if regenerating:
+            generating = fi.generate_in_background(username, user_id, league_ids=regenerating)
     if (not rows or (want_refresh and stale_enough)) and not generating:
         generating = fi.generate_in_background(username, user_id)
         if generating:
@@ -246,6 +257,7 @@ def insights(request):
         'username': username, 'user_id': user_id,
         'status': 'ready' if rows else ('generating' if generating else 'empty'),
         'generating': generating,
+        'regenerating': regenerating if generating else [],
         'generated_at': min(r.generated_at for r in rows).isoformat() if rows else None,
         'refresh_hours': fi.REFRESH_HOURS,
         'leagues': payloads,

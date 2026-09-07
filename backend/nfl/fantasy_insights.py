@@ -282,9 +282,30 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
     return payload
 
 
-def generate_for_user(username, use_llm=True):
-    """Compute and store insights for every league of a Sleeper user.
-    Returns the list of payloads (also persisted)."""
+PRE_DRAFT = ('pre_draft', 'drafting')
+
+
+def newly_drafted_leagues(user_id, season):
+    """League ids whose stored note predates the draft: the note says
+    pre-draft (or is missing) while Sleeper now reports the league in
+    season. Uses the cached leagues call, so it is cheap to ask often."""
+    stored = {row.league_id: (row.payload or {}).get('status') for row in
+              FantasyInsight.objects.filter(sleeper_user_id=user_id)}
+    changed = []
+    for lg in sleeper.leagues(user_id, season)[:MAX_LEAGUES]:
+        live = lg.get('status')
+        was = stored.get(lg['league_id'])
+        if live in PRE_DRAFT:
+            continue
+        if was is None or was in PRE_DRAFT:
+            changed.append(lg['league_id'])
+    return changed
+
+
+def generate_for_user(username, use_llm=True, league_ids=None):
+    """Compute and store insights for every league of a Sleeper user, or
+    only for league_ids when given (a freshly drafted league gets its note
+    without rewriting the others). Returns the list of payloads."""
     st = sleeper.state()
     season = int(st.get('season'))
     week = int(st.get('week') or 1) or 1
@@ -301,7 +322,10 @@ def generate_for_user(username, use_llm=True):
             prev.append(row.payload['narrative'])
         history[row.league_id] = prev[-HISTORY_KEEP:]
     out = []
+    wanted = set(league_ids) if league_ids else None
     for lg in sleeper.leagues(user_id, season)[:MAX_LEAGUES]:
+        if wanted is not None and lg['league_id'] not in wanted:
+            continue
         try:
             payload = league_insight(base, lg, user_id, use_llm=use_llm,
                                      previous=history.get(lg['league_id']))
@@ -317,11 +341,41 @@ def generate_for_user(username, use_llm=True):
             sleeper_user_id=user_id, league_id=lg['league_id'],
             defaults={'username': username, 'season': season, 'week': week, 'payload': payload})
         out.append(payload)
-    # leagues that vanished (dropped out mid-season) lose their rows
-    FantasyInsight.objects.filter(sleeper_user_id=user_id).exclude(
-        league_id__in=[p['league_id'] for p in out]).delete()
+    if wanted is None:
+        # leagues that vanished (dropped out mid-season) lose their rows
+        FantasyInsight.objects.filter(sleeper_user_id=user_id).exclude(
+            league_id__in=[p['league_id'] for p in out]).delete()
     logger.info(f'week room: {username} {len(out)} leagues, season {season} week {week}')
     return out
+
+
+def refresh_newly_drafted(use_llm=True):
+    """For every user with stored notes, write the note for any league
+    that has drafted since its note was printed. Returns {username:
+    [league_ids]} of what was regenerated. Run by the 30-minute watcher."""
+    st = sleeper.state()
+    season = int(st.get('season'))
+    done = {}
+    users = (FantasyInsight.objects.values_list('sleeper_user_id', 'username').distinct())
+    for user_id, username in users:
+        try:
+            changed = newly_drafted_leagues(user_id, season)
+        except Exception as e:
+            logger.warning(f'draft watch: leagues for {username} unavailable: {e}')
+            continue
+        if not changed:
+            continue
+        if not _acquire(user_id):
+            logger.info(f'draft watch: {username} already generating; skipping')
+            continue
+        try:
+            generate_for_user(username, use_llm=use_llm, league_ids=changed)
+            done[username] = changed
+        except Exception as e:
+            logger.error(f'draft watch: {username} failed: {e}')
+        finally:
+            _release(user_id)
+    return done
 
 
 def stored(user_id):
@@ -372,14 +426,14 @@ def in_progress(user_id):
         return False
 
 
-def generate_in_background(username, user_id, use_llm=True):
+def generate_in_background(username, user_id, use_llm=True, league_ids=None):
     """Start one generation per user at a time; returns True when started."""
     if not _acquire(user_id):
         return False
 
     def run():
         try:
-            generate_for_user(username, use_llm=use_llm)
+            generate_for_user(username, use_llm=use_llm, league_ids=league_ids)
         except Exception as e:
             logger.error(f'background week room for {username} failed: {e}')
         finally:

@@ -49,3 +49,14 @@ class WeekRoomRefresh(CronJobBase):
 
     def do(self):
         call_command('fantasy_insights', '--all')
+
+
+class DraftWatch(CronJobBase):
+    """Every 30 minutes: any league whose stored GM note predates its draft
+    (Sleeper now says in season) gets its note written now; the 12-hour
+    refresh carries on from there."""
+    schedule = Schedule(run_every_mins=30)
+    code = 'nfl.draft_watch'
+
+    def do(self):
+        call_command('fantasy_insights', '--drafted')
