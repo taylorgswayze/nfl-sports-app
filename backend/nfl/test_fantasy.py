@@ -258,11 +258,16 @@ class InsightsViewTests(TestCase):
     @mock.patch('nfl.fantasy_views.sleeper.user', return_value={'user_id': 'u1'})
     def test_stored_rows_are_served_without_regenerating(self, _user, gen):
         FantasyInsight.objects.create(sleeper_user_id='u1', username='someone', league_id='L1',
-                                      season=2026, week=1, payload={'league_id': 'L1', 'name': 'One'})
+                                      season=2026, week=1,
+                                      payload={'league_id': 'L1', 'name': 'One', 'narrative': 'now',
+                                               'narrative_history': ['earlier', 'earliest']})
         r = self.client.get('/api/fantasy/insights/?username=someone')
         body = json.loads(r.content)
         self.assertEqual(body['status'], 'ready')
         self.assertEqual(body['leagues'][0]['name'], 'One')
+        # the GM's earlier notes are memory for the next rewrite, not page content
+        self.assertNotIn('narrative_history', body['leagues'][0])
+        self.assertEqual(body['leagues'][0]['narrative'], 'now')
         gen.assert_not_called()
         # a refresh on a fresh row is refused (20 minute floor)
         r = self.client.get('/api/fantasy/insights/?username=someone&refresh=1')
