@@ -207,10 +207,10 @@ and `deploy/build.sh` builds from it.
 ## 6. Voice (2026-09-05)
 
 The panel prints as THE GENERAL MANAGER: the prose is the GM's note to the
-owner (you), in the voice of a gruff old NFL front-office lifer who roasts
-the owner (demeaning nicknames, rude humor, mild profanity; no slurs, no
-jokes about real players' injuries or private lives) while the numbers stay
-exact, with three fixed sections that the
+owner (you), in the voice of a gruff old NFL front-office lifer who needles
+the owner (mild nicknames, dry football wordplay; clean: no profanity, no
+crude material, no slurs, no jokes about real players' injuries or private
+lives) while the numbers stay exact, with three fixed sections that the
 tables mirror: the lineup card (exact from/to moves), the wire (claims and
 releases with this-week and rest-of-season upside), and the phones (trade
 calls with both sides' deltas), closing with what to do first and when the
@@ -236,3 +236,14 @@ background for that league only, and the page prints the wait instead of
 the stale note. `nfl.cron.DraftWatch` does the same sweep every 30 minutes
 for every stored user (`manage.py fantasy_insights --drafted`), so the note
 is ready even before the owner opens the page.
+
+## 9. The Fantasy tab layout (2026-09-08)
+
+Each league block shows the GM's note, the standing line and the matchup
+score; the week's starters and bench sit behind toggles. The page ends with
+THE STARTERS: every player starting for the reader in any league, one row
+per player (leagues started, projected points from the note, points so far
+from Sleeper, both summed across leagues), grouped by NFL team with the
+most imminent game first (live, then upcoming by kickoff, then finals,
+then no game). The overview API carries `team_games` (this week's kickoffs
+by Sleeper team code) and the note payload carries `roster_proj` for it.

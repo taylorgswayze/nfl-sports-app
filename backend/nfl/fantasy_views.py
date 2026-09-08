@@ -189,6 +189,14 @@ def overview(request):
 
         agg_rows = sorted(aggregate.values(),
                           key=lambda a: (-a['leagues'], -(a['total_points'] or 0)))
+        # this week's kickoffs by Sleeper team code, for grouping starters by
+        # the most imminent game
+        try:
+            from . import fantasy_insights as fi
+            team_games = fi._schedule(int(season), int(week))
+        except Exception as e:
+            logger.warning(f'team schedule unavailable for overview: {e}')
+            team_games = {}
         return JsonResponse({
             'username': username,
             'user_id': user_id,
@@ -197,6 +205,7 @@ def overview(request):
             'season_type': st.get('season_type'),
             'leagues': leagues_out,
             'aggregate': agg_rows,
+            'team_games': team_games,
         })
     except Exception as e:
         logger.error(f'fantasy overview failed for {username}: {e}')

@@ -270,6 +270,11 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         'trade_deadline': deadline,
         'matchup': matchup, 'lineup': lineup, 'flags': flags,
         'waivers': waivers, 'drops': drops, 'trades': trades,
+        # every rostered player's projection this week, so the page can put
+        # a projection beside live points without another model call
+        'roster_proj': {p: {'proj': values[p]['proj'], 'opp': values[p].get('opp'),
+                            'injury': values[p].get('injury')}
+                        for p in my_pids if p in values},
     })
     standings = sorted(rosters, key=lambda r: (-(r.get('settings') or {}).get('wins', 0),
                                                -((r.get('settings') or {}).get('fpts', 0))))

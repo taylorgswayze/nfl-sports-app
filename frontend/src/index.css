@@ -940,3 +940,17 @@ table.h2h { width: 100%; border-collapse: collapse; }
 .gate-lede { font-family: var(--grot); font-weight: 800; font-size: var(--lede); letter-spacing: -.01em; line-height: 1.05; }
 .gate-note { color: var(--ink-soft); max-width: 52ch; }
 .gate .ctl { align-self: flex-start; margin-top: 6px; }
+
+/* ---------------- the starters, by kickoff ---------------- */
+.lg-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.starters tr.teamrow th {
+  text-align: left; background: var(--paper-deep); border-bottom: 1px solid var(--ink);
+  border-top: 2px solid var(--ink); padding: 8px 14px;
+  font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink); display: table-cell;
+}
+.starters tr.teamrow th .opp { margin-left: 10px; color: var(--ink-soft); font-weight: 700; letter-spacing: .06em; }
+.starters tr.teamrow th .kick { float: right; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.starters tr.teamrow.live th { border-top-color: var(--green); }
+.starters tr.teamrow.live th .kick { color: var(--green); font-weight: 700; }
+.starters tr.teamrow.live th .live-dot { background: var(--green); }
