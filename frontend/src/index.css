@@ -13,6 +13,7 @@
   --rule: rgba(237, 233, 221, .22);
   --rule-soft: rgba(237, 233, 221, .10);
   --green: #4DB47F;
+  --amber: #D4A853; /* settled: a finished game */
   --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --grot: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -946,17 +947,21 @@ table.h2h { width: 100%; border-collapse: collapse; }
 
 /* ---------------- the starters, by kickoff ---------------- */
 .lg-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
-.starters tr.gamerow th {
-  text-align: left; background: var(--paper-deep); border-bottom: 1px solid var(--ink);
-  border-top: 2px solid var(--ink); padding: 8px 14px;
-  font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink); display: table-cell;
-}
-.starters tr.gamerow th .matchline .atword { margin: 0 8px; color: var(--ink-soft); font-weight: 700; font-size: 11px; letter-spacing: .06em; text-transform: lowercase; }
-.starters tr.gamerow th .kick { float: right; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
-.starters tr.gamerow.live th { border-top-color: var(--green); }
-.starters tr.gamerow.live th .kick { color: var(--green); font-weight: 700; }
-.starters tr.gamerow.live th .live-dot { background: var(--green); }
+.starters td.player .atword { margin: 0 6px; font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink-soft); }
+.starters .kick { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.starters .kick.live { color: var(--green); font-weight: 700; }
+.starters .kick.live .live-dot { background: var(--green); }
+.starters .kick.final { color: var(--amber); font-weight: 700; }
+.starters tr.state-live td { background: rgba(77, 180, 127, .12); border-bottom: 1px solid var(--green); }
+.starters tr.state-live:hover td { background: rgba(77, 180, 127, .16); }
+.starters tr.state-final td { background: rgba(212, 168, 83, .10); border-bottom: 1px solid rgba(212, 168, 83, .5); color: var(--ink-soft); }
+.starters tr.state-final:hover td { background: rgba(212, 168, 83, .14); }
+.starters tr.state-final td.player, .starters tr.state-final td.sortcol { color: var(--ink); }
 .starters td.lg { color: var(--ink-soft); }
 .starters td.lg .lgname { display: inline-block; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-@media (max-width: 600px) { .starters td.lg .lgname { max-width: 12ch; } }
+@media (max-width: 600px) {
+  .starters td.lg .lgname { max-width: 12ch; }
+  /* the games list fits a phone without a sideways scroll */
+  .starters th, .starters td { padding: 9px 10px; }
+  .starters .kick { font-size: 11px; }
+}

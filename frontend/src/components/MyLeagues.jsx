@@ -154,18 +154,31 @@ function QuietLeagues({ leagues, byLeague }) {
 }
 
 
-/* THE STARTERS: every player starting for you in any league, one row per
-   player and league, grouped by NFL game with the most imminent game first
-   (live games, then upcoming by kickoff, then finals, then players with no
-   game this week). PROJ is that league's projection for the player and PTS
-   what Sleeper has scored so far. */
+/* THE STARTERS: two lists. First the NFL games you have a starter in, in
+   kickoff order (date, time, how many of your starters play in it). Then
+   every starter in any league as one flat list in the same game order, one
+   row per player and league: team code, position, league, that league's
+   projection and points so far. Rows tint green while the game plays and
+   amber once it is final. */
 const ET = 'America/New_York'
 
-function kickoffLabel(g) {
+function kickoffLabel(g, withDate = false) {
   if (!g?.kickoff) return 'no game this week'
   const d = new Date(g.kickoff)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: ET })
+  const opts = withDate
+    ? { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: ET }
+    : { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: ET }
+  return d.toLocaleString('en-US', opts)
+}
+
+/* 'live' | 'final' | 'upcoming' | 'none' for one game and the starters in it */
+function gameState(g, now) {
+  if (!g.game?.kickoff) return 'none'
+  if (g.rows.some((r) => r.game_state === 'in') || (g.game.started && !g.game.final)) return 'live'
+  const t = new Date(g.game.kickoff).getTime()
+  if (g.game.final || t < now - 4 * 3600 * 1000) return 'final'
+  return 'upcoming'
 }
 
 function buildGames(data, byLeague) {
@@ -193,97 +206,118 @@ function buildGames(data, byLeague) {
     }
   }
   const now = Date.now()
-  const rank = (g) => {
-    if (!g.game?.kickoff) return [3, 0]
-    const live = g.rows.some((r) => r.game_state === 'in') || (g.game.started && !g.game.final)
-    if (live) return [0, 0]
-    const t = new Date(g.game.kickoff).getTime()
-    if (g.game.final || t < now - 4 * 3600 * 1000) return [2, t]
-    return [1, t]
-  }
   const out = [...groups.values()]
   for (const g of out) {
-    g.live = rank(g)[0] === 0
+    g.state = gameState(g, now)
+    g.t = g.game?.kickoff ? new Date(g.game.kickoff).getTime() : Infinity
     g.detail = g.rows.find((r) => r.game_state === 'in')?.game_detail
+    g.score = g.game && g.game.home_score != null && g.game.away_score != null
+      ? `${g.away} ${g.game.away_score}, ${g.home} ${g.game.home_score}` : null
     g.rows.sort((a, b) => ((b.proj ?? -1) - (a.proj ?? -1)) || String(a.name).localeCompare(String(b.name)))
   }
-  out.sort((a, b) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] })
+  // kickoff order, first to last; starters with no game close the list
+  out.sort((a, b) => (a.t === b.t ? 0 : a.t < b.t ? -1 : 1))
   return out
 }
 
-/* The small heading over each game: away at home, then the kickoff, or the
-   clock and score while it plays, or the final. */
-function GameHead({ g, cols }) {
-  const game = g.game
-  const score = game && game.home_score != null && game.away_score != null
-    ? `${g.away} ${game.away_score}, ${g.home} ${game.home_score}` : null
-  let state
-  if (!game) state = 'bye or no team'
-  else if (g.live) state = <><span className="live-dot" aria-hidden="true"></span>{[g.detail || 'LIVE', score].filter(Boolean).join(' · ')}</>
-  else if (game.final) state = ['Final', score].filter(Boolean).join(' · ')
-  else state = kickoffLabel(game)
-  return (
-    <tr className={`gamerow${g.live ? ' live' : ''}`}>
-      <th scope="rowgroup" colSpan={cols}>
-        <span className="matchline">
-          {game ? <>{g.away}<span className="atword">at</span>{g.home}</> : 'No game this week'}
-        </span>
-        <span className="kick num">{state}</span>
-      </th>
-    </tr>
-  )
+/* The clock for a game: kickoff (with the date when asked), the clock and
+   score while it plays, or the final. */
+function GameClock({ g, withDate = false }) {
+  if (g.state === 'live') {
+    return (
+      <span className="kick live">
+        <span className="live-dot" aria-hidden="true"></span>
+        {[g.detail || 'LIVE', withDate ? g.score : null].filter(Boolean).join(' · ')}
+      </span>
+    )
+  }
+  if (g.state === 'final') return <span className="kick final">{['Final', withDate ? g.score : null].filter(Boolean).join(' · ')}</span>
+  if (g.state === 'none') return <span className="kick">bye</span>
+  return <span className="kick">{kickoffLabel(g.game, withDate)}</span>
 }
 
-function StartersByGame({ data, byLeague }) {
+function StartersByKickoff({ data, byLeague }) {
   if (!data?.leagues?.length) return null
   const groups = buildGames(data, byLeague)
   if (!groups.length) return null
-  const total = groups.reduce((n, g) => n + g.rows.length, 0)
-  const nGames = groups.filter((g) => g.game).length
+  const games = groups.filter((g) => g.game)
+  const rows = groups.flatMap((g) => g.rows.map((r) => ({ ...r, g })))
+  const nl = data.leagues.length
   return (
     <section aria-labelledby="sec-starters">
       <Folio sec="THE STARTERS" id="sec-starters" title="Every Starter, By Kickoff"
-        cont={`${total} starting spot${total === 1 ? '' : 's'} in ${nGames} game${nGames === 1 ? '' : 's'}`} />
+        cont={`${rows.length} starting spot${rows.length === 1 ? '' : 's'} in ${games.length} game${games.length === 1 ? '' : 's'}`} />
       <p className="folio-note">
-        Everyone starting for you anywhere this week, grouped by game with the next
-        kickoff first: live games, then upcoming, then finals. A player you start in
-        two leagues gets a row for each.
+        The games you have a starter in, first kickoff to last, then everyone starting
+        for you anywhere this week in the same order. Green rows are playing now;
+        amber rows have finished.
       </p>
+
+      <div className="dayhead">
+        <h2>Your games</h2>
+        <span className="rule"></span>
+        <span className="n num">{games.length} this week</span>
+      </div>
       <div className="tablewrap">
-        <table className="stats starters">
+        <table className="stats starters games">
+          <thead>
+            <tr>
+              <th scope="col" className="txt">GAME</th>
+              <th scope="col" className="txt">KICKOFF</th>
+              <th scope="col">STARTERS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {games.map((g) => (
+              <tr key={g.key} className={`state-${g.state}`}>
+                <td className="txt player">{g.away}<span className="atword">at</span>{g.home}</td>
+                <td className="txt"><GameClock g={g} withDate /></td>
+                <td className="n sortcol">{g.rows.length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="dayhead">
+        <h2>Your starters</h2>
+        <span className="rule"></span>
+        <span className="n num">{rows.length} across {nl} league{nl === 1 ? '' : 's'}</span>
+      </div>
+      <div className="tablewrap">
+        <table className="stats starters players">
           <thead>
             <tr>
               <th scope="col" className="txt">PLAYER</th>
               <th scope="col">TEAM</th>
               <th scope="col">POS</th>
               <th scope="col" className="txt">LEAGUE</th>
+              <th scope="col">GAME</th>
               <th scope="col">PROJ</th>
               <th scope="col">PTS</th>
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => [
-              <GameHead key={`h-${g.key}`} g={g} cols={6} />,
-              ...g.rows.map((r) => (
-                <tr key={`${g.key}-${r.id}`} className={r.game_state === 'in' ? 'leader' : undefined}>
-                  <td className="txt player">{r.name}</td>
-                  <td className="team">{r.team || 'FA'}</td>
-                  <td className="team">{r.pos || '–'}</td>
-                  <td className="txt lg"><span className="lgname" title={r.league}>{r.league}</span></td>
-                  <td className="n">{r.proj != null ? r.proj.toFixed(1) : '–'}</td>
-                  <td className="n sortcol">{r.pts.toFixed(1)}</td>
-                </tr>
-              )),
-            ])}
+            {rows.map((r) => (
+              <tr key={r.id} className={`state-${r.g.state}`}>
+                <td className="txt player">{r.name}</td>
+                <td className="team">{r.team || 'FA'}</td>
+                <td className="team">{r.pos || '–'}</td>
+                <td className="txt lg"><span className="lgname" title={r.league}>{r.league}</span></td>
+                <td className="n"><GameClock g={r.g} /></td>
+                <td className="n">{r.proj != null ? r.proj.toFixed(1) : '–'}</td>
+                <td className="n sortcol">{r.pts.toFixed(1)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
       <Footnotes>
         <p>Projections come from the general manager&rsquo;s note (this week&rsquo;s
           projection under that league&rsquo;s scoring) and points from Sleeper as they
-          score. Kickoffs are Eastern.</p>
-        <p>Highlighted rows are players in live games. The desk refreshes them about
-          every 45 seconds.</p>
+          score. A player you start in two leagues gets a row for each. Kickoffs are Eastern.</p>
+        <p>Green rows are in a live game and refresh about every 45 seconds; amber rows
+          have played.</p>
       </Footnotes>
     </section>
   )
@@ -432,7 +466,7 @@ function MyLeagues() {
         <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
       </section>
 
-      <StartersByGame data={data} byLeague={insights.byLeague} />
+      <StartersByKickoff data={data} byLeague={insights.byLeague} />
 
       {false && data?.aggregate?.length > 0 && (
         <section aria-labelledby="sec-combine">
