@@ -251,3 +251,38 @@ it is final; starters with no game close the list. The overview API
 carries `team_games` (this week's game per Sleeper team code: game_id,
 home/away, kickoff, scores) and the note payload carries `roster_proj`
 for it.
+
+## 10. Sleeper-only inputs and the trade desk (2026-09-09)
+
+Owner's call: the engine now runs on Sleeper's projected points alone.
+
+* This week = Sleeper's stat-level weekly projection scored under the
+  league's rules (zero on a bye or when the player is out). The blend with
+  the Desk season model is retired; in the 2025 backtest the projection
+  alone beat the human lineups by +3.5 pts/week against +4.5 for the
+  blend, so this is a small, known cost for one source of truth.
+* Rest of season = the average of Sleeper's remaining weekly projections
+  through week 17 (Sleeper publishes every week ahead of time; a bye is a
+  zero week), halved for a player out long-term, with the season snapshot
+  and then this week's number as fallbacks. `utils.sleeper.ros_projections`
+  sums the per-week stat lines once (disk cache `ros_<season>_w<week>.json`)
+  so any league's scoring applies exactly. The ROS ranker was not
+  re-backtested: the cached 2025 weekly projections are Sleeper's final
+  numbers for each week, which would flatter a rest-of-season ranker.
+* The season prior JSON and trailing-3 actuals are no longer read by the
+  engine (the draft board still uses the Desk model).
+
+Trades proposed to the owner. Sleeper's public transactions feed documents
+only complete and failed transactions; no pending proposal has been seen
+in it, so `_proposals` scans each week's feed for trades involving the
+owner's roster whose status is anything else and scores them, and the note
+and the league block print an inbox when one appears. The reliable path is
+the trade desk: `GET /api/fantasy/trade/?username&league_id` returns the
+owner's roster and every partner's (each player with this week's projection
+and ROS value); add `partner=<roster_id>&send=<pids>&get=<pids>` and it
+returns `fantasy_engine.evaluate_trade`: both sides' change in this week's
+optimal lineup total and in ROS lineup value (starters plus BENCH_W x
+bench), the releases a lopsided deal would force under the roster limit,
+and a verdict (accept at +1.0 ROS/week without a this-week loss over 0.5,
+lean accept from +0.25, coin flip within 0.25, decline below). The Fantasy
+tab opens it from a TRADE DESK toggle under each league's matchup.

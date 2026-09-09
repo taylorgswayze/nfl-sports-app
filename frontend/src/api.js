@@ -111,6 +111,9 @@ export const gameService = {
   fetchFantasyInsights(username, refresh = false) {
     return get("/fantasy/insights/", refresh ? { username, refresh: 1 } : { username })
   },
+  fetchTradeDesk(username, leagueId, params = null) {
+    return get("/fantasy/trade/", { username, league_id: leagueId, ...(params || {}) })
+  },
   fetchTeamStats(teamId, season) {
     return get(`/teams/${teamId}/stats/`, { season })
   },

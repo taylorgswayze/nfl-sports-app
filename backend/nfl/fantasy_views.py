@@ -273,3 +273,36 @@ def insights(request):
         'refresh_hours': fi.REFRESH_HOURS,
         'leagues': payloads,
     })
+
+
+@require_http_methods(["GET"])
+@login_required_api
+def trade_desk(request):
+    """The trade desk for one league: the rosters a trade can be built from
+    (each player with this week's projection and rest-of-season value) and,
+    when partner, send and get are given, the evaluation of that trade for
+    both sides. GET username, league_id, partner (roster id), send=pid,pid,
+    get=pid,pid."""
+    from . import fantasy_insights as fi
+    username = (request.GET.get('username') or '').strip()
+    league_id = (request.GET.get('league_id') or '').strip()
+    if not username or not league_id:
+        return JsonResponse({'error': 'username and league_id are required'}, status=400)
+
+    def ids(name):
+        return [x.strip() for x in (request.GET.get(name) or '').split(',') if x.strip()]
+    try:
+        user = sleeper.user(username)
+        if not user or not user.get('user_id'):
+            return JsonResponse({'error': f'Sleeper user {username} not found'}, status=404)
+        lg = sleeper.league(league_id)
+        if not lg:
+            return JsonResponse({'error': 'league not found'}, status=404)
+        st = sleeper.state()
+        base = fi.build_base_context(int(st.get('season')), int(st.get('week') or 1) or 1)
+        out = fi.trade_desk(base, lg, user['user_id'], partner=request.GET.get('partner') or None,
+                            send=ids('send'), get=ids('get'))
+    except Exception as e:
+        logger.error(f'trade desk failed for {username}/{league_id}: {e}')
+        return JsonResponse({'error': 'trade desk unavailable', 'message': str(e)}, status=502)
+    return JsonResponse(out, status=400 if out.get('error') and not out.get('me') else 200)

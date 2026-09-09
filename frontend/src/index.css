@@ -14,6 +14,7 @@
   --rule-soft: rgba(237, 233, 221, .10);
   --green: #4DB47F;
   --amber: #D4A853; /* settled: a finished game */
+  --clay: #C4614E;  /* the GM says no */
   --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --grot: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -944,6 +945,33 @@ table.h2h { width: 100%; border-collapse: collapse; }
 
 /* a long league name in the league head wraps instead of widening the page */
 .league .pagehead .bigname { white-space: normal; overflow-wrap: anywhere; line-height: 1.02; }
+
+/* ---------------- the trade desk ---------------- */
+.tdesk { margin-top: 14px; border-top: 1px solid var(--rule-soft); padding-top: 10px; }
+.tdesk .ctl { margin: 4px 0 10px; }
+.tdesk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 760px) { .tdesk-cols { grid-template-columns: 1fr; } }
+.tdesk-tbl th.pick, .tdesk-tbl td.pick { width: 30px; padding-left: 10px; padding-right: 4px; text-align: center; }
+.tdesk-tbl tbody tr { cursor: pointer; }
+.tdesk-tbl tr.picked td { background: rgba(77, 180, 127, .14); }
+.tdesk-tbl input[type="checkbox"] { accent-color: var(--green); width: 14px; height: 14px; cursor: pointer; }
+.tdesk-tbl .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.tdesk-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 10px; }
+.tdesk-verdict {
+  border-left: 3px solid var(--green); background: var(--paper-deep); padding: 8px 14px;
+  display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline; max-width: 100%;
+}
+.tdesk-verdict .call { font-family: var(--grot); font-weight: 800; font-size: var(--section); letter-spacing: .04em; text-transform: uppercase; color: var(--green); }
+.tdesk-verdict .line { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+.tdesk-verdict .line b { color: var(--ink); font-weight: 700; }
+.tdesk-verdict.v-lean-accept { border-left-color: var(--green); }
+.tdesk-verdict.v-coin-flip { border-left-color: var(--amber); }
+.tdesk-verdict.v-coin-flip .call { color: var(--amber); }
+.tdesk-verdict.v-decline { border-left-color: var(--clay); }
+.tdesk-verdict.v-decline .call { color: var(--clay); }
+.wr-tbl td.call { font-family: var(--grot); font-weight: 800; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+.wr-tbl tr.v-decline td.call { color: var(--clay); }
+.wr-tbl tr.v-coin-flip td.call { color: var(--amber); }
 
 /* ---------------- the starters, by kickoff ---------------- */
 .lg-toggles { display: flex; gap: 8px; flex-wrap: wrap; }

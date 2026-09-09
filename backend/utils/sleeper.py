@@ -28,6 +28,8 @@ PROJ_TTL = 6 * 3600
 STATS_TTL = 12 * 3600
 SEASON_PROJ_TTL = 24 * 3600
 POSITIONS = ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
+ROS_LAST_WEEK = 17        # the fantasy regular season plus playoffs end here
+TX_TTL = 600
 
 session = requests.Session()
 session.headers['User-Agent'] = 'gridiron-desk/1.0'
@@ -74,8 +76,9 @@ def _disk_cached(path, ttl, fetch, mem_ttl=3600):
             path.write_text(json.dumps(data))
         except Exception as e:
             logger.warning(f'cache write failed for {path.name}: {e}')
-    with _lock:
-        _cache[key] = (time.monotonic() + mem_ttl, data)
+    if mem_ttl > 0:
+        with _lock:
+            _cache[key] = (time.monotonic() + mem_ttl, data)
     return data
 
 
@@ -130,10 +133,12 @@ def _positions_query():
     return '&'.join(f'position[]={p}' for p in POSITIONS)
 
 
-def weekly_projections(season, week):
+def weekly_projections(season, week, keep=True):
     """{player_id: {stats, pos, team, opp, injury}} for one regular-season
     week from Sleeper's projection feed (stat-level, so any league's
-    scoring_settings can be applied exactly). Disk-cached for 6 hours."""
+    scoring_settings can be applied exactly). Sleeper publishes every week
+    of the season ahead of time. Disk-cached for 6 hours; keep=False skips
+    the in-memory copy for one-off reads of future weeks."""
     def fetch():
         rows = _get_json(
             f'/projections/nfl/{season}/{week}?season_type=regular&{_positions_query()}&order_by=pts_ppr',
@@ -151,7 +156,39 @@ def weekly_projections(season, week):
                 'opp': r.get('opponent'), 'injury': p.get('injury_status'),
             }
         return out
-    return _disk_cached(DATA_DIR / f'proj_{season}_w{week}.json', PROJ_TTL, fetch)
+    return _disk_cached(DATA_DIR / f'proj_{season}_w{week}.json', PROJ_TTL, fetch,
+                        mem_ttl=3600 if keep else 0)
+
+
+def ros_projections(season, week, last=ROS_LAST_WEEK):
+    """Sleeper's stat-level projections summed over the remaining weeks
+    (week..last) with the count of weeks, so score(stats) / weeks is a
+    player's rest-of-season points per week under any league's scoring. A
+    bye week has no row, so the average already carries it. Built from the
+    per-week files one at a time; disk-cached for 6 hours."""
+    def fetch():
+        total, n = {}, 0
+        for w in range(int(week), int(last) + 1):
+            try:
+                rows = weekly_projections(season, w, keep=False)
+            except Exception as e:
+                logger.warning(f'weekly projections {season} w{w} unavailable: {e}')
+                continue
+            n += 1
+            for pid, row in rows.items():
+                acc = total.setdefault(pid, {})
+                for k, v in (row.get('stats') or {}).items():
+                    if isinstance(v, (int, float)):
+                        acc[k] = acc.get(k, 0.0) + float(v)
+        return {'season': int(season), 'first': int(week), 'last': int(last), 'weeks': n, 'stats': total}
+    return _disk_cached(DATA_DIR / f'ros_{season}_w{week}.json', PROJ_TTL, fetch)
+
+
+def league_transactions(league_id, week):
+    """This week's transactions (free agents, waivers, trades) for a league,
+    as Sleeper's public feed serves them. Cached for ten minutes."""
+    return _cached(f'tx:{league_id}:{week}', TX_TTL,
+                   lambda: _get_json(f'/league/{league_id}/transactions/{int(week)}') or [])
 
 
 def weekly_stats(season, week):

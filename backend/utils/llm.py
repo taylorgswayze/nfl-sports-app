@@ -49,7 +49,9 @@ SYSTEM = (
     "player to release, with the rest-of-season gain per week and the this-week gain; a "
     "this-week gain of zero means the pickup does not crack this week's lineup), the "
     "trade calls if any (who to send, who to get, from which team, both sides' deltas), "
-    "and anything in watch (byes, injuries). Numbers to one decimal. "
+    "any trade proposal sitting in the inbox (who offers what for what, the verdict, and "
+    "both sides' rest-of-season and this-week deltas), and anything in watch (byes, "
+    "injuries). Numbers to one decimal. "
     "Data discipline: use only the facts in the JSON. Never invent players, teams, "
     "injuries, stats, opponents or numbers, and never rename a player. If a section of "
     "the JSON is empty, say so in passing or skip it. "
@@ -164,6 +166,12 @@ def _facts(p):
                      'this_week_gain': r1(w.get('week_gain')),
                      'trending_adds': w.get('trending'), 'reason': w.get('reason')} for w in (p.get('waivers') or [])[:3]],
         'waiver_rules': p.get('waiver'),
+        'inbox': [{'partner': pr.get('partner'), 'they_offer': [brief(x) for x in (pr.get('get') or [])],
+                   'they_want': [brief(x) for x in (pr.get('send') or [])], 'verdict': pr.get('verdict'),
+                   'my_ros_delta_per_week': r1(pr.get('my_ros_delta')), 'my_this_week_delta': r1(pr.get('my_week_delta')),
+                   'their_ros_delta_per_week': r1(pr.get('their_ros_delta')), 'their_this_week_delta': r1(pr.get('their_week_delta')),
+                   'draft_picks_not_valued': pr.get('picks') or 0, 'proposed_by_me': pr.get('from_me')}
+                  for pr in (p.get('proposals') or [])[:2]],
         'trades': [{'partner': t['partner'], 'send': [brief(x) for x in t['send']],
                     'receive': [brief(x) for x in t['receive']], 'my_delta': r1(t['my_delta']),
                     'their_delta': r1(t['their_delta'])} for t in (p.get('trades') or [])[:2]],

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Verdict } from './TradeDesk'
 
 /* THE GENERAL MANAGER: the GM's note for one league, printed as the lead
    of the league's block. Left, the number that matters (points on the
@@ -50,6 +51,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   const moves = lu.moves || []
   const waivers = ins.waivers || []
   const trades = ins.trades || []
+  const proposals = ins.proposals || []
   const printed = stamp(ins.generated_at)
 
   if (preDraft || ins.error) {
@@ -156,6 +158,38 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
               </tbody>
             </table>
           </div>
+        )}
+
+        {proposals.length > 0 && (
+          <>
+            <p className="wr-sub">The inbox <span className="num">trade proposals on the table, both sides scored</span></p>
+            <div className="tablewrap">
+              <table className="stats wr-tbl">
+                <thead>
+                  <tr>
+                    <th scope="col" className="txt">FROM</th>
+                    <th scope="col" className="txt">YOU GET</th>
+                    <th scope="col" className="txt">YOU SEND</th>
+                    <th scope="col">THIS WK</th>
+                    <th scope="col">ROS<span className="was">pts / wk</span></th>
+                    <th scope="col" className="txt">CALL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proposals.map((pr, i) => (
+                    <tr key={`p${i}`} className={`v-${String(pr.verdict || '').replace(/\s+/g, '-')}`}>
+                      <td className="txt wr-meta">{pr.from_me ? `you, to ${pr.partner}` : pr.partner}</td>
+                      <td className="txt player">{(pr.get || []).map((x) => x.name).join(', ') || '–'}</td>
+                      <td className="txt player">{(pr.send || []).map((x) => x.name).join(', ') || '–'}</td>
+                      <td className="n">{fmt(pr.my_week_delta, true)}</td>
+                      <td className="n sortcol">{fmt(pr.my_ros_delta, true)}</td>
+                      <td className="txt call">{pr.verdict}{pr.picks ? ' (picks not valued)' : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {trades.length > 0 && (

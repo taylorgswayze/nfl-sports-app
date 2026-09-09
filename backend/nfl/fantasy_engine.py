@@ -2,19 +2,18 @@
 league. Pure functions over plain dicts; no network, no ORM, so every piece
 is unit-testable and the whole thing can be replayed against history.
 
-Validated against the user's 2025 league (see PLAN-WEEK-ROOM.md):
-  * scoring(): exact match with Sleeper's own players_points for every
-    QB/RB/WR/TE/K/DEF row (n=2225), so projections scored this way are
-    league-exact.
-  * weekly projection = Sleeper's stat-level weekly projection under league
-    scoring, blended with the ML season prior (weight 0.30 early, fading
-    toward 0.16 by mid-season). Lineups set by it beat the human lineups by
-    +4.5 pts/week (t=3.4) and capture ~19% of the human-to-hindsight gap;
-    the weekly projection alone gave +3.5, the season prior alone -13.
-  * rest-of-season (ROS) value = 0.5 x this-week projection + 0.5 x the
-    mean of (ML prior, trailing-3 actual ppg): best rank correlation with
-    the next four weeks' points among rostered players (0.52) and within
-    noise of the best free-agent ranker.
+Inputs are Sleeper's own stat-level projections, scored under each league's
+rules (scoring() matched Sleeper's players_points exactly, n=2225, in the
+2025 backtest, see PLAN-WEEK-ROOM.md):
+  * this week = Sleeper's weekly projection for the player, zero on a bye
+    or when he is out. Lineups set by it beat the 2025 human lineups by
+    +3.5 pts/week.
+  * rest of season (ROS) = the average of Sleeper's remaining weekly
+    projections through week 17 (byes count as zero weeks), halved for a
+    player out long-term. Waiver claims, releases and trades are scored on
+    the change in ROS lineup value.
+The 2026-09-09 switch from the earlier blend (Sleeper x Desk season model,
++4.5 pts/week in the backtest) was the owner's call: one source of truth.
 """
 import math
 from collections import Counter
@@ -28,8 +27,6 @@ SLOT_ELIG = {
 NON_SLOTS = ('BN', 'IR', 'TAXI')
 CORE = ('QB', 'RB', 'WR', 'TE')
 BENCH_W = 0.15            # flat bench weight for QB/RB/WR/TE (optimizer.py convention)
-PRIOR_W_CAP = 0.30        # season-prior weight at week 1
-PRIOR_K = 3.0             # prior weight = min(cap, K / (K + weeks played))
 OUT_STATUSES = {'Out', 'IR', 'PUP', 'Sus', 'NA', 'COV', 'DNR'}
 DOUBTFUL_MULT = 0.25
 NOISE_FLOOR = 0.05        # any real projected gain prints as roster moves; pure ties do not
@@ -146,11 +143,6 @@ def lineup_value(slots, cands, bench_w=BENCH_W):
     return total
 
 
-def prior_weight(week):
-    weeks_played = max(0, int(week or 1) - 1)
-    return min(PRIOR_W_CAP, PRIOR_K / (PRIOR_K + weeks_played))
-
-
 def injury_multiplier(status):
     if not status:
         return 1.0
@@ -162,14 +154,14 @@ def injury_multiplier(status):
 
 
 def player_values(pids, ctx, settings, week):
-    """Per-player weekly projection and ROS value under this league's scoring.
+    """Per-player weekly projection and ROS value under this league's
+    scoring, both straight from Sleeper's stat-level projections.
 
-    ctx supplies: players (slim index), proj (weekly projections), prior
-    (season prior by sleeper id), factor(pid) (league/PPR scoring ratio),
-    trailing(pid) (trailing-3 league ppg or None), season_ppg(pid), and
-    team_game(team) -> {'has_game', 'started', 'final', 'kickoff'} or None.
+    ctx supplies: players (slim index), proj (this week's projections),
+    ros_ppw(pid, settings) -> average of the remaining weekly projections or
+    None, season_ppg(pid, settings) -> season projection per game or None,
+    and team_game(team) -> {'has_game', 'started', 'final', 'kickoff'} or None.
     """
-    w_p = prior_weight(week)
     out = {}
     for pid in pids:
         pid = str(pid)
@@ -182,11 +174,6 @@ def player_values(pids, ctx, settings, week):
         game = ctx['team_game'](team) if team else None
         has_game = bool(game and game.get('has_game')) if game is not None else (row is not None)
         slp = score(row['stats'], settings) if row else None
-        prior_row = ctx['prior'].get(pid)
-        prior_ppg = None
-        if prior_row and prior_row.get('ppg') is not None:
-            prior_ppg = float(prior_row['ppg']) * ctx['factor'](pid, pos)
-        trail = ctx['trailing'](pid)
         flags = []
         if not team:
             flags.append('free agent')
@@ -194,27 +181,17 @@ def player_values(pids, ctx, settings, week):
             flags.append(injury.lower())
         if team and game is not None and not has_game:
             flags.append('bye')
-        # this week
-        if slp is not None and prior_ppg is not None:
-            raw = (1 - w_p) * slp + w_p * prior_ppg
-        elif slp is not None:
-            raw = slp
-        else:
-            raw = 0.0
-            if has_game and team:
-                flags.append('no projection')
+        # this week: Sleeper's number, zero on a bye or when he is out
+        raw = slp if slp is not None else 0.0
+        if slp is None and has_game and team:
+            flags.append('no projection')
         proj = raw * injury_multiplier(injury) if has_game else 0.0
-        # rest of season
-        longrun_parts = [x for x in (prior_ppg, trail) if x is not None]
-        longrun = sum(longrun_parts) / len(longrun_parts) if longrun_parts else None
-        if longrun is None:
-            longrun = ctx['season_ppg'](pid, settings)
-        nxt = slp if (slp is not None and has_game and slp > 0) else longrun
-        if nxt is None:
-            nxt = slp or 0.0
-        if longrun is None:
-            longrun = nxt
-        ros = 0.5 * nxt + 0.5 * longrun
+        # rest of season: the average of Sleeper's remaining weekly projections
+        ros = ctx['ros_ppw'](pid, settings)
+        if ros is None:
+            ros = ctx['season_ppg'](pid, settings)
+        if ros is None:
+            ros = proj
         if injury in OUT_STATUSES:
             ros *= 0.5
         out[pid] = {
@@ -531,6 +508,83 @@ def trade_report(slots, my_pids, values, partners, max_lines=3):
     return out
 
 
+def _week_total(slots, pids, values, reserve=None):
+    reserve = set(reserve or [])
+    return optimal_lineup(slots, [(p, values[p]['positions'], values[p]['proj'])
+                                  for p in pids if p in values and p not in reserve])[0]
+
+
+def _fit(slots, pids, values, roster_max):
+    """Trim a roster to roster_max by cutting the lowest-ROS players outside
+    its optimal ROS lineup: the release a lopsided trade would force."""
+    pids = [p for p in pids if p in values]
+    if not roster_max or len(pids) <= roster_max:
+        return pids, []
+    _t, asg = optimal_lineup(slots, [(p, values[p]['positions'], values[p]['ros']) for p in pids])
+    started = set(asg.values())
+    bench = sorted([p for p in pids if p not in started], key=lambda p: values[p]['ros'])
+    cut = bench[:len(pids) - roster_max]
+    return [p for p in pids if p not in cut], cut
+
+
+def trade_verdict(week_delta, ros_delta):
+    if ros_delta >= TRADE_FLOOR and week_delta >= -0.5:
+        return 'accept'
+    if ros_delta >= 0.25:
+        return 'lean accept'
+    if ros_delta > -0.25:
+        return 'coin flip'
+    return 'decline'
+
+
+def _signed(v):
+    return f'{v:+.1f}'
+
+
+def evaluate_trade(slots, my_pids, their_pids, send, get, values, my_reserve=None,
+                   their_reserve=None, roster_max=None):
+    """Score a proposed trade for both sides: the change in this week's
+    optimal lineup total and in ROS lineup value (starters plus BENCH_W x
+    bench for QB/RB/WR/TE) when I send `send` and get `get`. A side that
+    ends up over roster_max releases its cheapest bench players first. values
+    must cover every player on both rosters."""
+    my_pids = [str(p) for p in my_pids]
+    their_pids = [str(p) for p in their_pids]
+    send = [str(p) for p in send if str(p) in my_pids]
+    get = [str(p) for p in get if str(p) in their_pids]
+    me_after = [p for p in my_pids if p not in send] + get
+    them_after = [p for p in their_pids if p not in get] + send
+    me_after, my_cuts = _fit(slots, me_after, values, roster_max)
+    them_after, their_cuts = _fit(slots, them_after, values, roster_max)
+    my_reserve = [p for p in (my_reserve or []) if p not in send]
+    their_reserve = [p for p in (their_reserve or []) if p not in get]
+    r = {
+        'send': [_brief(values[p]) for p in send if p in values],
+        'get': [_brief(values[p]) for p in get if p in values],
+        'my_week_before': round(_week_total(slots, my_pids, values, my_reserve), 2),
+        'my_week_after': round(_week_total(slots, me_after, values, my_reserve), 2),
+        'my_ros_before': round(roster_ros_value(slots, my_pids, values, my_reserve), 2),
+        'my_ros_after': round(roster_ros_value(slots, me_after, values, my_reserve), 2),
+        'their_week_before': round(_week_total(slots, their_pids, values, their_reserve), 2),
+        'their_week_after': round(_week_total(slots, them_after, values, their_reserve), 2),
+        'their_ros_before': round(roster_ros_value(slots, their_pids, values, their_reserve), 2),
+        'their_ros_after': round(roster_ros_value(slots, them_after, values, their_reserve), 2),
+        'my_cuts': [_brief(values[p]) for p in my_cuts],
+        'their_cuts': [_brief(values[p]) for p in their_cuts],
+    }
+    r['my_week_delta'] = round(r['my_week_after'] - r['my_week_before'], 2)
+    r['my_ros_delta'] = round(r['my_ros_after'] - r['my_ros_before'], 2)
+    r['their_week_delta'] = round(r['their_week_after'] - r['their_week_before'], 2)
+    r['their_ros_delta'] = round(r['their_ros_after'] - r['their_ros_before'], 2)
+    r['verdict'] = trade_verdict(r['my_week_delta'], r['my_ros_delta'])
+    r['summary'] = (f"{r['verdict']}: rest of season {_signed(r['my_ros_delta'])} lineup points a week for you, "
+                    f"this week {_signed(r['my_week_delta'])}; for them {_signed(r['their_ros_delta'])} a week "
+                    f"and {_signed(r['their_week_delta'])} this week")
+    if my_cuts:
+        r['summary'] += f"; you would have to release {', '.join(c['name'] for c in r['my_cuts'])}"
+    return r
+
+
 def _fmt(v):
     return f'{v:.1f}'
 
@@ -573,5 +627,15 @@ def template_narrative(p):
         parts.append(f"The phones: {t[0]['partner']} could use {t[0]['send'][0]['name']}; "
                      f"for {t[0]['receive'][0]['name']} it nets us {_fmt(t[0]['my_delta'])} a week and them "
                      f"{_fmt(t[0]['their_delta'])}, a call worth making.")
+    for pr in (p.get('proposals') or [])[:2]:
+        parts.append(f"The inbox: {pr.get('partner')} offers {_names(pr.get('get'))} for {_names(pr.get('send'))}. "
+                     f"My call is {pr.get('verdict')}: {_fmt(pr.get('my_ros_delta') or 0)} lineup points a week "
+                     f"the rest of the way and {_fmt(pr.get('my_week_delta') or 0)} this week for us.")
     parts.append("Next note in 12 hours.")
     return ' '.join(parts)
+
+
+def _names(briefs):
+    names = [b.get('name') for b in (briefs or []) if b and b.get('name')]
+    return ', '.join(names) if names else 'nothing'
+

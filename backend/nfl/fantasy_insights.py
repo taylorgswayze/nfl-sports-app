@@ -14,7 +14,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from utils import llm, priors, sleeper
+from utils import llm, sleeper
 from . import fantasy_engine as fe
 from .models import FantasyInsight, Game
 
@@ -72,63 +72,36 @@ def _schedule(season, week):
 
 
 def build_base_context(season, week):
+    """Everything the engine needs that does not depend on a league: the
+    slim player index, Sleeper's projections for this week and for the rest
+    of the season, the season snapshot as a fallback, this week's schedule
+    and the trending adds."""
     players = sleeper.players()
     proj = sleeper.weekly_projections(season, week)
-    prior = priors.season_prior(season)
+    ros = sleeper.ros_projections(season, week)
     try:
         season_proj = sleeper.season_projections(season)
     except Exception as e:
         logger.warning(f'season projections unavailable: {e}')
         season_proj = {}
-    history = {}
-    for w in range(max(1, int(week) - 3), int(week)):
-        try:
-            history[w] = sleeper.weekly_stats(season, w)
-        except Exception as e:
-            logger.warning(f'weekly stats {season} w{w} unavailable: {e}')
     schedule = _schedule(season, week)
     trending = {str(t.get('player_id')): t.get('count') for t in sleeper.trending_adds()}
     return {
         'season': int(season), 'week': int(week), 'players': players, 'proj': proj,
-        'prior': prior, 'season_proj': season_proj, 'history': history,
-        'schedule': schedule, 'trending': trending,
+        'ros': ros, 'season_proj': season_proj, 'schedule': schedule, 'trending': trending,
     }
 
 
 def league_context(base, settings):
     """Bind the league's scoring into the closures the engine calls."""
     season_proj = base['season_proj']
-    pos_factor = {}
-    factor_cache = {}
+    ros = base.get('ros') or {}
+    ros_stats = ros.get('stats') or {}
+    ros_weeks = max(1, int(ros.get('weeks') or 1))
 
-    def factor(pid, pos):
-        if pid in factor_cache:
-            return factor_cache[pid]
-        stats = season_proj.get(pid)
-        f = None
-        if stats:
-            ppr = fe.score(stats, fe.PPR)
-            if ppr > 20:
-                f = fe.score(stats, settings) / ppr
-        if f is None:
-            if pos not in pos_factor:
-                ratios = []
-                for p, st in season_proj.items():
-                    meta = base['players'].get(p) or {}
-                    if meta.get('pos') != pos:
-                        continue
-                    ppr = fe.score(st, fe.PPR)
-                    if ppr > 20:
-                        ratios.append(fe.score(st, settings) / ppr)
-                ratios.sort()
-                pos_factor[pos] = ratios[len(ratios) // 2] if ratios else 1.0
-            f = pos_factor[pos]
-        factor_cache[pid] = f
-        return f
-
-    def trailing(pid):
-        vals = [fe.score(stats[pid], settings) for stats in base['history'].values() if pid in stats]
-        return (sum(vals) / len(vals)) if vals else None
+    def ros_ppw(pid, _settings):
+        st = ros_stats.get(pid)
+        return fe.score(st, settings) / ros_weeks if st else None
 
     def season_ppg(pid, _settings):
         st = season_proj.get(pid)
@@ -143,9 +116,107 @@ def league_context(base, settings):
         return base['schedule'].get(team) or {'has_game': False, 'started': False, 'final': False}
 
     return {
-        'players': base['players'], 'proj': base['proj'], 'prior': base['prior'],
-        'factor': factor, 'trailing': trailing, 'season_ppg': season_ppg, 'team_game': team_game,
+        'players': base['players'], 'proj': base['proj'],
+        'ros_ppw': ros_ppw, 'season_ppg': season_ppg, 'team_game': team_game,
     }
+
+
+def _roster_max(lg):
+    """Players a roster may hold outside IR and taxi."""
+    return len([s for s in (lg.get('roster_positions') or []) if s not in ('IR', 'TAXI')]) or None
+
+
+def _proposals(league_id, week, user_id, mine, rosters, users, slots, values, reserve, roster_max):
+    """Trades in Sleeper's public feed that involve my roster and are not
+    settled (the feed documents complete and failed; anything else is a
+    proposal or a trade in review), each scored for both sides."""
+    out = []
+    try:
+        txs = sleeper.league_transactions(league_id, week)
+    except Exception as e:
+        logger.warning(f'transactions unavailable for {league_id}: {e}')
+        return out
+    my_rid = mine['roster_id']
+    my_pids = [str(p) for p in (mine.get('players') or [])]
+    for tx in txs or []:
+        if tx.get('type') != 'trade' or tx.get('status') in ('complete', 'failed'):
+            continue
+        rids = tx.get('roster_ids') or []
+        if my_rid not in rids:
+            continue
+        adds = tx.get('adds') or {}
+        drops = tx.get('drops') or {}
+        get = [str(p) for p, rid in adds.items() if rid == my_rid]
+        send = [str(p) for p, rid in drops.items() if rid == my_rid]
+        partner_rid = next((r for r in rids if r != my_rid), None)
+        partner = next((r for r in rosters if r.get('roster_id') == partner_rid), None)
+        if not partner:
+            continue
+        their_pids = [str(p) for p in (partner.get('players') or [])]
+        their_reserve = [str(p) for p in ((partner.get('reserve') or []) + (partner.get('taxi') or []))]
+        try:
+            ev = fe.evaluate_trade(slots, my_pids, their_pids, send, get, values, reserve, their_reserve, roster_max)
+        except Exception as e:
+            logger.warning(f'proposal evaluation failed for {league_id}: {e}')
+            continue
+        ev.update({
+            'partner': _team_name(users, partner, f"Roster {partner_rid}"),
+            'partner_roster_id': partner_rid,
+            'status': tx.get('status'), 'created': tx.get('created'),
+            'from_me': tx.get('creator') == user_id,
+            'picks': len(tx.get('draft_picks') or []),
+        })
+        out.append(ev)
+    return out
+
+
+def trade_desk(base, lg, user_id, partner=None, send=(), get=()):
+    """The rosters a trade can be built from (mine and every partner, each
+    player with this week's projection and ROS value) and, when a partner
+    and players are given, the evaluation of that trade."""
+    league_id = lg['league_id']
+    settings = lg.get('scoring_settings') or {}
+    slots = fe.starting_slots(lg.get('roster_positions'))
+    rosters = sleeper.league_rosters(league_id)
+    users = {u['user_id']: u for u in sleeper.league_users(league_id)}
+    mine = next((r for r in rosters if r.get('owner_id') == user_id
+                 or user_id in (r.get('co_owners') or [])), None)
+    if not mine:
+        return {'error': 'you do not own a roster in this league'}
+    ctx = league_context(base, settings)
+    all_rostered = set()
+    for r in rosters:
+        all_rostered.update(str(p) for p in (r.get('players') or []))
+    values = fe.player_values(all_rostered, ctx, settings, base['week'])
+
+    def roster_out(r):
+        pids = [str(p) for p in (r.get('players') or [])]
+        pids.sort(key=lambda p: -(values.get(p) or {}).get('ros', 0))
+        return {
+            'roster_id': r['roster_id'], 'name': _team_name(users, r, f"Roster {r['roster_id']}"),
+            'players': [fe._brief(values[p]) for p in pids if p in values],
+        }
+    out = {
+        'league_id': league_id, 'name': lg.get('name'), 'week': base['week'], 'slots': slots,
+        'roster_max': _roster_max(lg),
+        'me': roster_out(mine),
+        'partners': [roster_out(r) for r in rosters if r['roster_id'] != mine['roster_id']],
+        'evaluation': None,
+    }
+    if partner is not None and (send or get):
+        them = next((r for r in rosters if str(r.get('roster_id')) == str(partner)), None)
+        if not them:
+            out['error'] = 'no such roster in this league'
+            return out
+        reserve = [str(p) for p in ((mine.get('reserve') or []) + (mine.get('taxi') or []))]
+        their_reserve = [str(p) for p in ((them.get('reserve') or []) + (them.get('taxi') or []))]
+        ev = fe.evaluate_trade(slots, [str(p) for p in (mine.get('players') or [])],
+                               [str(p) for p in (them.get('players') or [])],
+                               send, get, values, reserve, their_reserve, _roster_max(lg))
+        ev['partner'] = _team_name(users, them, f"Roster {them['roster_id']}")
+        ev['partner_roster_id'] = them['roster_id']
+        out['evaluation'] = ev
+    return out
 
 
 def _team_name(users, roster, fallback):
@@ -167,8 +238,8 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         'status': lg.get('status'), 'scoring': _scoring_label(lg),
         'teams': lg_settings.get('num_teams'), 'slots': slots,
         'refresh_hours': REFRESH_HOURS,
-        'projection_note': (f"Sleeper weekly projections scored under this league's rules, blended "
-                            f"{int(round(fe.prior_weight(week) * 100))}% with the Desk season model."),
+        'projection_note': ("Sleeper's weekly projections scored under this league's rules; rest-of-season "
+                            "value is the average of Sleeper's remaining weekly projections through week 17."),
     }
     if lg.get('status') in ('pre_draft', 'drafting'):
         payload['narrative'] = fe.template_narrative(payload)
@@ -227,7 +298,7 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
             continue
         if meta.get('pos') not in startable:
             continue
-        if pid in base['proj'] or pid in base['prior']:
+        if pid in base['proj'] or pid in (base.get('ros') or {}).get('stats', {}):
             fa_pool.append(pid)
     fa_values = fe.player_values(fa_pool, ctx, settings, week)
     top_fa = []
@@ -258,6 +329,8 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         except Exception as e:
             logger.warning(f'trade report failed for {league_id}: {e}')
 
+    proposals = _proposals(league_id, week, user_id, mine, rosters, users, slots, values, reserve, _roster_max(lg))
+
     flags = [fe._brief(values[p]) for p in my_pids if p in values
              and any(f in ('bye', 'out', 'ir', 'doubtful', 'questionable', 'no projection', 'pup', 'sus')
                      for f in values[p]['flags'])]
@@ -277,7 +350,7 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         },
         'trade_deadline': deadline,
         'matchup': matchup, 'lineup': lineup, 'flags': flags,
-        'waivers': waivers, 'drops': drops, 'trades': trades,
+        'waivers': waivers, 'drops': drops, 'trades': trades, 'proposals': proposals,
         # every rostered player's projection this week, so the page can put
         # a projection beside live points without another model call
         'roster_proj': {p: {'proj': values[p]['proj'], 'opp': values[p].get('opp'),

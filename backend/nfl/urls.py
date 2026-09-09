@@ -24,6 +24,7 @@ urlpatterns = [
     path('draft/<str:endpoint>/', draft_proxy.proxy, name='draft_proxy'),  # Federated Draft Room API
     path('fantasy/overview/', fantasy_views.overview, name='fantasy_overview'),  # Multi-league Sleeper dashboard
     path('fantasy/insights/', fantasy_views.insights, name='fantasy_insights'),  # The Week Room: per-league roster advice
+    path('fantasy/trade/', fantasy_views.trade_desk, name='fantasy_trade'),  # The trade desk: score a proposed trade
 
     path('teams/<int:team_id>/roster/', views.team_roster, name='team_roster'),  # Team roster
     path('teams/<int:team_id>/stats/', views.team_stats, name='team_stats'),  # Team statistics

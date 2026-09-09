@@ -4,6 +4,7 @@ import { gameService } from '../api'
 import { useMe, rememberSleeperUsername } from '../auth'
 import { Masthead, Folio, Footnotes, Colophon, SignInGate } from './Almanac'
 import WeekRoom, { WeekRoomPending } from './WeekRoom'
+import TradeDesk from './TradeDesk'
 
 /* MY LEAGUES: every Sleeper league on one page. Each league prints as a
    card (record, rank, this week's matchup with live points, starters
@@ -59,8 +60,9 @@ function StartersTable({ rows, caption }) {
 
 /* One in-season league: a page-head style header, the GM's note as the
    lead, then the standing line and this week's live matchup. */
-function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
+function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting, username }) {
   const [showBench, setShowBench] = useState(false)
+  const [showDesk, setShowDesk] = useState(false)
   const [showStarters, setShowStarters] = useState(false)
   const m = lg.matchup
   const live = m && (m.starters || []).some((p) => p.game_state === 'in')
@@ -115,9 +117,14 @@ function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
                     {showBench ? 'HIDE BENCH' : `BENCH (${m.bench.length})`}
                   </button>
                 )}
+                <button type="button" className="benchtoggle"
+                  onClick={() => setShowDesk((b) => !b)} aria-expanded={showDesk}>
+                  {showDesk ? 'CLOSE THE TRADE DESK' : 'TRADE DESK'}
+                </button>
               </div>
               {showStarters && <StartersTable rows={m.starters} caption={`WEEK ${m.week} STARTERS`} />}
               {showBench && <StartersTable rows={m.bench} caption="BENCH" />}
+              {showDesk && username && <TradeDesk username={username} leagueId={lg.league_id} />}
             </div>
           )}
         </>
@@ -456,7 +463,7 @@ function MyLeagues() {
         )}
 
         {active.map((lg) => (
-          <LeagueBlock key={lg.league_id} lg={lg}
+          <LeagueBlock key={lg.league_id} lg={lg} username={data.username}
             ins={insights.byLeague[lg.league_id]}
             insState={insights.state}
             rewriting={(insights.regenerating || []).includes(lg.league_id)}
