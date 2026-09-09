@@ -941,16 +941,22 @@ table.h2h { width: 100%; border-collapse: collapse; }
 .gate-note { color: var(--ink-soft); max-width: 52ch; }
 .gate .ctl { align-self: flex-start; margin-top: 6px; }
 
+/* a long league name in the league head wraps instead of widening the page */
+.league .pagehead .bigname { white-space: normal; overflow-wrap: anywhere; line-height: 1.02; }
+
 /* ---------------- the starters, by kickoff ---------------- */
 .lg-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
-.starters tr.teamrow th {
+.starters tr.gamerow th {
   text-align: left; background: var(--paper-deep); border-bottom: 1px solid var(--ink);
   border-top: 2px solid var(--ink); padding: 8px 14px;
   font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--ink); display: table-cell;
 }
-.starters tr.teamrow th .opp { margin-left: 10px; color: var(--ink-soft); font-weight: 700; letter-spacing: .06em; }
-.starters tr.teamrow th .kick { float: right; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
-.starters tr.teamrow.live th { border-top-color: var(--green); }
-.starters tr.teamrow.live th .kick { color: var(--green); font-weight: 700; }
-.starters tr.teamrow.live th .live-dot { background: var(--green); }
+.starters tr.gamerow th .matchline .atword { margin: 0 8px; color: var(--ink-soft); font-weight: 700; font-size: 11px; letter-spacing: .06em; text-transform: lowercase; }
+.starters tr.gamerow th .kick { float: right; font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.starters tr.gamerow.live th { border-top-color: var(--green); }
+.starters tr.gamerow.live th .kick { color: var(--green); font-weight: 700; }
+.starters tr.gamerow.live th .live-dot { background: var(--green); }
+.starters td.lg { color: var(--ink-soft); }
+.starters td.lg .lgname { display: inline-block; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+@media (max-width: 600px) { .starters td.lg .lgname { max-width: 12ch; } }

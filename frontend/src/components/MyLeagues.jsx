@@ -155,9 +155,10 @@ function QuietLeagues({ leagues, byLeague }) {
 
 
 /* THE STARTERS: every player starting for you in any league, one row per
-   player, grouped by NFL team with the most imminent game first (live
-   games, then upcoming by kickoff, then finals, then teams with no game).
-   PROJ and PTS sum across the leagues where the player starts. */
+   player and league, grouped by NFL game with the most imminent game first
+   (live games, then upcoming by kickoff, then finals, then players with no
+   game this week). PROJ is that league's projection for the player and PTS
+   what Sleeper has scored so far. */
 const ET = 'America/New_York'
 
 function kickoffLabel(g) {
@@ -167,104 +168,120 @@ function kickoffLabel(g) {
   return d.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: ET })
 }
 
-function buildStarters(data, byLeague) {
-  const players = new Map()
+function buildGames(data, byLeague) {
+  const games = data?.team_games || {}
+  const groups = new Map()
   for (const lg of data?.leagues || []) {
     const m = lg.matchup
     if (!m) continue
     const proj = byLeague[lg.league_id]?.roster_proj || {}
     for (const p of m.starters || []) {
-      const row = players.get(p.player_id) || {
-        player_id: p.player_id, name: p.name, pos: p.pos, team: p.team,
-        leagues: 0, proj: 0, pts: 0, hasProj: false,
-        game_state: p.game_state, game_detail: p.game_detail,
+      const g = (p.team && games[p.team]) || null
+      const key = g?.game_id != null ? `g-${g.game_id}` : 'none'
+      if (!groups.has(key)) {
+        groups.set(key, { key, game: g, away: g?.away_team ?? null, home: g?.home_team ?? null, rows: [] })
       }
-      row.leagues += 1
-      row.pts += Number(p.points || 0)
-      if (proj[p.player_id]?.proj != null) { row.proj += Number(proj[p.player_id].proj); row.hasProj = true }
-      if (p.game_state === 'in') { row.game_state = 'in'; row.game_detail = p.game_detail }
-      players.set(p.player_id, row)
+      const pr = proj[p.player_id]?.proj
+      groups.get(key).rows.push({
+        id: `${p.player_id}-${lg.league_id}`, player_id: p.player_id,
+        name: p.name, pos: p.pos, team: p.team,
+        league: lg.name, league_id: lg.league_id,
+        proj: pr != null ? Number(pr) : null,
+        pts: Number(p.points || 0),
+        game_state: p.game_state, game_detail: p.game_detail,
+      })
     }
-  }
-  const games = data?.team_games || {}
-  const groups = new Map()
-  for (const row of players.values()) {
-    const key = row.team || 'FA'
-    if (!groups.has(key)) groups.set(key, { team: key, game: games[key] || null, rows: [] })
-    groups.get(key).rows.push(row)
   }
   const now = Date.now()
   const rank = (g) => {
-    const live = g.rows.some((r) => r.game_state === 'in') || (g.game?.started && !g.game?.final)
-    if (live) return [0, 0]
     if (!g.game?.kickoff) return [3, 0]
+    const live = g.rows.some((r) => r.game_state === 'in') || (g.game.started && !g.game.final)
+    if (live) return [0, 0]
     const t = new Date(g.game.kickoff).getTime()
     if (g.game.final || t < now - 4 * 3600 * 1000) return [2, t]
     return [1, t]
   }
   const out = [...groups.values()]
+  for (const g of out) {
+    g.live = rank(g)[0] === 0
+    g.detail = g.rows.find((r) => r.game_state === 'in')?.game_detail
+    g.rows.sort((a, b) => ((b.proj ?? -1) - (a.proj ?? -1)) || String(a.name).localeCompare(String(b.name)))
+  }
   out.sort((a, b) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] })
-  for (const g of out) g.rows.sort((a, b) => (b.proj || 0) - (a.proj || 0))
   return out
 }
 
-function StartersByTeam({ data, byLeague }) {
+/* The small heading over each game: away at home, then the kickoff, or the
+   clock and score while it plays, or the final. */
+function GameHead({ g, cols }) {
+  const game = g.game
+  const score = game && game.home_score != null && game.away_score != null
+    ? `${g.away} ${game.away_score}, ${g.home} ${game.home_score}` : null
+  let state
+  if (!game) state = 'bye or no team'
+  else if (g.live) state = <><span className="live-dot" aria-hidden="true"></span>{[g.detail || 'LIVE', score].filter(Boolean).join(' · ')}</>
+  else if (game.final) state = ['Final', score].filter(Boolean).join(' · ')
+  else state = kickoffLabel(game)
+  return (
+    <tr className={`gamerow${g.live ? ' live' : ''}`}>
+      <th scope="rowgroup" colSpan={cols}>
+        <span className="matchline">
+          {game ? <>{g.away}<span className="atword">at</span>{g.home}</> : 'No game this week'}
+        </span>
+        <span className="kick num">{state}</span>
+      </th>
+    </tr>
+  )
+}
+
+function StartersByGame({ data, byLeague }) {
   if (!data?.leagues?.length) return null
-  const groups = buildStarters(data, byLeague)
+  const groups = buildGames(data, byLeague)
   if (!groups.length) return null
   const total = groups.reduce((n, g) => n + g.rows.length, 0)
+  const nGames = groups.filter((g) => g.game).length
   return (
     <section aria-labelledby="sec-starters">
       <Folio sec="THE STARTERS" id="sec-starters" title="Every Starter, By Kickoff"
-        cont={`${total} starter${total === 1 ? '' : 's'} across ${data.leagues.length} league${data.leagues.length === 1 ? '' : 's'}`} />
+        cont={`${total} starting spot${total === 1 ? '' : 's'} in ${nGames} game${nGames === 1 ? '' : 's'}`} />
       <p className="folio-note">
-        Everyone starting for you anywhere this week, grouped by team with the next
-        kickoff first: live games, then upcoming, then finals.
+        Everyone starting for you anywhere this week, grouped by game with the next
+        kickoff first: live games, then upcoming, then finals. A player you start in
+        two leagues gets a row for each.
       </p>
       <div className="tablewrap">
         <table className="stats starters">
           <thead>
             <tr>
               <th scope="col" className="txt">PLAYER</th>
+              <th scope="col">TEAM</th>
               <th scope="col">POS</th>
-              <th scope="col">LEAGUES</th>
+              <th scope="col" className="txt">LEAGUE</th>
               <th scope="col">PROJ</th>
               <th scope="col">PTS</th>
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => {
-              const live = g.rows.some((r) => r.game_state === 'in') || (g.game?.started && !g.game?.final)
-              const detail = g.rows.find((r) => r.game_state === 'in')?.game_detail
-              return [
-                <tr key={`t-${g.team}`} className={`teamrow${live ? ' live' : ''}`}>
-                  <th scope="rowgroup" colSpan={5}>
-                    <span className="teamname">{g.team === 'FA' ? 'No team' : g.team}</span>
-                    {g.game?.opp ? <span className="opp">{`vs ${g.game.opp}`}</span> : null}
-                    <span className="kick num">
-                      {live ? <><span className="live-dot" aria-hidden="true"></span>{detail || 'LIVE'}</>
-                        : g.game?.final ? 'Final' : kickoffLabel(g.game)}
-                    </span>
-                  </th>
-                </tr>,
-                ...g.rows.map((r) => (
-                  <tr key={`${g.team}-${r.player_id}`} className={r.game_state === 'in' ? 'leader' : undefined}>
-                    <td className="txt player">{r.name}</td>
-                    <td className="team">{r.pos || '–'}</td>
-                    <td className="n">{r.leagues}</td>
-                    <td className="n">{r.hasProj ? r.proj.toFixed(1) : '–'}</td>
-                    <td className="n sortcol">{r.pts.toFixed(1)}</td>
-                  </tr>
-                )),
-              ]
-            })}
+            {groups.map((g) => [
+              <GameHead key={`h-${g.key}`} g={g} cols={6} />,
+              ...g.rows.map((r) => (
+                <tr key={`${g.key}-${r.id}`} className={r.game_state === 'in' ? 'leader' : undefined}>
+                  <td className="txt player">{r.name}</td>
+                  <td className="team">{r.team || 'FA'}</td>
+                  <td className="team">{r.pos || '–'}</td>
+                  <td className="txt lg"><span className="lgname" title={r.league}>{r.league}</span></td>
+                  <td className="n">{r.proj != null ? r.proj.toFixed(1) : '–'}</td>
+                  <td className="n sortcol">{r.pts.toFixed(1)}</td>
+                </tr>
+              )),
+            ])}
           </tbody>
         </table>
       </div>
       <Footnotes>
         <p>Projections come from the general manager&rsquo;s note (this week&rsquo;s
-          projection under each league&rsquo;s scoring) and points from Sleeper as they
-          score; a player starting in more than one league shows the sum of both.</p>
+          projection under that league&rsquo;s scoring) and points from Sleeper as they
+          score. Kickoffs are Eastern.</p>
         <p>Highlighted rows are players in live games. The desk refreshes them about
           every 45 seconds.</p>
       </Footnotes>
@@ -415,7 +432,7 @@ function MyLeagues() {
         <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
       </section>
 
-      <StartersByTeam data={data} byLeague={insights.byLeague} />
+      <StartersByGame data={data} byLeague={insights.byLeague} />
 
       {false && data?.aggregate?.length > 0 && (
         <section aria-labelledby="sec-combine">

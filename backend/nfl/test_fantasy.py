@@ -421,3 +421,28 @@ class DraftWatchTests(TestCase):
             done = fi.refresh_newly_drafted()
         self.assertEqual(done, {'someone': ['L2']})
         gen.assert_called_once_with('someone', use_llm=True, league_ids=['L2'])
+
+
+class ScheduleTests(TestCase):
+    """team_games: both sides of a game point at the same game with the
+    Desk's home/away and Sleeper's team codes."""
+
+    def test_both_sides_carry_the_game(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import Game, Team
+        kc = Team.objects.create(team_id=12, team_name='Kansas City Chiefs', short_name='KC')
+        wsh = Team.objects.create(team_id=28, team_name='Washington Commanders', short_name='WSH')
+        Game.objects.create(event_id=5, game_datetime=timezone.now() + timedelta(days=2),
+                            season=2026, week_num=1, season_type_id=2, home_team=wsh, away_team=kc,
+                            home_score=None, away_score=None)
+        sched = fi._schedule(2026, 1)
+        self.assertEqual(set(sched), {'KC', 'WAS'})          # Sleeper's code for Washington
+        self.assertEqual(sched['WAS']['opp'], 'KC')
+        self.assertTrue(sched['WAS']['home'])
+        self.assertFalse(sched['KC']['home'])
+        self.assertEqual(sched['KC']['game_id'], sched['WAS']['game_id'])
+        self.assertEqual((sched['KC']['away_team'], sched['KC']['home_team']), ('KC', 'WAS'))
+        self.assertFalse(sched['KC']['started'])
+        self.assertFalse(sched['KC']['final'])
+        self.assertIsNone(sched['KC']['home_score'])

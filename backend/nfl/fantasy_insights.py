@@ -43,22 +43,30 @@ def _scoring_label(league):
 
 
 def _schedule(season, week):
-    """{sleeper_team_abbr: {has_game, started, final, kickoff, opp}} from
-    the Desk's own schedule; {} when the week is not loaded."""
+    """{sleeper_team_abbr: {has_game, started, final, kickoff, opp, game_id,
+    home, home_team, away_team, home_score, away_score, status}} from the
+    Desk's own schedule; {} when the week is not loaded. The engine reads
+    the first five; the Fantasy tab groups starters by game with the rest."""
     games = (Game.objects.filter(season=season, week_num=week, season_type_id=2)
              .select_related('home_team', 'away_team'))
     now = timezone.now()
     espn_to_sleeper = {v: k for k, v in SLEEPER_TO_ESPN.items()}
     out = {}
     for g in games:
-        for me, them in ((g.home_team, g.away_team), (g.away_team, g.home_team)):
-            abbr = espn_to_sleeper.get(me.short_name, me.short_name)
-            out[abbr] = {
+        home = espn_to_sleeper.get(g.home_team.short_name, g.home_team.short_name)
+        away = espn_to_sleeper.get(g.away_team.short_name, g.away_team.short_name)
+        for me, them in ((home, away), (away, home)):
+            out[me] = {
                 'has_game': True,
                 'started': g.status == Game.STATUS_IN or (g.game_datetime and g.game_datetime <= now),
                 'final': g.status == Game.STATUS_FINAL,
                 'kickoff': g.game_datetime.isoformat() if g.game_datetime else None,
-                'opp': espn_to_sleeper.get(them.short_name, them.short_name),
+                'opp': them,
+                'game_id': str(g.pk),
+                'home': me == home,
+                'home_team': home, 'away_team': away,
+                'home_score': g.home_score, 'away_score': g.away_score,
+                'status': g.status,
             }
     return out
 

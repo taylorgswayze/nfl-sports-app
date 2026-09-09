@@ -242,8 +242,10 @@ is ready even before the owner opens the page.
 Each league block shows the GM's note, the standing line and the matchup
 score; the week's starters and bench sit behind toggles. The page ends with
 THE STARTERS: every player starting for the reader in any league, one row
-per player (leagues started, projected points from the note, points so far
-from Sleeper, both summed across leagues), grouped by NFL team with the
-most imminent game first (live, then upcoming by kickoff, then finals,
-then no game). The overview API carries `team_games` (this week's kickoffs
-by Sleeper team code) and the note payload carries `roster_proj` for it.
+per player and league (team, position, league, that league's projection
+from the note, points so far from Sleeper), grouped by NFL game under a
+small heading (away at home, kickoff or clock and score or final) with
+the most imminent game first (live, then upcoming by kickoff, then finals,
+then no game this week). The overview API carries `team_games` (this
+week's game per Sleeper team code: game_id, home/away, kickoff, scores) and
+the note payload carries `roster_proj` for it.
