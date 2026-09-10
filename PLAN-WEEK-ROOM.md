@@ -339,3 +339,32 @@ Sleeper publishes every remaining week's projection, so a week-by-week
 valuation (sum over remaining weeks of each week's optimal lineup total)
 is the natural upgrade: it would value depth by the weeks it actually
 starts and retire the flat weight. Not built yet.
+
+## 13. Week-by-week season value and the open-moves upside (2026-09-10)
+
+Season value is now solved week by week: `fantasy_engine.season_value`
+takes every remaining week's optimal lineup on that week's Sleeper
+projections (each player's `weekly` map: this week first, injury and bye
+adjusted; later weeks from `fantasy_insights._week_points`, a per-league
+table `weekpts_<season>_w<week>_<hash>.json` built once from the per-week
+files and cached six hours) and averages over the window. A bench player
+is worth exactly the weeks he would start; `BENCH_W` is retired from the
+engine's decisions. The wire's release is the cheapest player to keep
+(`keep_costs`: season value lost by releasing him, a backup K/DEF ahead
+of a core player at the same price, the cheapest at the newcomer's
+position also tried); trade ideas are screened on the cheap average-based
+value and the best eight pairs scored week by week; trade evaluations and
+proposals use the season value directly. A numbers pass for three
+leagues takes about eight seconds on the rpi5.
+
+The page re-solves this week's card on every load
+(`fantasy_insights.refresh_week`, called by the insights view): the stored
+`roster_proj` now carries each player's positions and team, the current
+starters come from Sleeper, a player whose game has kicked off stays
+where he is, and a pickup is marked `locked` once his game or his
+release's game has started. `upside_week` = the open lineup gain plus the
+best open claim's gain this week, and it replaces "Set" as the league
+bar's number. A roster change since the numbers ran is flagged
+(`roster_changed`) and the card is solved on the roster the numbers knew
+until the next 3-hour pass. The REPRINT NOW button is gone; the 12-hour
+reprint and the `?refresh=1` API remain.

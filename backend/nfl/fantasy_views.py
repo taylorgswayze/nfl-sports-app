@@ -262,9 +262,17 @@ def insights(request):
             viewer = current_user(request)
             if viewer:
                 track('week_room_refresh', user=viewer.email, username=username)
-    # earlier notes ride along in the row for the GM's no-repeat memory only
-    payloads = [{k: v for k, v in (r.payload or {}).items() if k != 'narrative_history'}
-                for r in rows]
+    # earlier notes ride along in the row for the GM's no-repeat memory only;
+    # this week's card is re-solved against the clock on the way out
+    now = timezone.now()
+    payloads = []
+    for r in rows:
+        p = {k: v for k, v in (r.payload or {}).items() if k != 'narrative_history'}
+        try:
+            p = fi.refresh_week(p, now)
+        except Exception as e:
+            logger.warning(f'live re-solve failed for {p.get("league_id")}: {e}')
+        payloads.append(p)
     return JsonResponse({
         'username': username, 'user_id': user_id,
         'status': 'ready' if rows else ('generating' if generating else 'empty'),

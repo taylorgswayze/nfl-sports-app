@@ -85,7 +85,7 @@ function NoneLine({ children }) {
   return <p className="wr-none">None. <span>{children}</span></p>
 }
 
-export default function WeekRoom({ ins, onReprint, reprinting }) {
+export default function WeekRoom({ ins }) {
   const [showLineup, setShowLineup] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const noteBtn = useRef(null)
@@ -117,15 +117,20 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
     )
   }
 
-  const lede = lu.material ? fmt(lu.gain, true) : 'Set'
-  const ledeNote = lu.material
-    ? `points on the table with ${moves.length} move${moves.length === 1 ? '' : 's'}`
-    : 'lineup, no moves to make'
+  // this week's upside: what the open moves are still worth, lineup and wire
+  const parts = ins.upside_parts || { lineup: lu.material ? Number(lu.gain) : 0, claim: 0, moves: moves.length }
+  const up = ins.upside_week != null ? Number(ins.upside_week) : parts.lineup
+  const hot = up >= 0.05
+  const bits = []
+  if (parts.moves > 0 && parts.lineup >= 0.05) bits.push(`${parts.moves} lineup move${parts.moves === 1 ? '' : 's'}`)
+  if (parts.claim >= 0.05) bits.push('a pickup from the wire')
+  const lede = fmt(up, true)
+  const ledeNote = hot ? `this week, from ${bits.join(' and ') || 'the open moves'}` : 'left to gain this week from open moves'
 
   return (
-    <div className={`gm${lu.material ? ' hot' : ''}`}>
+    <div className={`gm${hot ? ' hot' : ''}`}>
       <div className="gm-bar">
-        <div className={`gm-lede num${lu.material ? '' : ' quiet'}`}>{lede}<small>{ledeNote}</small></div>
+        <div className={`gm-lede num${hot ? '' : ' quiet'}`}>{lede}<small>{ledeNote}</small></div>
         <div className="gm-foot">
           <button type="button" className="ctl" ref={noteBtn} onClick={() => setNoteOpen(true)}>
             <span className="lbl">READ</span> THE GM&rsquo;S NOTE
@@ -133,12 +138,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
           <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
             {showLineup ? 'HIDE THE CARD' : 'FULL LINEUP CARD'}
           </button>
-          {onReprint && (
-            <button type="button" className="benchtoggle" onClick={onReprint} disabled={reprinting}>
-              {reprinting ? 'REPRINTING…' : 'REPRINT NOW'}
-            </button>
-          )}
-          <span className="when num">{printed ? `note ${printed}` : ''}{refreshed ? ` · numbers ${refreshed}` : ''}</span>
+          <span className="when num">{printed ? `note ${printed}` : ''}{refreshed ? ` · numbers ${refreshed}` : ''}{ins.roster_changed ? ' · roster changed since' : ''}</span>
         </div>
       </div>
 
@@ -185,7 +185,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
                     <tr key={`w${i}`}>
                       <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span></td>
                       <td className="txt">{w.drop.name} <span className="wr-meta">{w.drop.pos}</span></td>
-                      <td className={`n${w.best_week ? ' sortcol best' : ''}`}>{fmt(w.week_gain, true)}</td>
+                      <td className={`n${w.best_week && !w.locked ? ' sortcol best' : ''}`}>{w.locked ? <span className="wr-meta">locked</span> : fmt(w.week_gain, true)}</td>
                       <td className={`n${w.best_season ? ' sortcol best' : ''}`}>{fmt(w.gain, true)}</td>
                     </tr>
                   ))}

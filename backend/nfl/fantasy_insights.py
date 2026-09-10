@@ -6,6 +6,8 @@ the season prior), runs the engine (fantasy_engine) and stores one
 FantasyInsight row per league. The cron job refreshes every saved user
 every 12 hours; the API generates on first sight of a username.
 """
+import hashlib
+import json
 import logging
 import os
 import threading
@@ -90,7 +92,36 @@ def build_base_context(season, week):
     return {
         'season': int(season), 'week': int(week), 'players': players, 'proj': proj,
         'ros': ros, 'season_proj': season_proj, 'schedule': schedule, 'trending': trending,
+        'weeks': list(range(int(week), sleeper.ROS_LAST_WEEK + 1)),
     }
+
+
+def _week_points(base, settings):
+    """{week: {player_id: points}} for every remaining week after this one
+    under one league's scoring, from Sleeper's per-week stat projections;
+    disk-cached per scoring profile (the per-week files are read once)."""
+    weeks = [int(w) for w in (base.get('weeks') or [])][1:]
+    if not weeks:
+        return {}
+    season, week = base['season'], base['week']
+    key = hashlib.sha1(json.dumps(sorted((k, float(v)) for k, v in settings.items())).encode()).hexdigest()[:10]
+
+    def fetch():
+        out = {}
+        for w in weeks:
+            try:
+                rows = sleeper.weekly_projections(season, w, keep=False)
+            except Exception as e:
+                logger.warning(f'weekly projections {season} w{w} unavailable: {e}')
+                continue
+            out[str(w)] = {pid: round(fe.score(r.get('stats') or {}, settings), 2) for pid, r in rows.items()}
+        return out
+    try:
+        data = sleeper.disk_table(f'weekpts_{season}_w{week}_{key}.json', sleeper.PROJ_TTL, fetch)
+    except Exception as e:
+        logger.warning(f'week points unavailable: {e}')
+        return {}
+    return {int(w): pts for w, pts in data.items()}
 
 
 def league_context(base, settings):
@@ -99,6 +130,20 @@ def league_context(base, settings):
     ros = base.get('ros') or {}
     ros_stats = ros.get('stats') or {}
     ros_weeks = max(1, int(ros.get('weeks') or 1))
+    week_points = _week_points(base, settings)
+
+    def weekly(pid):
+        if not week_points:
+            return None
+        found = False
+        out = {}
+        for w, pts in week_points.items():
+            if pid in pts:
+                found = True
+                out[w] = pts[pid]
+            else:
+                out[w] = 0.0
+        return out if found else None
 
     def ros_ppw(pid, _settings):
         st = ros_stats.get(pid)
@@ -118,8 +163,78 @@ def league_context(base, settings):
 
     return {
         'players': base['players'], 'proj': base['proj'],
+        'weekly': weekly, 'weeks': base.get('weeks') or [base['week']],
         'ros_ppw': ros_ppw, 'season_ppg': season_ppg, 'team_game': team_game,
     }
+
+
+def _schedule_cached(season, week):
+    return sleeper._cached(f'schedule:{season}:{week}', 60, lambda: _schedule(season, week))
+
+
+def refresh_week(payload, now=None):
+    """Re-solve this week's card against the clock, for the page: a player
+    whose game has kicked off stays where he is, the current starters come
+    from Sleeper, a pickup whose game (or whose release's game) has started
+    is locked, and upside_week counts only what is still open: the lineup
+    gain plus the best open claim's gain this week."""
+    now = now or timezone.now()
+    rp = payload.get('roster_proj') or {}
+    slots = payload.get('slots') or []
+    if payload.get('status') != 'in_season' or not rp or not slots or not payload.get('lineup'):
+        return payload
+    if any('positions' not in v for v in rp.values()):
+        return payload  # a note printed before the page could re-solve: as printed
+    season, week = int(payload['season']), int(payload['week'])
+    sched = _schedule_cached(season, week)
+
+    def locked_team(team):
+        g = sched.get(team) if team else None
+        return bool(g and (g.get('started') or g.get('final')))
+    values = {pid: dict(v, player_id=pid, locked=locked_team(v.get('team')), flags=v.get('flags') or [])
+              for pid, v in rp.items()}
+    roster = list(rp)
+    starters = payload.get('starters_at_numbers') or []
+    reserve = payload.get('reserve') or []
+    roster_changed = False
+    try:
+        ms = sleeper.league_matchups(payload['league_id'], week)
+        m = next((x for x in ms if x.get('roster_id') == payload.get('my_roster_id')), None)
+        if m:
+            cur = [str(x) for x in (m.get('players') or [])]
+            if cur and all(x in values for x in cur):
+                roster = cur
+                starters = m.get('starters') or starters
+            else:
+                roster_changed = True
+    except Exception as e:
+        logger.warning(f'live starters unavailable for {payload.get("league_id")}: {e}')
+    lineup = fe.lineup_report(slots, roster, starters, values, reserve)
+    out = dict(payload)
+    out['lineup'] = lineup
+    best_claim = 0.0
+    waivers = []
+    for line in payload.get('waivers') or []:
+        add, drop = line.get('add') or {}, line.get('drop') or {}
+        open_now = (add.get('positions') is not None and drop.get('player_id') in values
+                    and not locked_team(add.get('team')) and not locked_team(drop.get('team')))
+        l = dict(line, locked=not open_now)
+        if open_now:
+            merged = dict(values)
+            merged[add['player_id']] = dict(add, locked=False, flags=add.get('flags') or [])
+            after = [x for x in roster if x != drop['player_id']] + [add['player_id']]
+            wk = fe.lineup_report(slots, after, starters, merged, reserve)['optimal_total'] - lineup['optimal_total']
+            l['week_gain'] = round(wk, 2)
+            best_claim = max(best_claim, wk)
+        waivers.append(l)
+    out['waivers'] = waivers
+    gain = max(lineup.get('gain') or 0.0, 0.0)
+    out['upside_week'] = round(gain + max(best_claim, 0.0), 2)
+    out['upside_parts'] = {'lineup': round(gain, 2), 'claim': round(max(best_claim, 0.0), 2),
+                           'moves': len(lineup.get('moves') or [])}
+    out['roster_changed'] = roster_changed
+    out['live_at'] = now.isoformat()
+    return out
 
 
 def _roster_max(lg):
@@ -354,9 +469,10 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         'waivers': waivers, 'drops': drops, 'trades': trades, 'proposals': proposals,
         # every rostered player's projection this week, so the page can put
         # a projection beside live points without another model call
-        'roster_proj': {p: {'proj': values[p]['proj'], 'opp': values[p].get('opp'),
-                            'injury': values[p].get('injury')}
+        'roster_proj': {p: dict(fe._brief(values[p]), has_game=values[p].get('has_game', True))
                         for p in my_pids if p in values},
+        'starters_at_numbers': [str(x) if x not in (None, '0', '') else None for x in my_starters],
+        'reserve': reserve,
     })
     standings = sorted(rosters, key=lambda r: (-(r.get('settings') or {}).get('wins', 0),
                                                -((r.get('settings') or {}).get('fpts', 0))))

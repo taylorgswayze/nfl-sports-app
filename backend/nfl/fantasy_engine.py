@@ -8,10 +8,11 @@ rules (scoring() matched Sleeper's players_points exactly, n=2225, in the
   * this week = Sleeper's weekly projection for the player, zero on a bye
     or when he is out. Lineups set by it beat the 2025 human lineups by
     +3.5 pts/week.
-  * rest of season (ROS) = the average of Sleeper's remaining weekly
-    projections through week 17 (byes count as zero weeks), halved for a
-    player out long-term. Waiver claims, releases and trades are scored on
-    the change in ROS lineup value.
+  * rest of season = week by week: every remaining week's optimal lineup
+    on that week's Sleeper projections (byes as zero weeks), averaged
+    over the window. Depth is worth exactly the weeks it starts; there
+    is no flat bench weight. Waiver claims, releases and trades are
+    scored on the change in that season value (points per week).
 The 2026-09-09 switch from the earlier blend (Sleeper x Desk season model,
 +4.5 pts/week in the backtest) was the owner's call: one source of truth.
 """
@@ -155,14 +156,18 @@ def injury_multiplier(status):
 
 
 def player_values(pids, ctx, settings, week):
-    """Per-player weekly projection and ROS value under this league's
-    scoring, both straight from Sleeper's stat-level projections.
+    """Per-player values under this league's scoring, all from Sleeper's
+    stat-level projections: proj (this week, zero on a bye or when out),
+    weekly ({week: points} for every remaining week, this week first) and
+    ros (the average of weekly, for display and screening).
 
     ctx supplies: players (slim index), proj (this week's projections),
-    ros_ppw(pid, settings) -> average of the remaining weekly projections or
-    None, season_ppg(pid, settings) -> season projection per game or None,
-    and team_game(team) -> {'has_game', 'started', 'final', 'kickoff'} or None.
+    weekly(pid) -> {week: points} for the weeks after this one or None,
+    weeks (the remaining window, this week included), ros_ppw(pid, settings)
+    and season_ppg(pid, settings) as flat fallbacks, and team_game(team) ->
+    {'has_game', 'started', 'final', 'kickoff'} or None.
     """
+    window = [int(w) for w in (ctx.get('weeks') or [int(week)])]
     out = {}
     for pid in pids:
         pid = str(pid)
@@ -187,18 +192,24 @@ def player_values(pids, ctx, settings, week):
         if slp is None and has_game and team:
             flags.append('no projection')
         proj = raw * injury_multiplier(injury) if has_game else 0.0
-        # rest of season: the average of Sleeper's remaining weekly projections
-        ros = ctx['ros_ppw'](pid, settings)
-        if ros is None:
-            ros = ctx['season_ppg'](pid, settings)
-        if ros is None:
-            ros = proj
-        if injury in OUT_STATUSES:
-            ros *= 0.5
+        # the weeks after this one: Sleeper's per-week numbers, else flat
+        future = ctx['weekly'](pid) if ctx.get('weekly') else None
+        if future is None:
+            flat = ctx['ros_ppw'](pid, settings)
+            if flat is None:
+                flat = ctx['season_ppg'](pid, settings)
+            if flat is None:
+                flat = proj
+            future = {w: flat for w in window[1:]}
+        mult = 0.5 if injury in OUT_STATUSES else 1.0
+        weekly = {window[0]: round(proj, 2)}
+        for w in window[1:]:
+            weekly[w] = round(float(future.get(w, future.get(str(w), 0.0)) or 0.0) * mult, 2)
+        ros = sum(weekly.values()) / len(weekly)
         out[pid] = {
             'player_id': pid, 'name': meta.get('name') or pid, 'pos': pos,
             'positions': list(positions), 'team': team,
-            'proj': round(proj, 2), 'proj_raw': round(raw, 2), 'ros': round(ros, 2),
+            'proj': round(proj, 2), 'proj_raw': round(raw, 2), 'ros': round(ros, 2), 'weekly': weekly,
             'injury': injury, 'has_game': has_game,
             'locked': bool(game and (game.get('started') or game.get('final'))),
             'opp': (row or {}).get('opp') or (game or {}).get('opp'),
@@ -208,7 +219,7 @@ def player_values(pids, ctx, settings, week):
 
 
 def _brief(v):
-    return {k: v.get(k) for k in ('player_id', 'name', 'pos', 'team', 'proj', 'ros', 'injury', 'opp', 'flags')}
+    return {k: v.get(k) for k in ('player_id', 'name', 'pos', 'positions', 'team', 'proj', 'ros', 'injury', 'opp', 'flags')}
 
 
 def _stabilize(free_idx, slots, chosen, positions, current_slot):
@@ -341,52 +352,87 @@ def matchup_projection(slots, roster_pids, starters, values, reserve=None):
     return rep['current_total'], rep['optimal_total']
 
 
-def roster_ros_value(slots, pids, values, reserve=None):
+def season_value(slots, pids, values, reserve=None):
+    """Rest-of-season lineup value in points per week: the optimal lineup
+    total of every remaining week, each on its own projections (a bye is a
+    zero week), averaged over the window. A bench player is worth exactly
+    the weeks he starts."""
     reserve = set(reserve or [])
-    return lineup_value(slots, [(p, values[p]['positions'], values[p]['ros'])
-                                for p in pids if p in values and p not in reserve])
+    pool = [p for p in pids if p in values and p not in reserve]
+    if not pool:
+        return 0.0
+    weeks = set()
+    for p in pool:
+        weeks.update(int(w) for w in (values[p].get('weekly') or {}))
+    if not weeks:
+        return optimal_lineup(slots, [(p, values[p]['positions'], values[p]['ros']) for p in pool])[0]
+    total = 0.0
+    for w in weeks:
+        total += optimal_lineup(slots, [(p, values[p]['positions'], _wk(values[p], w)) for p in pool])[0]
+    return total / len(weeks)
+
+
+def _wk(v, w):
+    wk = v.get('weekly') or {}
+    return float(wk.get(w, wk.get(str(w), v.get('ros', 0.0))) or 0.0)
+
+
+def roster_ros_value(slots, pids, values, reserve=None):
+    return season_value(slots, pids, values, reserve)
+
+
+def keep_costs(slots, my, values, droppable):
+    """Season value lost by releasing each candidate: the price of the drop."""
+    base = season_value(slots, my, values)
+    return base, {p: round(base - season_value(slots, [q for q in my if q != p], values), 3) for p in droppable}
 
 
 def waiver_report(slots, my_pids, values, free_agents, fa_values, reserve=None,
-                  trending=None, max_lines=WAIVER_LINES, per_pos=6, protected=None):
+                  trending=None, max_lines=WAIVER_LINES, per_pos=5, protected=None):
     """Free agents worth a claim, each paired with the release that costs
-    least: value = ROS lineup value of (roster + add - drop) minus today's.
-
-    A benched QB/RB/WR/TE costs BENCH_W x ROS to drop and a benched K/DEF
-    costs nothing, so the cheapest release is exact: the lowest-ROS player
-    left on the bench once the newcomer is slotted (IR/taxi excluded, this
-    week's starters never released). At most max_lines lines, ordered by
-    season gain, and the best claim for this week is guaranteed a line. A
-    release already spoken for by a higher line is re-paired with the next
-    cheapest release rather than thrown away."""
+    least: gain = season value of (roster + add - drop) minus today's, in
+    points per week, with every week's lineup re-solved. The release is
+    picked from the cheapest players to keep (a backup K/DEF before a core
+    player at the same price) plus the cheapest at the newcomer's position;
+    this week's starters and IR/taxi are never released. At most max_lines
+    lines ordered by season gain, the best claim for this week guaranteed a
+    line, and a release already spoken for re-paired with the next."""
     reserve = set(str(p) for p in (reserve or []))
     protected = set(str(p) for p in (protected or []))
     trending = trending or {}
     my = [p for p in my_pids if p in values and p not in reserve]
-    base = roster_ros_value(slots, my, values)
+    droppable = [p for p in my if p not in protected]
+    base, cost = keep_costs(slots, my, values, droppable)
     base_week = optimal_lineup(slots, [(p, values[p]['positions'], values[p]['proj']) for p in my])[0]
 
-    def cost(v):
-        return BENCH_W * v['ros'] if set(v['positions']) & set(CORE) else 0.0
+    def is_core(p):
+        return bool(set(values[p]['positions']) & set(CORE))
+
+    def release_order(exclude=()):
+        return sorted([p for p in droppable if p not in exclude],
+                      key=lambda p: (round(cost[p], 2), is_core(p), values[p]['ros']))
 
     def line_for(fa, exclude=()):
-        merged = dict(values); merged[fa['player_id']] = fa
-        pids = my + [fa['player_id']]
-        tot, asg = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['ros']) for p in pids])
-        started = set(asg.values())
-        bench = [p for p in pids if p not in started]
-        droppable = [p for p in bench if p not in protected and p not in exclude]
-        if not droppable:
+        order = release_order(exclude)
+        if not order:
             return None
-        drop = min(droppable, key=lambda p: (cost(merged[p]), merged[p]['ros']))
-        if drop == fa['player_id']:
-            return None  # the newcomer would be the first cut: not worth a claim
-        gain = tot + sum(cost(merged[p]) for p in bench if p != drop) - base
+        merged = dict(values); merged[fa['player_id']] = fa
+        tries = order[:2]
+        same = next((p for p in order if values[p]['pos'] == fa['pos']), None)
+        if same and same not in tries:
+            tries.append(same)
+        best = None
+        for drop in tries:
+            after = [p for p in my if p != drop] + [fa['player_id']]
+            gain = season_value(slots, after, merged) - base
+            if best is None or gain > best[1] + 1e-9:
+                best = (drop, gain)
+        drop, gain = best
         if gain < WAIVER_FLOOR:
             return None
-        after = [p for p in pids if p != drop]
-        week_after = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['proj']) for p in after])[0]
-        starts = fa['player_id'] in started
+        after = [p for p in my if p != drop] + [fa['player_id']]
+        week_after, asg = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['proj']) for p in after])
+        starts = fa['player_id'] in asg.values()
         reason = 'starts right away' if starts else 'depth over the current bench'
         if fa.get('opp'):
             reason += f", {fa['opp']} this week"
@@ -442,16 +488,15 @@ def waiver_report(slots, my_pids, values, free_agents, fa_values, reserve=None,
 
 
 def drop_candidates(slots, my_pids, values, reserve=None, n=3, protected=None):
-    """Bench players with the least rest-of-season worth (never the optimal
-    ROS lineup, never this week's starters, never IR/taxi)."""
+    """The players cheapest to release: least season value lost (never this
+    week's starters, never IR/taxi)."""
     reserve = set(str(p) for p in (reserve or []))
     protected = set(str(p) for p in (protected or []))
     my = [p for p in my_pids if p in values and p not in reserve]
-    _t, asg = optimal_lineup(slots, [(p, values[p]['positions'], values[p]['ros']) for p in my])
-    started = set(asg.values()) | protected
-    bench = [values[p] for p in my if p not in started]
-    bench.sort(key=lambda v: (v['ros'], v['proj']))
-    return [_brief(v) for v in bench[:n]]
+    droppable = [p for p in my if p not in protected]
+    _base, cost = keep_costs(slots, my, values, droppable)
+    droppable.sort(key=lambda p: (round(cost[p], 2), values[p]['ros'], values[p]['proj']))
+    return [dict(_brief(values[p]), keep_cost=cost[p]) for p in droppable[:n]]
 
 
 def _slot_medians(slots, rosters_values):
@@ -470,7 +515,7 @@ def _slot_medians(slots, rosters_values):
     return med
 
 
-def trade_report(slots, my_pids, values, partners, max_lines=3):
+def trade_report(slots, my_pids, values, partners, max_lines=3, exact=8):
     """One-for-one trade ideas. partners: [{name, pids, values}].
 
     Surplus = my benched QB/RB/WR/TE whose ROS clears the league-median
@@ -497,11 +542,16 @@ def trade_report(slots, my_pids, values, partners, max_lines=3):
     surplus.sort(key=lambda p: -values[p]['ros'])
     if not surplus or not deficit_pos:
         return []
-    ideas = []
+    # screen every pairing on the cheap average-based value, then score the
+    # best few week by week
+    def quick(pids, vals):
+        return lineup_value(slots, [(p, vals[p]['positions'], vals[p]['ros']) for p in pids if p in vals])
+    quick_me = quick(my, values)
+    screened = []
     for partner in partners:
         pv = partner['values']
         their = [p for p in partner['pids'] if p in pv]
-        base_them = roster_ros_value(slots, their, pv)
+        quick_them = quick(their, pv)
         targets = [p for p in their if pv[p]['pos'] in deficit_pos]
         targets.sort(key=lambda p: -pv[p]['ros'])
         for send in surplus[:3]:
@@ -512,16 +562,28 @@ def trade_report(slots, my_pids, values, partners, max_lines=3):
                 them_after = [p for p in their if p != recv] + [send]
                 merged_me = dict(values); merged_me[recv] = pv[recv]
                 merged_them = dict(pv); merged_them[send] = values[send]
-                d_me = roster_ros_value(slots, me_after, merged_me) - base_me
-                d_them = roster_ros_value(slots, them_after, merged_them) - base_them
-                if d_me < TRADE_FLOOR or d_them < -0.25:
+                q_me = quick(me_after, merged_me) - quick_me
+                q_them = quick(them_after, merged_them) - quick_them
+                if q_me < TRADE_FLOOR / 2 or q_them < -1.0:
                     continue
-                ideas.append({
-                    'partner': partner['name'], 'send': [_brief(values[send])],
-                    'receive': [_brief(pv[recv])],
-                    'my_delta': round(d_me, 2), 'their_delta': round(d_them, 2),
-                    'reason': f"you are thin at {'/'.join(sorted(deficit_pos))}; they gain at {values[send]['pos']}",
-                })
+                screened.append((q_me + 0.5 * max(q_them, 0), partner, their, send, recv, me_after, them_after, merged_me, merged_them))
+    screened.sort(key=lambda t: -t[0])
+    ideas = []
+    base_them_cache = {}
+    for _q, partner, their, send, recv, me_after, them_after, merged_me, merged_them in screened[:exact]:
+        pv = partner['values']
+        if partner['name'] not in base_them_cache:
+            base_them_cache[partner['name']] = season_value(slots, their, pv)
+        d_me = season_value(slots, me_after, merged_me) - base_me
+        d_them = season_value(slots, them_after, merged_them) - base_them_cache[partner['name']]
+        if d_me < TRADE_FLOOR or d_them < -0.25:
+            continue
+        ideas.append({
+            'partner': partner['name'], 'send': [_brief(values[send])],
+            'receive': [_brief(pv[recv])],
+            'my_delta': round(d_me, 2), 'their_delta': round(d_them, 2),
+            'reason': f"you are thin at {'/'.join(sorted(deficit_pos))}; they gain at {values[send]['pos']}",
+        })
     ideas.sort(key=lambda t: -(t['my_delta'] + 0.5 * max(t['their_delta'], 0)))
     out, seen = [], set()
     for t in ideas:

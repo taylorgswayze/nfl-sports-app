@@ -16,9 +16,16 @@ SETTINGS = {'pass_yd': 0.04, 'pass_td': 4, 'pass_int': -1, 'rush_yd': 0.1, 'rush
             'rec': 1, 'rec_yd': 0.1, 'rec_td': 6, 'fum_lost': -2, 'bonus_rec_te': 0.5}
 
 
+WINDOW = [1, 2, 3, 4, 5]
+
+
 def V(pid, pos, proj, ros=None, **kw):
+    """A valued player: this week proj, then ros (or proj) in every later
+    week of a five-week window."""
+    later = proj if ros is None else ros
     row = {'player_id': pid, 'name': pid.upper(), 'pos': pos, 'positions': [pos], 'team': 'DAL',
-           'proj': proj, 'proj_raw': proj, 'ros': proj if ros is None else ros, 'injury': None,
+           'proj': proj, 'proj_raw': proj, 'ros': later, 'injury': None,
+           'weekly': {w: (proj if w == 1 else later) for w in WINDOW},
            'has_game': True, 'locked': False, 'opp': 'NYG', 'flags': []}
     row.update(kw)
     return row
@@ -116,39 +123,55 @@ class ProjectionTests(TestCase):
     """Both numbers come straight from Sleeper: this week's projection under
     league scoring, and the average of the remaining weekly projections."""
 
-    def _ctx(self, ros=None, season=None, game=True):
+    def _ctx(self, ros=None, season=None, game=True, weekly=None):
         return {
             'players': {'p': {'name': 'P', 'pos': 'WR', 'positions': ['WR'], 'team': 'DAL', 'injury': None}},
             'proj': {'p': {'stats': {'rec': 5, 'rec_yd': 60}, 'pos': 'WR', 'team': 'DAL', 'opp': 'NYG'}},
+            'weekly': (lambda pid: weekly) if weekly is not None else None,
+            'weeks': [1, 2, 3],
             'ros_ppw': lambda pid, s: ros,
             'season_ppg': lambda pid, s: season,
             'team_game': lambda team: {'has_game': game, 'started': False, 'final': False},
         }
 
+    def test_weekly_values_come_from_sleepers_per_week_numbers(self):
+        vals = fe.player_values(['p'], self._ctx(weekly={2: 9.0, 3: 0.0}), SETTINGS, week=1)
+        self.assertEqual(vals['p']['weekly'], {1: 11.0, 2: 9.0, 3: 0.0})   # week 3 is his bye
+        self.assertAlmostEqual(vals['p']['ros'], (11 + 9 + 0) / 3, places=2)
+
     def test_this_week_is_sleepers_number_under_league_scoring(self):
         vals = fe.player_values(['p'], self._ctx(ros=13.0), SETTINGS, week=1)
         self.assertAlmostEqual(vals['p']['proj'], 5 + 6.0, places=2)   # rec 5 x 1 + 60 yd x 0.1
-        self.assertAlmostEqual(vals['p']['ros'], 13.0, places=2)
+        self.assertEqual(vals['p']['weekly'], {1: 11.0, 2: 13.0, 3: 13.0})  # flat fallback after this week
 
-    def test_bye_zeroes_the_week_but_not_the_season_value(self):
-        vals = fe.player_values(['p'], self._ctx(ros=13.0, game=False), SETTINGS, week=5)
+    def test_bye_zeroes_the_week_but_not_the_later_weeks(self):
+        vals = fe.player_values(['p'], self._ctx(ros=13.0, game=False), SETTINGS, week=1)
         self.assertEqual(vals['p']['proj'], 0.0)
         self.assertIn('bye', vals['p']['flags'])
-        self.assertAlmostEqual(vals['p']['ros'], 13.0, places=2)
+        self.assertEqual(vals['p']['weekly'][2], 13.0)
 
-    def test_out_players_project_zero_and_carry_half_their_season_value(self):
+    def test_out_players_project_zero_and_carry_half_their_later_weeks(self):
         ctx = self._ctx(ros=13.0)
         ctx['players']['p']['injury'] = 'Out'
-        vals = fe.player_values(['p'], ctx, SETTINGS, week=3)
+        vals = fe.player_values(['p'], ctx, SETTINGS, week=1)
         self.assertEqual(vals['p']['proj'], 0.0)
         self.assertIn('out', vals['p']['flags'])
-        self.assertAlmostEqual(vals['p']['ros'], 6.5, places=2)
+        self.assertEqual(vals['p']['weekly'][2], 6.5)
 
-    def test_ros_falls_back_to_the_season_snapshot_then_this_week(self):
-        vals = fe.player_values(['p'], self._ctx(ros=None, season=9.0), SETTINGS, week=2)
-        self.assertAlmostEqual(vals['p']['ros'], 9.0, places=2)
-        vals = fe.player_values(['p'], self._ctx(ros=None, season=None), SETTINGS, week=2)
-        self.assertAlmostEqual(vals['p']['ros'], vals['p']['proj'], places=2)
+    def test_later_weeks_fall_back_to_the_season_snapshot_then_this_week(self):
+        vals = fe.player_values(['p'], self._ctx(ros=None, season=9.0), SETTINGS, week=1)
+        self.assertEqual(vals['p']['weekly'][3], 9.0)
+        vals = fe.player_values(['p'], self._ctx(ros=None, season=None), SETTINGS, week=1)
+        self.assertEqual(vals['p']['weekly'][3], vals['p']['proj'])
+
+    def test_season_value_credits_a_bench_player_for_the_weeks_he_starts(self):
+        # w2 covers w1's bye in week 3: worth exactly that week, not a flat share
+        w1 = V('w1', 'WR', 12, weekly={1: 12, 2: 12, 3: 0, 4: 12, 5: 12})
+        w2 = V('w2', 'WR', 8)
+        vals = {'w1': w1, 'w2': w2}
+        with_depth = fe.season_value(['WR'], ['w1', 'w2'], vals)
+        alone = fe.season_value(['WR'], ['w1'], vals)
+        self.assertAlmostEqual(with_depth - alone, 8 / 5, places=3)
 
 
 class WaiverAndTradeTests(TestCase):
@@ -157,7 +180,7 @@ class WaiverAndTradeTests(TestCase):
             'q1': V('q1', 'QB', 20), 'r1': V('r1', 'RB', 15), 'r2': V('r2', 'RB', 12),
             'w1': V('w1', 'WR', 12), 'w2': V('w2', 'WR', 11), 'w3': V('w3', 'WR', 3),
             't1': V('t1', 'TE', 8), 'k1': V('k1', 'K', 7), 'd1': V('d1', 'DEF', 6), 'd2': V('d2', 'DEF', 5),
-            'q2': V('q2', 'QB', 17),
+            'q2': V('q2', 'QB', 17), 'w4': V('w4', 'WR', 4), 'r3': V('r3', 'RB', 5),
         }
         self.roster = list(self.values)
 
@@ -185,7 +208,7 @@ class WaiverAndTradeTests(TestCase):
     def test_wire_caps_at_three_and_keeps_the_best_this_week(self):
         # four season-value claims; the fourth is the best play this week
         fa = {f'fa{i}': V(f'fa{i}', 'WR', 12.5 + i * 0.1, ros=16 - i, team='MIA') for i in range(1, 4)}
-        fa['fa4'] = V('fa4', 'WR', 18, ros=12.6, team='MIA')
+        fa['fa4'] = V('fa4', 'WR', 18, ros=9, team='MIA')
         lines = fe.waiver_report(SLOTS, self.roster, self.values, list(fa), fa, protected=['d1'])
         self.assertEqual(len(lines), 3)
         ids = [l['add']['player_id'] for l in lines]
@@ -198,12 +221,13 @@ class WaiverAndTradeTests(TestCase):
         fa = {'fa1': V('fa1', 'WR', 2, team='MIA')}
         self.assertEqual(fe.waiver_report(SLOTS, self.roster, self.values, ['fa1'], fa), [])
 
-    def test_drop_candidates_are_bench_only(self):
+    def test_drop_candidates_are_the_cheapest_to_keep(self):
         drops = fe.drop_candidates(SLOTS, self.roster, self.values, protected=['d1'])
         ids = [d['player_id'] for d in drops]
         self.assertIn('w3', ids)
         self.assertNotIn('q1', ids)
         self.assertNotIn('d1', ids)
+        self.assertEqual(drops[0]['keep_cost'], 0.0)
 
     def test_trade_requires_both_sides_to_hold_value(self):
         partner_vals = dict(self.values)
@@ -620,3 +644,45 @@ class NumbersRefreshTests(TestCase):
     def test_numbers_job_is_scheduled(self):
         from django.conf import settings
         self.assertIn('nfl.cron.WeekRoomNumbers', settings.CRON_CLASSES)
+
+
+class LiveResolveTests(TestCase):
+    """The page re-solves this week's card against the clock."""
+
+    def _payload(self):
+        rp = {'a': dict(V('a', 'WR', 12, team='DAL'), has_game=True), 'b': dict(V('b', 'WR', 9, team='NYG'), has_game=True),
+              'c': dict(V('c', 'WR', 14, team='KC'), has_game=True)}
+        for v in rp.values():
+            v.pop('locked'); v.pop('weekly')
+        return {'league_id': 'L1', 'status': 'in_season', 'season': 2026, 'week': 1, 'my_roster_id': 1,
+                'slots': ['WR', 'WR', 'BN'], 'roster_proj': rp, 'starters_at_numbers': ['a', 'b', None],
+                'reserve': [], 'lineup': {'gain': 5.0, 'moves': [{'player_id': 'c'}], 'optimal_total': 26.0},
+                'waivers': [{'add': dict(V('fa', 'WR', 20, team='MIA')), 'drop': dict(V('b', 'WR', 9, team='NYG')),
+                             'gain': 3.0, 'week_gain': 8.0}]}
+
+    @mock.patch('nfl.fantasy_insights.sleeper.league_matchups', return_value=[{'roster_id': 1, 'players': ['a', 'b', 'c'], 'starters': ['a', 'b', None]}])
+    @mock.patch('nfl.fantasy_insights._schedule_cached', return_value={'KC': {'has_game': True, 'started': True, 'final': False}})
+    def test_a_kicked_off_bench_player_cannot_enter_and_the_upside_says_so(self, _sched, _m):
+        out = fi.refresh_week(self._payload())
+        self.assertEqual(out['lineup']['gain'], 0.0)              # c is locked on the bench
+        self.assertEqual(out['upside_parts']['lineup'], 0.0)
+        self.assertFalse(out['waivers'][0]['locked'])
+        self.assertAlmostEqual(out['waivers'][0]['week_gain'], 20 - 9, places=2)   # fa replaces b this week
+        self.assertAlmostEqual(out['upside_week'], 11.0, places=2)
+
+    @mock.patch('nfl.fantasy_insights.sleeper.league_matchups', return_value=[{'roster_id': 1, 'players': ['a', 'b', 'c'], 'starters': ['a', 'b', None]}])
+    @mock.patch('nfl.fantasy_insights._schedule_cached', return_value={'NYG': {'has_game': True, 'started': True, 'final': False}})
+    def test_a_claim_whose_release_has_played_is_locked(self, _sched, _m):
+        out = fi.refresh_week(self._payload())
+        self.assertTrue(out['waivers'][0]['locked'])
+        self.assertEqual(out['upside_parts']['claim'], 0.0)
+        # b is locked in his slot, so c can only replace a: 14 - 12
+        self.assertAlmostEqual(out['lineup']['gain'], 2.0, places=2)
+        self.assertAlmostEqual(out['upside_week'], 2.0, places=2)
+
+    @mock.patch('nfl.fantasy_insights.sleeper.league_matchups', return_value=[{'roster_id': 1, 'players': ['a', 'b', 'c', 'new'], 'starters': ['a', 'new', None]}])
+    @mock.patch('nfl.fantasy_insights._schedule_cached', return_value={})
+    def test_a_roster_change_since_the_numbers_ran_is_flagged(self, _sched, _m):
+        out = fi.refresh_week(self._payload())
+        self.assertTrue(out['roster_changed'])
+        self.assertAlmostEqual(out['lineup']['gain'], 5.0, places=2)   # solved on the roster the numbers knew

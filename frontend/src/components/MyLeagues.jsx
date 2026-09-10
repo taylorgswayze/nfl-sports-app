@@ -61,7 +61,7 @@ function StartersTable({ rows, caption }) {
 /* One in-season league: a band with the league's name and standing, the
    live score, the general manager folded to one bar with his
    recommendations under it, then the starters and bench behind toggles. */
-function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
+function LeagueBlock({ lg, ins, insState, rewriting }) {
   const [showBench, setShowBench] = useState(false)
   const [showStarters, setShowStarters] = useState(false)
   const m = lg.matchup
@@ -104,7 +104,7 @@ function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
           )}
 
           {ins && !stale
-            ? <WeekRoom ins={ins} onReprint={onReprint} reprinting={reprinting} />
+            ? <WeekRoom ins={ins} />
             : insState ? <WeekRoomPending state={stale ? 'generating' : insState} /> : null}
 
           {m && (
@@ -406,7 +406,6 @@ function MyLeagues() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [insights, setInsights] = useState({ state: null, byLeague: {}, generatedAt: null, regenerating: [] })
-  const [reprinting, setReprinting] = useState(false)
   const [editing, setEditing] = useState(false)
   const timer = useRef(null)
   const insTimer = useRef(null)
@@ -429,19 +428,9 @@ function MyLeagues() {
         if (d.generating && insTries.current < 60) {
           insTries.current += 1
           insTimer.current = setTimeout(() => loadInsights(user), 6000)
-        } else {
-          setReprinting(false)
         }
       })
-      .catch(() => { setInsights((s) => ({ ...s, state: s.state === 'ready' ? 'ready' : 'error' })); setReprinting(false) })
-  }
-
-  const reprint = () => {
-    const user = username.trim()
-    if (!user || reprinting) return
-    setReprinting(true)
-    insTries.current = 0
-    loadInsights(user, true)
+      .catch(() => setInsights((s) => ({ ...s, state: s.state === 'ready' ? 'ready' : 'error' })))
   }
 
   const load = (name) => {
@@ -545,16 +534,21 @@ function MyLeagues() {
               <LeagueBlock key={lg.league_id} lg={lg}
                 ins={insights.byLeague[lg.league_id]}
                 insState={insights.state}
-                rewriting={(insights.regenerating || []).includes(lg.league_id)}
-                onReprint={reprint} reprinting={reprinting} />
+                rewriting={(insights.regenerating || []).includes(lg.league_id)} />
             ))}
             <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
             <Footnotes>
+              <p>The big number is this week&rsquo;s upside: the points still on the table from
+                the lineup moves and the best pickup on the wire, counting only moves the clock
+                still allows. A player whose game has kicked off stays where he is, and a pickup
+                is marked locked once his game or his release&rsquo;s game has started. It is
+                re-solved every time the page loads.</p>
               <p>The general manager runs on Sleeper&rsquo;s own projections, scored under each
-                league&rsquo;s rules: this week&rsquo;s projection sets the lineup card, and the
-                average of Sleeper&rsquo;s remaining weekly projections through week 17 (rest of
-                season) scores the wire and the phones. The numbers refresh every three hours
-                from fresh projections; the note itself reprints every 12 hours, or on demand.</p>
+                league&rsquo;s rules: this week&rsquo;s projection sets the lineup card, and
+                season value is every remaining week&rsquo;s optimal lineup on that week&rsquo;s
+                projections, averaged, so depth is worth exactly the weeks it would start. The
+                numbers refresh every three hours from fresh projections; the note itself reprints
+                every 12 hours.</p>
               <p>The lineup card lists every move to the projected optimum. The wire is one row
                 per move, at most three, ordered by season gain with the best play for this week
                 always included; the bold figures mark the best of each column, and a zero this

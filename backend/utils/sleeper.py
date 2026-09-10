@@ -189,6 +189,11 @@ def ros_projections(season, week, last=ROS_LAST_WEEK):
     return _disk_cached(DATA_DIR / f'ros_{season}_w{week}.json', PROJ_TTL, fetch)
 
 
+def disk_table(name, ttl, fetch, mem_ttl=1800):
+    """A named disk-then-memory cache under the data dir for derived tables."""
+    return _disk_cached(DATA_DIR / name, ttl, fetch, mem_ttl=mem_ttl)
+
+
 def league_transactions(league_id, week):
     """This week's transactions (free agents, waivers, trades) for a league,
     as Sleeper's public feed serves them. Cached for ten minutes."""

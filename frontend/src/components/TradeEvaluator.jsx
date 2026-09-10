@@ -199,10 +199,11 @@ export default function TradeEvaluator({ username, leagues }) {
       )}
       <Footnotes>
         <p>Both sides are scored from the same Sleeper projections the general manager
-          works from. Rest of season is lineup value per week (starters plus a share of
-          the bench) from Sleeper&rsquo;s remaining weekly projections through week 17;
-          this week is the change in the optimal lineup total. A side that ends up over
-          the roster limit releases its cheapest bench players first.</p>
+          works from. Rest of season is every remaining week&rsquo;s optimal lineup on that
+          week&rsquo;s projections through week 17, averaged to points per week, so a
+          bench player counts for exactly the weeks he would start; this week is the change
+          in the optimal lineup total. A side that ends up over the roster limit releases
+          its cheapest bench players first.</p>
         <p>Accept means at least a point a week rest of season without giving up this
           week; lean accept from a quarter point; coin flip within a quarter point either
           way; decline means the deal costs you. Draft picks are listed but not valued.</p>
