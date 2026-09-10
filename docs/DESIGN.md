@@ -16,6 +16,7 @@ below are the contract every component draws from.
 | `--rule` / `--rule-soft` | rgba(237,233,221,.22 / .10) | hairlines, baseline grid |
 | `--green` | #4DB47F | the single accent: the needle, the lead's kicker, the largest edges, points on the table |
 | `--amber` | #D4A853 | settled: a finished game's row and its Final mark in the starters lists |
+| `--clay` | #C4614E | the GM says no: a decline verdict, a starter listed out |
 
 No glow, no shadows, no border radius. Team colors appear only inside logo chips.
 

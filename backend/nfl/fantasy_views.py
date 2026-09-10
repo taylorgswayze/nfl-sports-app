@@ -51,6 +51,7 @@ def _player_rows(ids, players_points, player_index, game_map):
             'pos': meta.get('pos'),
             'team': team,
             'points': _round2((players_points or {}).get(str(pid))),
+            'injury': meta.get('injury'),
             'game_state': (live or {}).get('state'),
             'game_detail': (live or {}).get('short_detail'),
         })

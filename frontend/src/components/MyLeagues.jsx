@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { gameService } from '../api'
 import { useMe, rememberSleeperUsername } from '../auth'
 import { Masthead, Folio, Footnotes, Colophon, SignInGate } from './Almanac'
 import WeekRoom, { WeekRoomPending } from './WeekRoom'
-import TradeDesk from './TradeDesk'
+import TradeEvaluator from './TradeEvaluator'
 
 /* MY LEAGUES: every Sleeper league on one page. Each league prints as a
    card (record, rank, this week's matchup with live points, starters
@@ -58,54 +58,54 @@ function StartersTable({ rows, caption }) {
   )
 }
 
-/* One in-season league: a page-head style header, the GM's note as the
-   lead, then the standing line and this week's live matchup. */
-function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting, username }) {
+/* One in-season league: a band with the league's name and standing, the
+   live score, the general manager folded to one bar with his
+   recommendations under it, then the starters and bench behind toggles. */
+function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
   const [showBench, setShowBench] = useState(false)
-  const [showDesk, setShowDesk] = useState(false)
   const [showStarters, setShowStarters] = useState(false)
   const m = lg.matchup
   const live = m && (m.starters || []).some((p) => p.game_state === 'in')
   // the note still says pre-draft but the league has drafted: the desk is
   // rewriting it, so print the wait rather than the stale note
   const stale = !!ins && (ins.status === 'pre_draft' || ins.status === 'drafting') && (rewriting || lg.status === 'in_season')
+  const rec = lg.record ? `${lg.record.wins}-${lg.record.losses}${lg.record.ties ? `-${lg.record.ties}` : ''}` : ''
   return (
     <article className={`league${live ? ' live' : ''}`} aria-label={lg.name}>
-      <div className="pagehead">
-        <span className="kicker">The general manager</span>
-        <span className="bigname">{lg.name}</span>
+      <header className="lg-band">
+        <span className="kicker">League</span>
+        <h2 className="bigname">{lg.name}</h2>
         <span className="meta num">
-          {lg.scoring} · {lg.teams || '?'} teams
-          {ins?.week ? ` · week ${ins.week}` : ''}
+          {lg.scoring} · {lg.teams || '?'} teams{ins?.week ? ` · week ${ins.week}` : ''}
+          {rec ? ` · ${rec}` : ''}{lg.rank ? ` · #${lg.rank} of ${lg.teams}` : ''}
+          {lg.points_for != null ? ` · ${fmtPts(lg.points_for)} PF` : ''}
         </span>
-      </div>
-
-      {ins && !stale
-        ? <WeekRoom ins={ins} onReprint={onReprint} reprinting={reprinting} />
-        : insState ? <WeekRoomPending state={stale ? 'generating' : insState} /> : null}
+      </header>
 
       {lg.error ? (
         <p className="note">{lg.error}.</p>
       ) : (
         <>
-          <p className="lg-standing num">
-            {lg.record ? `${lg.record.wins}-${lg.record.losses}${lg.record.ties ? `-${lg.record.ties}` : ''}` : ''}
-            {lg.rank ? ` · #${lg.rank} of ${lg.teams}` : ''}
-            {lg.points_for != null ? ` · ${fmtPts(lg.points_for)} PF` : ''}
-          </p>
+          {m && (
+            <div className="lg-score">
+              <span className="side me">
+                <span className="who">{lg.my_team_name || 'MY TEAM'}</span>
+                <span className={`fval num ${Number(m.my_points) >= Number(m.opp_points) ? 'win' : 'lose'}`}>{fmtPts(m.my_points)}</span>
+              </span>
+              <span className="gd-at">vs</span>
+              <span className="side opp">
+                <span className="who">{m.opp_name || 'OPPONENT'}</span>
+                <span className={`fval num ${Number(m.opp_points) > Number(m.my_points) ? 'win' : 'lose'}`}>{fmtPts(m.opp_points)}</span>
+              </span>
+            </div>
+          )}
+
+          {ins && !stale
+            ? <WeekRoom ins={ins} onReprint={onReprint} reprinting={reprinting} />
+            : insState ? <WeekRoomPending state={stale ? 'generating' : insState} /> : null}
+
           {m && (
             <div className="lg-week">
-              <div className="lg-score">
-                <span className="side me">
-                  <span className="who">{lg.my_team_name || 'MY TEAM'}</span>
-                  <span className={`fval num ${Number(m.my_points) >= Number(m.opp_points) ? 'win' : 'lose'}`}>{fmtPts(m.my_points)}</span>
-                </span>
-                <span className="gd-at">vs</span>
-                <span className="side opp">
-                  <span className="who">{m.opp_name || 'OPPONENT'}</span>
-                  <span className={`fval num ${Number(m.opp_points) > Number(m.my_points) ? 'win' : 'lose'}`}>{fmtPts(m.opp_points)}</span>
-                </span>
-              </div>
               <div className="lg-toggles">
                 <button type="button" className="benchtoggle"
                   onClick={() => setShowStarters((b) => !b)} aria-expanded={showStarters}>
@@ -117,14 +117,9 @@ function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting, user
                     {showBench ? 'HIDE BENCH' : `BENCH (${m.bench.length})`}
                   </button>
                 )}
-                <button type="button" className="benchtoggle"
-                  onClick={() => setShowDesk((b) => !b)} aria-expanded={showDesk}>
-                  {showDesk ? 'CLOSE THE TRADE DESK' : 'TRADE DESK'}
-                </button>
               </div>
               {showStarters && <StartersTable rows={m.starters} caption={`WEEK ${m.week} STARTERS`} />}
               {showBench && <StartersTable rows={m.bench} caption="BENCH" />}
-              {showDesk && username && <TradeDesk username={username} leagueId={lg.league_id} />}
             </div>
           )}
         </>
@@ -330,8 +325,98 @@ function StartersByKickoff({ data, byLeague }) {
   )
 }
 
+/* STATUS REPORT: every starter, in any league, whose listed status could
+   keep him from playing (questionable, doubtful, out, IR, PUP, suspended
+   and the rest) or who has no game this week: the players to move out of
+   the lineup before kickoff, worst first. */
+const STATUS_RANK = { out: 0, ir: 0, pup: 0, sus: 0, na: 0, cov: 0, dnr: 0, bye: 0, doubtful: 1, questionable: 2 }
+const STATUS_LABEL = {
+  out: 'Out', ir: 'Injured reserve', pup: 'PUP', sus: 'Suspended', na: 'Not active', cov: 'COVID list',
+  dnr: 'Did not report', bye: 'Bye week', doubtful: 'Doubtful', questionable: 'Questionable',
+}
+
+function buildStatus(data, byLeague) {
+  const games = data?.team_games || {}
+  const haveSchedule = Object.keys(games).length > 0
+  const rows = []
+  for (const lg of data?.leagues || []) {
+    const m = lg.matchup
+    if (!m) continue
+    const proj = byLeague[lg.league_id]?.roster_proj || {}
+    for (const p of m.starters || []) {
+      const listed = p.injury || proj[p.player_id]?.injury || ''
+      const key = listed.toLowerCase()
+      const bye = haveSchedule && p.team && !games[p.team]
+      if (!listed && !bye) continue
+      const rank = listed ? (STATUS_RANK[key] ?? 1) : 0
+      rows.push({
+        id: `${p.player_id}-${lg.league_id}`, name: p.name, pos: p.pos, team: p.team, league: lg.name,
+        status: listed ? (STATUS_LABEL[key] || listed) : STATUS_LABEL.bye,
+        extra: listed && bye ? 'and no game this week' : '',
+        rank, proj: proj[p.player_id]?.proj, game: (p.team && games[p.team]) || null,
+      })
+    }
+  }
+  rows.sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)))
+  return rows
+}
+
+function StatusReport({ data, byLeague }) {
+  if (!data?.leagues?.length) return null
+  const rows = buildStatus(data, byLeague)
+  return (
+    <section aria-labelledby="sec-status">
+      <Folio sec="STATUS REPORT" id="sec-status" title="Starters in Doubt"
+        cont={rows.length ? `${rows.length} to check` : 'all clear'} />
+      <p className="folio-note">
+        Every starter in any of your leagues whose listed status could keep him out, or who
+        has no game this week: the ones to move out of the lineup before kickoff, worst first.
+      </p>
+      {rows.length === 0 ? (
+        <p className="wr-none">None. <span>Every starter is listed healthy and has a game this week.</span></p>
+      ) : (
+        <div className="tablewrap">
+          <table className="stats starters status">
+            <thead>
+              <tr>
+                <th scope="col" className="txt">PLAYER</th>
+                <th scope="col">TEAM</th>
+                <th scope="col">POS</th>
+                <th scope="col" className="txt">LEAGUE</th>
+                <th scope="col" className="txt">STATUS</th>
+                <th scope="col">GAME</th>
+                <th scope="col">PROJ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={`sev-${r.rank}`}>
+                  <td className="txt player">{r.name}</td>
+                  <td className="team">{r.team || 'FA'}</td>
+                  <td className="team">{r.pos || '–'}</td>
+                  <td className="txt lg"><span className="lgname" title={r.league}>{r.league}</span></td>
+                  <td className="txt status">{r.status}{r.extra ? <span className="wr-meta"> {r.extra}</span> : null}</td>
+                  <td className="n"><span className="kick">{r.game ? kickoffLabel(r.game) : 'no game'}</span></td>
+                  <td className="n sortcol">{r.proj != null ? Number(r.proj).toFixed(1) : '–'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <Footnotes>
+        <p>Statuses are Sleeper&rsquo;s listings, refreshed with the general manager&rsquo;s note.
+          The lineup card on the Leagues view already benches anyone listed out; the rest are
+          your call as the week&rsquo;s reports come in.</p>
+      </Footnotes>
+    </section>
+  )
+}
+
 function MyLeagues() {
   const me = useMe()
+  const { view: viewParam } = useParams()
+  const view = viewParam === 'starters' || viewParam === 'trades' ? viewParam : 'leagues'
   const [username, setUsername] = useState(() => localStorage.getItem(USER_KEY) || '')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -462,69 +547,28 @@ function MyLeagues() {
           <p className="wire">NO {data.season} LEAGUES FOUND for <b>{data.username}</b>.</p>
         )}
 
-        {active.map((lg) => (
-          <LeagueBlock key={lg.league_id} lg={lg} username={data.username}
-            ins={insights.byLeague[lg.league_id]}
-            insState={insights.state}
-            rewriting={(insights.regenerating || []).includes(lg.league_id)}
-            onReprint={reprint} reprinting={reprinting} />
-        ))}
-
-        <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
+        {data && view === 'leagues' && (
+          <>
+            {active.map((lg) => (
+              <LeagueBlock key={lg.league_id} lg={lg}
+                ins={insights.byLeague[lg.league_id]}
+                insState={insights.state}
+                rewriting={(insights.regenerating || []).includes(lg.league_id)}
+                onReprint={reprint} reprinting={reprinting} />
+            ))}
+            <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
+          </>
+        )}
       </section>
 
-      <StartersByKickoff data={data} byLeague={insights.byLeague} />
-
-      {false && data?.aggregate?.length > 0 && (
-        <section aria-labelledby="sec-combine">
-          <Folio sec="THE COMBINE" id="sec-combine" title="All My Players"
-            cont={`across ${data.leagues.length} league${data.leagues.length === 1 ? '' : 's'}`} />
-          <p className="folio-note">
-            Every player you roster anywhere, with this week&rsquo;s points summed
-            across leagues. Multi-league players print first.
-          </p>
-          <div className="tablewrap">
-            <table className="stats">
-              <thead>
-                <tr>
-                  <th scope="col" className="txt">PLAYER</th>
-                  <th scope="col">POS</th>
-                  <th scope="col">TEAM</th>
-                  <th scope="col">GAME</th>
-                  <th scope="col">LEAGUES</th>
-                  <th scope="col">STARTED</th>
-                  <th scope="col">WK PTS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.aggregate.map((p) => (
-                  <tr key={p.player_id} className={p.game_state === 'in' ? 'leader' : undefined}>
-                    <td className="txt player">{p.name}</td>
-                    <td className="team">{p.pos || '–'}</td>
-                    <td className="team">{p.team || 'FA'}</td>
-                    <td className="n"><GameFlag state={p.game_state} detail={p.game_detail} /></td>
-                    <td className="n">{p.leagues}</td>
-                    <td className="n">{p.started}</td>
-                    <td className="n sortcol">{fmtPts(p.total_points)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Footnotes>
-            <p>The general manager&rsquo;s note projects every player under each
-              league&rsquo;s own scoring rules from Sleeper&rsquo;s weekly stat projections,
-              blended with the Desk&rsquo;s season model, and prints the lineup card, the
-              claims worth making (with the release), and one-for-one trade calls scored
-              for both sides. It reprints every 12 hours.</p>
-            <p>Points are each league&rsquo;s own scoring, as Sleeper reports them;
-              the WK PTS column sums a player&rsquo;s points across every league
-              that rosters them.</p>
-            <p>Highlighted rows are players in live games. The desk refreshes
-              them about every 45 seconds.</p>
-          </Footnotes>
-        </section>
+      {data && view === 'starters' && (
+        <>
+          <StatusReport data={data} byLeague={insights.byLeague} />
+          <StartersByKickoff data={data} byLeague={insights.byLeague} />
+        </>
       )}
+
+      {data && view === 'trades' && <TradeEvaluator username={data.username} leagues={data.leagues} />}
 
       <Colophon center="My Leagues · The General Manager" />
     </>

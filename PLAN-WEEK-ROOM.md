@@ -286,3 +286,25 @@ bench), the releases a lopsided deal would force under the roster limit,
 and a verdict (accept at +1.0 ROS/week without a this-week loss over 0.5,
 lean accept from +0.25, coin flip within 0.25, decline below). The Fantasy
 tab opens it from a TRADE DESK toggle under each league's matchup.
+
+## 11. Three views, the folded GM, the status report (2026-09-10)
+
+The Fantasy tab is three views under the masthead sub-index (`/leagues`,
+`/leagues/starters`, `/leagues/trades`):
+
+* LEAGUES: each in-season league is a band (name, scoring, teams, week,
+  record, rank, points for), the live score, then the general manager
+  folded to one bar (points on the table, the projected matchup, READ THE
+  GM'S NOTE which opens the prose as a pop-out, the full lineup card and
+  reprint buttons) with his recommendations under it as short tables:
+  lineup card, the wire, the phones, and the inbox when a proposal exists.
+  A section with nothing to say prints "None" and a reason instead of an
+  empty table. Starters and bench stay behind toggles.
+* STARTERS: a STATUS REPORT first (every starter in any league whose
+  Sleeper status could keep him out: out, IR, PUP, suspended, doubtful,
+  questionable and the rest, plus anyone with no game this week; worst
+  first, with the kickoff and projection), then THE STARTERS lists from
+  section 9. The overview API's starter rows now carry `injury`.
+* TRADE EVALUATOR: the four-step desk from section 10 as its own page
+  (league, partner, players on each side, verdict), replacing the
+  per-league toggle.

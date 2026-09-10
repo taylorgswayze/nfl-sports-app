@@ -23,6 +23,7 @@ function App() {
         <Route path="/draft" element={<DraftBoard />} />
         <Route path="/draft/advisor" element={<DraftAdvisor />} />
         <Route path="/leagues" element={<MyLeagues />} />
+        <Route path="/leagues/:view" element={<MyLeagues />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomGutter />

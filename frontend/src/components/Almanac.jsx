@@ -90,6 +90,11 @@ const SECTIONS = [
 
 /* Desks with more than one page get a printed sub-index under the rail. */
 const SUBNAVS = {
+  '/leagues': [
+    { to: '/leagues', label: 'LEAGUES', exact: true },
+    { to: '/leagues/starters', label: 'STARTERS' },
+    { to: '/leagues/trades', label: 'TRADE EVALUATOR' },
+  ],
   '/draft': [
     { to: '/draft', label: 'THE BOARD', exact: true },
     { to: '/draft/advisor', label: 'LIVE ADVISOR' },

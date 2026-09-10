@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Verdict } from './TradeDesk'
+import { Verdict } from './TradeEvaluator'
 
-/* THE GENERAL MANAGER: the GM's note for one league, printed as the lead
-   of the league's block. Left, the number that matters (points on the
-   table), the projected matchup and the prose; right, the lineup card, the
-   wire and the phones as tables. Deterministic engine output plus a few
-   sentences, refreshed every 12 hours. */
+/* THE GENERAL MANAGER, folded: one bar with the number that matters (points
+   on the table), the projected matchup and the buttons; the note itself
+   opens as a pop-out. Under the bar, the recommendations as short tables:
+   the lineup card, the wire, the phones and, when a proposal is on the
+   table, the inbox. A section with nothing to say prints "None".
+   Deterministic engine output plus a few sentences, refreshed every 12 hours. */
 
 function fmt(v, signed = false) {
   if (v == null) return '–'
@@ -42,8 +43,42 @@ export function WeekRoomPending({ state }) {
   )
 }
 
+/* The note as a pop-out: the prose, the league, when it printed. */
+function NoteModal({ ins, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [onClose])
+  const printed = stamp(ins.generated_at)
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={`The GM's note for ${ins.name}`}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <span className="kicker">The GM&rsquo;s note</span>
+            <span className="modal-title">{ins.name}</span>
+            <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · reprints every ${ins.refresh_hours}h` : ''}</span>
+          </div>
+          <button type="button" className="ctl" onClick={onClose} autoFocus>CLOSE</button>
+        </div>
+        <Prose text={ins.narrative} />
+        {ins.projection_note && <p className="note wr-note">{ins.projection_note}</p>}
+      </div>
+    </div>
+  )
+}
+
+function NoneLine({ children }) {
+  return <p className="wr-none">None. <span>{children}</span></p>
+}
+
 export default function WeekRoom({ ins, onReprint, reprinting }) {
   const [showLineup, setShowLineup] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
   if (!ins) return null
   const preDraft = ins.status === 'pre_draft' || ins.status === 'drafting'
   const lu = ins.lineup || {}
@@ -57,7 +92,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   if (preDraft || ins.error) {
     return (
       <div className="gm gm-quiet">
-        <div className="gm-head">
+        <div className="gm-bar">
           <span className="kicker">The GM&rsquo;s note</span>
           <span className="when num">{printed ? `printed ${printed}` : ''}</span>
         </div>
@@ -77,20 +112,17 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
 
   return (
     <div className={`gm${lu.material ? ' hot' : ''}`}>
-      <div className="gm-head">
-        <span className="kicker">The GM&rsquo;s note</span>
-        <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}</span>
-      </div>
-
-      <div className="gm-left">
+      <div className="gm-bar">
         <div className={`gm-lede num${lu.material ? '' : ' quiet'}`}>{lede}<small>{ledeNote}</small></div>
         {m && (
           <div className="gm-match num">
             {fmt(m.my_total)} <span>to</span> {fmt(m.opp_total)} <span>projected vs {m.opp_name || 'your opponent'}</span>
           </div>
         )}
-        <Prose text={ins.narrative} />
         <div className="gm-foot">
+          <button type="button" className="ctl" onClick={() => setNoteOpen(true)}>
+            <span className="lbl">READ</span> THE GM&rsquo;S NOTE
+          </button>
           <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
             {showLineup ? 'HIDE THE CARD' : 'FULL LINEUP CARD'}
           </button>
@@ -99,6 +131,62 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
               {reprinting ? 'REPRINTING…' : 'REPRINT NOW'}
             </button>
           )}
+          <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}</span>
+        </div>
+      </div>
+
+      <div className="gm-recs">
+        <div className="gm-rec">
+          <p className="wr-sub">Lineup card <span className="num">{moves.length ? `${moves.length} move${moves.length === 1 ? '' : 's'} to the optimal lineup, ${fmt(lu.gain, true)}` : ''}</span></p>
+          {moves.length > 0 ? (
+            <div className="tablewrap">
+              <table className="stats wr-tbl">
+                <thead>
+                  <tr><th scope="col" className="txt">PLAYER</th><th scope="col">POS</th><th scope="col">FROM</th><th scope="col">TO</th><th scope="col">PROJ</th></tr>
+                </thead>
+                <tbody>
+                  {moves.map((mv) => (
+                    <tr key={mv.player_id} className={mv.to === 'BN' ? 'wr-out' : 'wr-in'}>
+                      <td className="txt player">{mv.name}</td>
+                      <td className="team">{mv.pos || '–'}</td>
+                      <td className="team">{mv.from}</td>
+                      <td className="team to">{mv.to}</td>
+                      <td className="n">{fmt(mv.proj)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <NoneLine>The card is already the projected optimum.</NoneLine>}
+        </div>
+
+        <div className="gm-rec">
+          <p className="wr-sub">The wire <span className="num">{waivers.length ? 'claims and releases, with the projected upside' : ''}</span></p>
+          {waivers.length > 0 ? (
+            <div className="tablewrap">
+              <table className="stats wr-tbl">
+                <thead>
+                  <tr>
+                    <th scope="col" className="txt">CLAIM</th>
+                    <th scope="col" className="txt">RELEASE</th>
+                    <th scope="col">THIS WK<span className="was">pts</span></th>
+                    <th scope="col">ROS<span className="was">pts / wk</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {waivers.map((w, i) => (
+                    <tr key={`w${i}`}>
+                      <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span>
+                        <span className="wr-meta wr-line">{w.starts ? 'starts now' : 'depth'}{w.trending ? ` · ${Number(w.trending).toLocaleString()} adds` : ''}</span></td>
+                      <td className="txt">{w.drop.name} <span className="wr-meta">{w.drop.pos}</span></td>
+                      <td className="n">{fmt(w.week_gain, true)}</td>
+                      <td className="n sortcol">{fmt(w.gain, true)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <NoneLine>Nothing available beats the bench.</NoneLine>}
           {ins.waiver?.type && (
             <span className="gm-rules num">
               {ins.waiver.type}{ins.waiver.position ? ` · you claim #${ins.waiver.position}` : ''}
@@ -107,61 +195,32 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
             </span>
           )}
         </div>
-      </div>
 
-      <div className="gm-right">
-        <p className="wr-sub">Lineup card <span className="num">{moves.length ? `${moves.length} move${moves.length === 1 ? '' : 's'} to the optimal lineup` : 'no moves: the card stands'}</span></p>
-        {moves.length > 0 && (
-          <div className="tablewrap">
-            <table className="stats wr-tbl">
-              <thead>
-                <tr><th scope="col" className="txt">PLAYER</th><th scope="col">POS</th><th scope="col">FROM</th><th scope="col">TO</th><th scope="col">PROJ</th></tr>
-              </thead>
-              <tbody>
-                {moves.map((mv) => (
-                  <tr key={mv.player_id} className={mv.to === 'BN' ? 'wr-out' : 'wr-in'}>
-                    <td className="txt player">{mv.name}</td>
-                    <td className="team">{mv.pos || '–'}</td>
-                    <td className="team">{mv.from}</td>
-                    <td className="team to">{mv.to}</td>
-                    <td className="n">{fmt(mv.proj)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <p className="wr-sub">The wire <span className="num">{waivers.length ? 'claims and releases, with the projected upside' : 'nothing on the wire beats the bench'}</span></p>
-        {waivers.length > 0 && (
-          <div className="tablewrap">
-            <table className="stats wr-tbl">
-              <thead>
-                <tr>
-                  <th scope="col" className="txt">CLAIM</th>
-                  <th scope="col" className="txt">RELEASE</th>
-                  <th scope="col">THIS WK<span className="was">pts</span></th>
-                  <th scope="col">ROS<span className="was">pts / wk</span></th>
-                  <th scope="col" className="txt">NOTE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {waivers.map((w, i) => (
-                  <tr key={`w${i}`}>
-                    <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span></td>
-                    <td className="txt">{w.drop.name} <span className="wr-meta">{w.drop.pos}</span></td>
-                    <td className="n">{fmt(w.week_gain, true)}</td>
-                    <td className="n sortcol">{fmt(w.gain, true)}</td>
-                    <td className="txt wr-meta">{w.starts ? 'starts now' : 'depth'}{w.trending ? ` · ${Number(w.trending).toLocaleString()} adds` : ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="gm-rec">
+          <p className="wr-sub">The phones <span className="num">{trades.length ? 'one for one, both sides scored' : ''}</span></p>
+          {trades.length > 0 ? (
+            <div className="tablewrap">
+              <table className="stats wr-tbl">
+                <thead>
+                  <tr><th scope="col" className="txt">SEND</th><th scope="col" className="txt">GET</th><th scope="col" className="txt">PARTNER</th><th scope="col">YOU / THEM</th></tr>
+                </thead>
+                <tbody>
+                  {trades.map((t, i) => (
+                    <tr key={`t${i}`}>
+                      <td className="txt player">{t.send[0]?.name}</td>
+                      <td className="txt player">{t.receive[0]?.name}</td>
+                      <td className="txt wr-meta">{t.partner}</td>
+                      <td className="n sortcol">{fmt(t.my_delta, true)} / {fmt(t.their_delta, true)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <NoneLine>No one-for-one that helps both sides.</NoneLine>}
+        </div>
 
         {proposals.length > 0 && (
-          <>
+          <div className="gm-rec">
             <p className="wr-sub">The inbox <span className="num">trade proposals on the table, both sides scored</span></p>
             <div className="tablewrap">
               <table className="stats wr-tbl">
@@ -189,30 +248,8 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
                 </tbody>
               </table>
             </div>
-          </>
-        )}
-
-        {trades.length > 0 && (
-          <>
-            <p className="wr-sub">The phones <span className="num">one for one, both sides scored</span></p>
-            <div className="tablewrap">
-              <table className="stats wr-tbl">
-                <thead>
-                  <tr><th scope="col" className="txt">SEND</th><th scope="col" className="txt">GET</th><th scope="col" className="txt">PARTNER</th><th scope="col">YOU / THEM</th></tr>
-                </thead>
-                <tbody>
-                  {trades.map((t, i) => (
-                    <tr key={`t${i}`}>
-                      <td className="txt player">{t.send[0]?.name}</td>
-                      <td className="txt player">{t.receive[0]?.name}</td>
-                      <td className="txt wr-meta">{t.partner}</td>
-                      <td className="n sortcol">{fmt(t.my_delta, true)} / {fmt(t.their_delta, true)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+            {proposals.map((pr, i) => <Verdict key={`v${i}`} ev={pr} compact />)}
+          </div>
         )}
       </div>
 
@@ -242,6 +279,8 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
           {ins.projection_note && <p className="note wr-note">{ins.projection_note}</p>}
         </div>
       )}
+
+      {noteOpen && <NoteModal ins={ins} onClose={() => setNoteOpen(false)} />}
     </div>
   )
 }

@@ -503,9 +503,12 @@ table.index { width: 100%; border-collapse: collapse; }
 }
 
 /* ---------------- my leagues: league blocks led by the GM's note ---------------- */
-.league { border-top: 3px solid var(--ink); margin-top: 34px; padding-top: 4px; }
+.league { border-top: 4px solid var(--ink); margin-top: 44px; padding-top: 0; }
 .league.live { border-top-color: var(--green); }
-.league .pagehead { margin-top: 14px; }
+.lg-band { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; padding: 12px 0 10px; border-bottom: 1px solid var(--rule); }
+.lg-band .bigname { font-size: var(--lede); margin: 0; overflow-wrap: anywhere; }
+.lg-band .meta { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.league .lg-score { padding-top: 12px; }
 .lg-standing { font-family: var(--grot); font-weight: 700; font-size: 13px; color: var(--ink-soft); margin-top: 18px; }
 .lg-week { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .lg-score {
@@ -542,9 +545,18 @@ table.index { width: 100%; border-collapse: collapse; }
 /* the GM's note: two columns under a hairline, the number leads */
 .gm {
   border-top: 1px solid var(--rule); border-bottom: 1px solid var(--ink);
-  padding: 16px 0 20px; margin-top: 6px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 18px 48px;
+  padding: 14px 0 18px; margin-top: 10px;
+  display: flex; flex-direction: column; gap: 14px;
 }
+.gm-bar { display: flex; align-items: baseline; gap: 10px 28px; flex-wrap: wrap; }
+.gm-bar .gm-foot { margin-top: 0; margin-left: auto; }
+.gm-bar .when { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.gm-recs { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 14px 36px; }
+@media (max-width: 560px) { .gm-recs { grid-template-columns: 1fr; } }
+.gm-rec { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.wr-tbl .wr-line { display: block; font-weight: 400; margin-top: 1px; }
+.wr-none { font-family: var(--grot); font-weight: 700; font-size: 13px; color: var(--ink); margin: 0; }
+.wr-none span { font-family: var(--serif); font-weight: 400; font-style: italic; color: var(--ink-soft); }
 .gm-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .gm-head .when { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
 .gm-left, .gm-right { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -565,8 +577,8 @@ table.index { width: 100%; border-collapse: collapse; }
 .gm-foot .benchtoggle { margin-top: 0; }
 .gm-rules { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); }
 .gm-card { grid-column: 1 / -1; }
-.gm-quiet { grid-template-columns: 1fr; gap: 10px; }
-.gm-pending { grid-template-columns: 1fr; border-bottom: 1px solid var(--rule); }
+.gm-quiet { gap: 10px; }
+.gm-pending { border-bottom: 1px solid var(--rule); }
 .gm-pending .wire { margin-top: 0; }
 .gm .wr-sub {
   font-family: var(--grot); font-weight: 800; font-size: 10.5px; letter-spacing: .16em;
@@ -944,11 +956,44 @@ table.h2h { width: 100%; border-collapse: collapse; }
 .gate .ctl { align-self: flex-start; margin-top: 6px; }
 
 /* a long league name in the league head wraps instead of widening the page */
-.league .pagehead .bigname { white-space: normal; overflow-wrap: anywhere; line-height: 1.02; }
+.lg-band .bigname { white-space: normal; line-height: 1.02; }
+
+/* ---------------- the GM's note as a pop-out ---------------- */
+.modal-back {
+  position: fixed; inset: 0; z-index: 60; background: rgba(6, 7, 5, .72);
+  display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 24px; overflow: auto;
+}
+.modal {
+  background: var(--paper); border: 1px solid var(--ink); border-top: 4px solid var(--green);
+  width: 100%; max-width: 720px; padding: 18px 22px 22px; box-shadow: 0 24px 64px rgba(0, 0, 0, .55);
+}
+.modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.modal-head .kicker { display: block; }
+.modal-title { display: block; font-family: var(--grot); font-weight: 800; font-size: var(--section); letter-spacing: .02em; text-transform: uppercase; margin: 4px 0 2px; }
+.modal-head .when { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); }
+.modal .gm-prose { max-width: none; font-size: 15.5px; }
+@media (prefers-reduced-motion: no-preference) {
+  .modal { animation: modal-rise .18s ease-out; }
+  @keyframes modal-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+
+/* ---------------- the status report ---------------- */
+.status td.status { font-family: var(--grot); font-weight: 800; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; }
+.status tr.sev-0 td.status { color: var(--clay); }
+.status tr.sev-1 td.status { color: var(--amber); }
+.status tr.sev-2 td.status { color: var(--ink); }
+.status td.status .wr-meta { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* ---------------- the trade evaluator's steps ---------------- */
+.steps { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.step { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; border-top: 1px solid var(--rule-soft); padding: 14px 0 12px; }
+.stepno { font-family: var(--grot); font-weight: 800; font-size: 28px; line-height: 1; color: var(--green); letter-spacing: -.02em; }
+.stepbody { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.steplbl { font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+.steplbl small { font-family: var(--mono); font-weight: 400; font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); margin-left: 8px; }
+.step .ctl { align-self: flex-start; }
 
 /* ---------------- the trade desk ---------------- */
-.tdesk { margin-top: 14px; border-top: 1px solid var(--rule-soft); padding-top: 10px; }
-.tdesk .ctl { margin: 4px 0 10px; }
 .tdesk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 760px) { .tdesk-cols { grid-template-columns: 1fr; } }
 .tdesk-tbl th.pick, .tdesk-tbl td.pick { width: 30px; padding-left: 10px; padding-right: 4px; text-align: center; }
