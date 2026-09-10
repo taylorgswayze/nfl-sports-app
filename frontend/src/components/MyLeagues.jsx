@@ -70,6 +70,7 @@ function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
   // rewriting it, so print the wait rather than the stale note
   const stale = !!ins && (ins.status === 'pre_draft' || ins.status === 'drafting') && (rewriting || lg.status === 'in_season')
   const rec = lg.record ? `${lg.record.wins}-${lg.record.losses}${lg.record.ties ? `-${lg.record.ties}` : ''}` : ''
+  const mp = ins && !stale ? ins.matchup : null
   return (
     <article className={`league${live ? ' live' : ''}`} aria-label={lg.name}>
       <header className="lg-band">
@@ -91,11 +92,13 @@ function LeagueBlock({ lg, ins, insState, rewriting, onReprint, reprinting }) {
               <span className="side me">
                 <span className="who">{lg.my_team_name || 'MY TEAM'}</span>
                 <span className={`fval num ${Number(m.my_points) >= Number(m.opp_points) ? 'win' : 'lose'}`}>{fmtPts(m.my_points)}</span>
+                {mp && <span className="proj num">proj {fmtPts(mp.my_total)}</span>}
               </span>
               <span className="gd-at">vs</span>
               <span className="side opp">
                 <span className="who">{m.opp_name || 'OPPONENT'}</span>
                 <span className={`fval num ${Number(m.opp_points) > Number(m.my_points) ? 'win' : 'lose'}`}>{fmtPts(m.opp_points)}</span>
+                {mp && <span className="proj num">proj {fmtPts(mp.opp_total)}</span>}
               </span>
             </div>
           )}
@@ -249,11 +252,6 @@ function StartersByKickoff({ data, byLeague }) {
     <section aria-labelledby="sec-starters">
       <Folio sec="THE STARTERS" id="sec-starters" title="Every Starter, By Kickoff"
         cont={`${rows.length} starting spot${rows.length === 1 ? '' : 's'} in ${games.length} game${games.length === 1 ? '' : 's'}`} />
-      <p className="folio-note">
-        The games you have a starter in, first kickoff to last, then everyone starting
-        for you anywhere this week in the same order. Green rows are playing now;
-        amber rows have finished.
-      </p>
 
       <div className="dayhead">
         <h2>Your games</h2>
@@ -314,13 +312,6 @@ function StartersByKickoff({ data, byLeague }) {
           </tbody>
         </table>
       </div>
-      <Footnotes>
-        <p>Projections come from the general manager&rsquo;s note (this week&rsquo;s
-          projection under that league&rsquo;s scoring) and points from Sleeper as they
-          score. A player you start in two leagues gets a row for each. Kickoffs are Eastern.</p>
-        <p>Green rows are in a live game and refresh about every 45 seconds; amber rows
-          have played.</p>
-      </Footnotes>
     </section>
   )
 }
@@ -367,11 +358,7 @@ function StatusReport({ data, byLeague }) {
   return (
     <section aria-labelledby="sec-status">
       <Folio sec="STATUS REPORT" id="sec-status" title="Starters in Doubt"
-        cont={rows.length ? `${rows.length} to check` : 'all clear'} />
-      <p className="folio-note">
-        Every starter in any of your leagues whose listed status could keep him out, or who
-        has no game this week: the ones to move out of the lineup before kickoff, worst first.
-      </p>
+        cont={rows.length ? `${rows.length} to check before kickoff` : 'every starter healthy, with a game'} />
       {rows.length === 0 ? (
         <p className="wr-none">None. <span>Every starter is listed healthy and has a game this week.</span></p>
       ) : (
@@ -404,14 +391,11 @@ function StatusReport({ data, byLeague }) {
           </table>
         </div>
       )}
-      <Footnotes>
-        <p>Statuses are Sleeper&rsquo;s listings, refreshed with the general manager&rsquo;s note.
-          The lineup card on the Leagues view already benches anyone listed out; the rest are
-          your call as the week&rsquo;s reports come in.</p>
-      </Footnotes>
     </section>
   )
 }
+
+const VIEW_TITLE = { leagues: 'My Leagues', starters: 'My Starters', trades: 'Trade Evaluator' }
 
 function MyLeagues() {
   const me = useMe()
@@ -423,6 +407,7 @@ function MyLeagues() {
   const [busy, setBusy] = useState(false)
   const [insights, setInsights] = useState({ state: null, byLeague: {}, generatedAt: null, regenerating: [] })
   const [reprinting, setReprinting] = useState(false)
+  const [editing, setEditing] = useState(false)
   const timer = useRef(null)
   const insTimer = useRef(null)
   const insTries = useRef(0)
@@ -467,6 +452,7 @@ function MyLeagues() {
     gameService.fetchFantasyOverview(user)
       .then((d) => {
         setData(d)
+        setEditing(false)
         rememberSleeperUsername(user)
         insTries.current = 0
         setInsights({ state: 'loading', byLeague: {}, generatedAt: null, regenerating: [] })
@@ -520,19 +506,25 @@ function MyLeagues() {
       <section aria-label="My Leagues">
         <div className="pagehead">
           <span className="kicker">Fantasy</span>
-          <span className="bigname">My Leagues</span>
+          <h1 className="bigname">{VIEW_TITLE[view]}</h1>
           <span className="meta num">
             {data ? `${data.username} · ${data.leagues.length} league${data.leagues.length === 1 ? '' : 's'} · ${data.season} week ${data.week}` : 'every Sleeper league on one page'}
             {anyLive && <> · <b className="live-note">players live now, refreshing</b></>}
           </span>
           <div className="pagehead-ctl">
-            <input className="boardsearch" type="text" placeholder="Sleeper username"
-              value={username} onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') load() }}
-              aria-label="Sleeper username" />
-            <button type="button" className="ctl" onClick={() => load()} disabled={busy}>
-              {busy ? 'LOADING…' : 'LOAD LEAGUES'}
-            </button>
+            {data && !editing ? (
+              <button type="button" className="benchtoggle" onClick={() => setEditing(true)}>CHANGE SLEEPER HANDLE</button>
+            ) : (
+              <>
+                <input className="boardsearch" type="text" placeholder="Sleeper username"
+                  value={username} onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') load(); if (e.key === 'Escape' && data) setEditing(false) }}
+                  aria-label="Sleeper username" autoFocus={editing} />
+                <button type="button" className="ctl" onClick={() => load()} disabled={busy}>
+                  {busy ? 'LOADING…' : 'LOAD LEAGUES'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -557,6 +549,18 @@ function MyLeagues() {
                 onReprint={reprint} reprinting={reprinting} />
             ))}
             <QuietLeagues leagues={quiet} byLeague={insights.byLeague} />
+            <Footnotes>
+              <p>The general manager runs on Sleeper&rsquo;s own projections, scored under each
+                league&rsquo;s rules: this week&rsquo;s projection sets the lineup card, and the
+                average of Sleeper&rsquo;s remaining weekly projections through week 17 (rest of
+                season) scores the wire and the phones. The note reprints every 12 hours, or on
+                demand.</p>
+              <p>The lineup card lists every move to the projected optimum. The wire pairs each
+                claim with the release it needs, with the gain this week and per week the rest
+                of the way; a zero this week means the pickup does not crack this week&rsquo;s
+                lineup. The phones are one-for-one deals scored for both sides. Scores and
+                records are Sleeper&rsquo;s, live during games.</p>
+            </Footnotes>
           </>
         )}
       </section>
@@ -565,6 +569,14 @@ function MyLeagues() {
         <>
           <StatusReport data={data} byLeague={insights.byLeague} />
           <StartersByKickoff data={data} byLeague={insights.byLeague} />
+          <Footnotes>
+            <p>Statuses are Sleeper&rsquo;s listings, refreshed with the general manager&rsquo;s
+              note; the lineup card on the Leagues view already benches anyone listed out.
+              Projections are that league&rsquo;s this-week number from the note and points are
+              Sleeper&rsquo;s as they score. A player you start in two leagues gets a row for each.</p>
+            <p>Green rows are in a live game and refresh about every 45 seconds; amber rows have
+              played. Kickoffs are Eastern.</p>
+          </Footnotes>
         </>
       )}
 

@@ -113,6 +113,9 @@ export default function TradeEvaluator({ username, leagues }) {
     setter((s) => { const n = new Set(s); if (n.has(pid)) n.delete(pid); else n.add(pid); return n })
   }
   const them = desk?.partners?.find((p) => String(p.roster_id) === partner)
+  const sendNames = (desk?.me?.players || []).filter((p) => send.has(p.player_id)).map((p) => p.name)
+  const getNames = (them?.players || []).filter((p) => get.has(p.player_id)).map((p) => p.name)
+  const picked = send.size > 0 || get.size > 0
 
   async function score() {
     setBusy(true); setResult(null)
@@ -132,11 +135,6 @@ export default function TradeEvaluator({ username, leagues }) {
     <section aria-labelledby="sec-trades">
       <Folio sec="THE TRADE EVALUATOR" id="sec-trades" title="Score a Trade Before You Make It"
         cont="both sides, this week and rest of season" />
-      <p className="folio-note">
-        Pick the league, the manager you would deal with, then the players on each side.
-        The engine scores the deal for both sides from the same Sleeper projections the
-        general manager works from.
-      </p>
       {!active.length ? (
         <p className="wire">NO LEAGUE HAS A ROSTER YET. <b>The evaluator opens once a league drafts.</b></p>
       ) : (
@@ -168,13 +166,13 @@ export default function TradeEvaluator({ username, leagues }) {
           <li className="step">
             <span className="stepno num" aria-hidden="true">3</span>
             <div className="stepbody">
-              <span className="steplbl">Players <small>tick who you send and who you get; more than one on a side is fine</small></span>
-              {desk && them ? (
+              <span className="steplbl">Players <small>tick who you send and who you get</small></span>
+              {desk && them && (
                 <div className="tdesk-cols">
                   <RosterPick title="YOU SEND" players={desk.me.players} picked={send} onToggle={toggle(setSend)} />
                   <RosterPick title={`YOU GET FROM ${them.name}`} players={them.players} picked={get} onToggle={toggle(setGet)} />
                 </div>
-              ) : <p className="note wr-note">Pick a league and a partner first.</p>}
+              )}
             </div>
           </li>
           <li className="step">
@@ -182,9 +180,17 @@ export default function TradeEvaluator({ username, leagues }) {
             <div className="stepbody">
               <span className="steplbl">The verdict</span>
               <div className="tdesk-foot">
-                <button type="button" className="ctl" onClick={score} disabled={busy || !desk || !them || (!send.size && !get.size)}>
-                  <span className="lbl">{busy ? 'SCORING' : 'RUN'}</span> {busy ? '…' : 'SCORE THE TRADE'}
-                </button>
+                {desk && them && (
+                  <p className="tdesk-picked">
+                    <b>You send</b> {sendNames.join(', ') || 'nobody yet'} <b>you get</b> {getNames.join(', ') || 'nobody yet'}
+                  </p>
+                )}
+                <div className="tdesk-run">
+                  <button type="button" className="ctl" onClick={score} disabled={busy || !desk || !them || !picked}>
+                    {busy ? 'SCORING…' : 'SCORE THE TRADE'}
+                  </button>
+                  {desk && them && !picked && <span className="wr-meta">tick a player on either side first</span>}
+                </div>
                 <Verdict ev={result} />
               </div>
             </div>
@@ -192,11 +198,14 @@ export default function TradeEvaluator({ username, leagues }) {
         </ol>
       )}
       <Footnotes>
-        <p>Rest of season is lineup value per week (starters plus a share of the bench)
-          from Sleeper&rsquo;s remaining weekly projections through week 17; this week is
-          the change in your optimal lineup total. Accept means at least a point a week
-          without giving up this week; decline means the deal costs you rest of season.
-          Draft picks are listed but not valued.</p>
+        <p>Both sides are scored from the same Sleeper projections the general manager
+          works from. Rest of season is lineup value per week (starters plus a share of
+          the bench) from Sleeper&rsquo;s remaining weekly projections through week 17;
+          this week is the change in the optimal lineup total. A side that ends up over
+          the roster limit releases its cheapest bench players first.</p>
+        <p>Accept means at least a point a week rest of season without giving up this
+          week; lean accept from a quarter point; coin flip within a quarter point either
+          way; decline means the deal costs you. Draft picks are listed but not valued.</p>
       </Footnotes>
     </section>
   )

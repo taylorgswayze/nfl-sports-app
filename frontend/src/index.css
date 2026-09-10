@@ -88,6 +88,7 @@ img { max-width: 100%; }
   font-family: var(--grot); font-weight: 700; font-size: 10px; letter-spacing: .18em;
   text-transform: uppercase; color: var(--ink-soft); text-decoration: none;
   padding: 8px 14px 7px; border-bottom: 2px solid transparent; white-space: nowrap;
+  min-height: 40px; display: inline-flex; align-items: center;
 }
 .subnav a:hover { color: var(--ink); background: var(--paper-deep); }
 .subnav a.cur { color: var(--green); border-bottom-color: var(--green); }
@@ -523,6 +524,7 @@ table.index { width: 100%; border-collapse: collapse; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;
 }
 .lg-score .fval { font-size: 26px; }
+.lg-score .proj { font-family: var(--mono); font-size: var(--cap); color: var(--ink-soft); margin-top: 2px; }
 .benchtoggle {
   align-self: flex-start; font-family: var(--grot); font-weight: 800; font-size: 10px;
   letter-spacing: .14em; color: var(--ink-soft); border: 1px solid var(--rule);
@@ -992,6 +994,16 @@ table.h2h { width: 100%; border-collapse: collapse; }
 .steplbl { font-family: var(--grot); font-weight: 800; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
 .steplbl small { font-family: var(--mono); font-weight: 400; font-size: 10.5px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); margin-left: 8px; }
 .step .ctl { align-self: flex-start; }
+
+/* ---------------- the fantasy page head and touch sizes ---------------- */
+.pagehead h1.bigname { margin: 0; }
+.benchtoggle { min-height: 32px; }
+@media (pointer: coarse) { .benchtoggle, .subnav a { min-height: 44px; } }
+.tdesk-picked { font-size: 13.5px; color: var(--ink-soft); margin: 0; }
+.tdesk-picked b { color: var(--ink); font-family: var(--grot); font-weight: 800; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin-right: 2px; }
+.tdesk-picked b + b, .tdesk-picked b:not(:first-child) { margin-left: 12px; }
+.tdesk-run { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tdesk-run .wr-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
 
 /* ---------------- the trade desk ---------------- */
 .tdesk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }

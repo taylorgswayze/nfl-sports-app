@@ -271,7 +271,7 @@ export function Folio({ sec, title, cont, pg, id }) {
   return (
     <header className="folio">
       <span className="sec">{sec}</span>
-      <span className="title" id={id}>{title}</span>
+      <span className="title" id={id} role="heading" aria-level={2}>{title}</span>
       {cont ? (
         <>
           <span className="sep">&middot;</span>

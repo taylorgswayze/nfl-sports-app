@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Verdict } from './TradeEvaluator'
 
@@ -45,8 +45,18 @@ export function WeekRoomPending({ state }) {
 
 /* The note as a pop-out: the prose, the league, when it printed. */
 function NoteModal({ ins, onClose }) {
+  const box = useRef(null)
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab' || !box.current) return
+      // keep the tab order inside the pop-out while it is open
+      const f = box.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (!f.length) return
+      const first = f[0]; const last = f[f.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -56,7 +66,7 @@ function NoteModal({ ins, onClose }) {
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={`The GM's note for ${ins.name}`}
-        onClick={(e) => e.stopPropagation()}>
+        ref={box} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
             <span className="kicker">The GM&rsquo;s note</span>
@@ -66,7 +76,6 @@ function NoteModal({ ins, onClose }) {
           <button type="button" className="ctl" onClick={onClose} autoFocus>CLOSE</button>
         </div>
         <Prose text={ins.narrative} />
-        {ins.projection_note && <p className="note wr-note">{ins.projection_note}</p>}
       </div>
     </div>
   )
@@ -79,10 +88,11 @@ function NoneLine({ children }) {
 export default function WeekRoom({ ins, onReprint, reprinting }) {
   const [showLineup, setShowLineup] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
+  const noteBtn = useRef(null)
+  const closeNote = useCallback(() => { setNoteOpen(false); noteBtn.current?.focus() }, [])
   if (!ins) return null
   const preDraft = ins.status === 'pre_draft' || ins.status === 'drafting'
   const lu = ins.lineup || {}
-  const m = ins.matchup
   const moves = lu.moves || []
   const waivers = ins.waivers || []
   const trades = ins.trades || []
@@ -108,19 +118,14 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   const lede = lu.material ? fmt(lu.gain, true) : 'Set'
   const ledeNote = lu.material
     ? `points on the table with ${moves.length} move${moves.length === 1 ? '' : 's'}`
-    : 'the card stands as written'
+    : 'lineup, no moves to make'
 
   return (
     <div className={`gm${lu.material ? ' hot' : ''}`}>
       <div className="gm-bar">
         <div className={`gm-lede num${lu.material ? '' : ' quiet'}`}>{lede}<small>{ledeNote}</small></div>
-        {m && (
-          <div className="gm-match num">
-            {fmt(m.my_total)} <span>to</span> {fmt(m.opp_total)} <span>projected vs {m.opp_name || 'your opponent'}</span>
-          </div>
-        )}
         <div className="gm-foot">
-          <button type="button" className="ctl" onClick={() => setNoteOpen(true)}>
+          <button type="button" className="ctl" ref={noteBtn} onClick={() => setNoteOpen(true)}>
             <span className="lbl">READ</span> THE GM&rsquo;S NOTE
           </button>
           <button type="button" className="benchtoggle" onClick={() => setShowLineup((s) => !s)} aria-expanded={showLineup}>
@@ -276,11 +281,10 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
               </tbody>
             </table>
           </div>
-          {ins.projection_note && <p className="note wr-note">{ins.projection_note}</p>}
         </div>
       )}
 
-      {noteOpen && <NoteModal ins={ins} onClose={() => setNoteOpen(false)} />}
+      {noteOpen && <NoteModal ins={ins} onClose={closeNote} />}
     </div>
   )
 }
