@@ -71,7 +71,7 @@ function NoteModal({ ins, onClose }) {
           <div>
             <span className="kicker">The GM&rsquo;s note</span>
             <span className="modal-title">{ins.name}</span>
-            <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · reprints every ${ins.refresh_hours}h` : ''}</span>
+            <span className="when num">{printed ? `printed ${printed}` : ''}</span>
           </div>
           <button type="button" className="ctl" onClick={onClose} autoFocus>CLOSE</button>
         </div>
@@ -98,6 +98,8 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
   const trades = ins.trades || []
   const proposals = ins.proposals || []
   const printed = stamp(ins.generated_at)
+  const numbersAt = stamp(ins.numbers_at)
+  const refreshed = numbersAt && numbersAt !== printed ? numbersAt : null
 
   if (preDraft || ins.error) {
     return (
@@ -136,7 +138,7 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
               {reprinting ? 'REPRINTING…' : 'REPRINT NOW'}
             </button>
           )}
-          <span className="when num">{printed ? `printed ${printed}` : ''}{ins.refresh_hours ? ` · every ${ins.refresh_hours}h` : ''}</span>
+          <span className="when num">{printed ? `note ${printed}` : ''}{refreshed ? ` · numbers ${refreshed}` : ''}</span>
         </div>
       </div>
 
@@ -166,26 +168,25 @@ export default function WeekRoom({ ins, onReprint, reprinting }) {
         </div>
 
         <div className="gm-rec">
-          <p className="wr-sub">The wire <span className="num">{waivers.length ? 'claims and releases, with the projected upside' : ''}</span></p>
+          <p className="wr-sub">The wire <span className="num">{waivers.length ? 'one row per move, net gain' : ''}</span></p>
           {waivers.length > 0 ? (
             <div className="tablewrap">
               <table className="stats wr-tbl">
                 <thead>
                   <tr>
-                    <th scope="col" className="txt">CLAIM</th>
-                    <th scope="col" className="txt">RELEASE</th>
-                    <th scope="col">THIS WK<span className="was">pts</span></th>
-                    <th scope="col">ROS<span className="was">pts / wk</span></th>
+                    <th scope="col" className="txt">PICK UP</th>
+                    <th scope="col" className="txt">DROP</th>
+                    <th scope="col">THIS WEEK<span className="was">pts</span></th>
+                    <th scope="col">SEASON<span className="was">pts / wk</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {waivers.map((w, i) => (
                     <tr key={`w${i}`}>
-                      <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span>
-                        <span className="wr-meta wr-line">{w.starts ? 'starts now' : 'depth'}{w.trending ? ` · ${Number(w.trending).toLocaleString()} adds` : ''}</span></td>
+                      <td className="txt player">{w.add.name} <span className="wr-meta">{[w.add.pos, w.add.team].filter(Boolean).join(', ')}</span></td>
                       <td className="txt">{w.drop.name} <span className="wr-meta">{w.drop.pos}</span></td>
-                      <td className="n">{fmt(w.week_gain, true)}</td>
-                      <td className="n sortcol">{fmt(w.gain, true)}</td>
+                      <td className={`n${w.best_week ? ' sortcol best' : ''}`}>{fmt(w.week_gain, true)}</td>
+                      <td className={`n${w.best_season ? ' sortcol best' : ''}`}>{fmt(w.gain, true)}</td>
                     </tr>
                   ))}
                 </tbody>

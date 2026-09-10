@@ -553,13 +553,14 @@ function MyLeagues() {
               <p>The general manager runs on Sleeper&rsquo;s own projections, scored under each
                 league&rsquo;s rules: this week&rsquo;s projection sets the lineup card, and the
                 average of Sleeper&rsquo;s remaining weekly projections through week 17 (rest of
-                season) scores the wire and the phones. The note reprints every 12 hours, or on
-                demand.</p>
-              <p>The lineup card lists every move to the projected optimum. The wire pairs each
-                claim with the release it needs, with the gain this week and per week the rest
-                of the way; a zero this week means the pickup does not crack this week&rsquo;s
-                lineup. The phones are one-for-one deals scored for both sides. Scores and
-                records are Sleeper&rsquo;s, live during games.</p>
+                season) scores the wire and the phones. The numbers refresh every three hours
+                from fresh projections; the note itself reprints every 12 hours, or on demand.</p>
+              <p>The lineup card lists every move to the projected optimum. The wire is one row
+                per move, at most three, ordered by season gain with the best play for this week
+                always included; the bold figures mark the best of each column, and a zero this
+                week means the pickup does not crack this week&rsquo;s lineup. The phones are
+                one-for-one deals scored for both sides. Scores and records are Sleeper&rsquo;s,
+                live during games.</p>
             </Footnotes>
           </>
         )}

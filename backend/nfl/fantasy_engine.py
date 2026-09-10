@@ -31,6 +31,7 @@ OUT_STATUSES = {'Out', 'IR', 'PUP', 'Sus', 'NA', 'COV', 'DNR'}
 DOUBTFUL_MULT = 0.25
 NOISE_FLOOR = 0.05        # any real projected gain prints as roster moves; pure ties do not
 WAIVER_FLOOR = 0.5        # smallest ROS lineup-value gain worth a waiver line
+WAIVER_LINES = 3          # the wire prints at most this many claims
 TRADE_FLOOR = 1.0
 PPR = {'pass_yd': 0.04, 'pass_td': 4.0, 'pass_int': -2.0, 'pass_2pt': 2.0,
        'rush_yd': 0.1, 'rush_td': 6.0, 'rush_2pt': 2.0,
@@ -347,71 +348,96 @@ def roster_ros_value(slots, pids, values, reserve=None):
 
 
 def waiver_report(slots, my_pids, values, free_agents, fa_values, reserve=None,
-                  trending=None, max_lines=5, per_pos=6, protected=None):
-    """Free agents worth a claim, each paired with the drop that costs
+                  trending=None, max_lines=WAIVER_LINES, per_pos=6, protected=None):
+    """Free agents worth a claim, each paired with the release that costs
     least: value = ROS lineup value of (roster + add - drop) minus today's.
 
     A benched QB/RB/WR/TE costs BENCH_W x ROS to drop and a benched K/DEF
-    costs nothing, so the cheapest drop is exact: the lowest-ROS player left
-    on the bench once the newcomer is slotted (IR/taxi players excluded)."""
+    costs nothing, so the cheapest release is exact: the lowest-ROS player
+    left on the bench once the newcomer is slotted (IR/taxi excluded, this
+    week's starters never released). At most max_lines lines, ordered by
+    season gain, and the best claim for this week is guaranteed a line. A
+    release already spoken for by a higher line is re-paired with the next
+    cheapest release rather than thrown away."""
     reserve = set(str(p) for p in (reserve or []))
-    protected = set(str(p) for p in (protected or []))  # this week's starters: never the drop
+    protected = set(str(p) for p in (protected or []))
     trending = trending or {}
     my = [p for p in my_pids if p in values and p not in reserve]
     base = roster_ros_value(slots, my, values)
     base_week = optimal_lineup(slots, [(p, values[p]['positions'], values[p]['proj']) for p in my])[0]
+
+    def cost(v):
+        return BENCH_W * v['ros'] if set(v['positions']) & set(CORE) else 0.0
+
+    def line_for(fa, exclude=()):
+        merged = dict(values); merged[fa['player_id']] = fa
+        pids = my + [fa['player_id']]
+        tot, asg = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['ros']) for p in pids])
+        started = set(asg.values())
+        bench = [p for p in pids if p not in started]
+        droppable = [p for p in bench if p not in protected and p not in exclude]
+        if not droppable:
+            return None
+        drop = min(droppable, key=lambda p: (cost(merged[p]), merged[p]['ros']))
+        if drop == fa['player_id']:
+            return None  # the newcomer would be the first cut: not worth a claim
+        gain = tot + sum(cost(merged[p]) for p in bench if p != drop) - base
+        if gain < WAIVER_FLOOR:
+            return None
+        after = [p for p in pids if p != drop]
+        week_after = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['proj']) for p in after])[0]
+        starts = fa['player_id'] in started
+        reason = 'starts right away' if starts else 'depth over the current bench'
+        if fa.get('opp'):
+            reason += f", {fa['opp']} this week"
+        return {'add': _brief(fa), 'drop': _brief(merged[drop]), 'gain': round(gain, 2),
+                'week_gain': round(week_after - base_week, 2), 'starts': starts,
+                'trending': trending.get(fa['player_id']), 'reason': reason}
+
     by_pos = {}
     for pid in free_agents:
         v = fa_values.get(pid)
         if not v or not v['team'] or v['ros'] <= 0:
             continue
         by_pos.setdefault(v['pos'], []).append(v)
-    lines = []
+    cands = []
     for pos, rows in by_pos.items():
         rows.sort(key=lambda v: -v['ros'])
         for fa in rows[:per_pos]:
-            merged = dict(values); merged[fa['player_id']] = fa
-            pids = my + [fa['player_id']]
-            cands = [(p, merged[p]['positions'], merged[p]['ros']) for p in pids]
-            tot, asg = optimal_lineup(slots, cands)
-            started = set(asg.values())
-            bench = [p for p in pids if p not in started]
-            droppable = [p for p in bench if p not in protected]
-            if not droppable:
-                continue
-            # cheapest drop: lowest bench cost (K/DEF cost 0, core cost BENCH_W x ROS)
-            def cost(p):
-                v = merged[p]
-                return BENCH_W * v['ros'] if set(v['positions']) & set(CORE) else 0.0
-            drop = min(droppable, key=lambda p: (cost(p), merged[p]['ros']))
-            if drop == fa['player_id']:
-                continue  # newcomer would be the first cut: not worth a claim
-            new_val = tot + sum(cost(p) for p in bench if p != drop)
-            gain = new_val - base
-            if gain < WAIVER_FLOOR:
-                continue
-            starts = fa['player_id'] in started
-            after = [p for p in pids if p != drop]
-            week_after = optimal_lineup(slots, [(p, merged[p]['positions'], merged[p]['proj']) for p in after])[0]
-            week_gain = week_after - base_week
-            reason = 'starts right away' if starts else 'depth over the current bench'
-            if fa.get('opp'):
-                reason += f", {fa['opp']} this week"
-            lines.append({
-                'add': _brief(fa), 'drop': _brief(merged[drop]), 'gain': round(gain, 2),
-                'week_gain': round(week_gain, 2),
-                'starts': starts, 'trending': trending.get(fa['player_id']), 'reason': reason,
-            })
-    lines.sort(key=lambda l: (-l['gain'], -(l['trending'] or 0)))
-    # one line per add, one per drop: the top pairing wins
-    seen_add, seen_drop, out = set(), set(), []
-    for l in lines:
-        a, d = l['add']['player_id'], l['drop']['player_id']
-        if a in seen_add or d in seen_drop:
-            continue
-        seen_add.add(a); seen_drop.add(d); out.append(l)
+            line = line_for(fa)
+            if line:
+                cands.append((fa, line))
+    cands.sort(key=lambda t: (-t[1]['gain'], -(t[1]['trending'] or 0)))
+
+    out, used_adds, used_drops = [], set(), set()
+
+    def take(fa, line):
+        if fa['player_id'] in used_adds:
+            return
+        if line['drop']['player_id'] in used_drops:
+            line = line_for(fa, exclude=used_drops)
+            if not line:
+                return
+        used_adds.add(fa['player_id']); used_drops.add(line['drop']['player_id']); out.append(line)
+
+    for fa, line in cands:
         if len(out) >= max_lines:
             break
+        take(fa, line)
+    # the best claim for this week always makes the card
+    best_week = max(cands, key=lambda t: t[1]['week_gain'], default=None)
+    if best_week and best_week[1]['week_gain'] > 0 and best_week[0]['player_id'] not in used_adds \
+            and best_week[1]['week_gain'] > max((l['week_gain'] for l in out), default=0.0):
+        if len(out) >= max_lines:
+            gone = out.pop()
+            used_adds.discard(gone['add']['player_id']); used_drops.discard(gone['drop']['player_id'])
+        take(*best_week)
+    out.sort(key=lambda l: (-l['gain'], -(l['trending'] or 0)))
+    if out:
+        max(out, key=lambda l: l['gain'])['best_season'] = True
+        bw = max(out, key=lambda l: l['week_gain'])
+        if bw['week_gain'] > 0:
+            bw['best_week'] = True
     return out
 
 

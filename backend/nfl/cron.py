@@ -51,6 +51,17 @@ class WeekRoomRefresh(CronJobBase):
         call_command('fantasy_insights', '--all')
 
 
+class WeekRoomNumbers(CronJobBase):
+    """Every 3 hours: recompute the lineup card, the wire, the phones and the
+    inbox from fresh projections for every printed note; the GM's prose
+    stays as printed until the 12-hour reprint."""
+    schedule = Schedule(run_every_mins=180)
+    code = 'nfl.week_room_numbers'
+
+    def do(self):
+        call_command('fantasy_insights', '--all', '--numbers')
+
+
 class DraftWatch(CronJobBase):
     """Every 30 minutes: any league whose stored GM note predates its draft
     (Sleeper now says in season) gets its note written now; the 12-hour

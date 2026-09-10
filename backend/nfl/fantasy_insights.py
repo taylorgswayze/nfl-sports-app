@@ -21,7 +21,8 @@ from .models import FantasyInsight, Game
 logger = logging.getLogger(__name__)
 
 MAX_LEAGUES = 12
-REFRESH_HOURS = 12
+REFRESH_HOURS = 12        # the GM's prose
+NUMBERS_HOURS = 3         # the lineup card, the wire, the phones
 # Sleeper's live abbreviations match ESPN's except Washington; the legacy
 # OAK/SD/JAC codes only appear on retired players.
 SLEEPER_TO_ESPN = {'WAS': 'WSH'}
@@ -237,7 +238,7 @@ def league_insight(base, lg, user_id, use_llm=True, previous=None):
         'league_id': league_id, 'name': lg.get('name'), 'season': base['season'], 'week': week,
         'status': lg.get('status'), 'scoring': _scoring_label(lg),
         'teams': lg_settings.get('num_teams'), 'slots': slots,
-        'refresh_hours': REFRESH_HOURS,
+        'refresh_hours': REFRESH_HOURS, 'numbers_hours': NUMBERS_HOURS,
         'projection_note': ("Sleeper's weekly projections scored under this league's rules; rest-of-season "
                             "value is the average of Sleeper's remaining weekly projections through week 17."),
     }
@@ -388,10 +389,14 @@ def newly_drafted_leagues(user_id, season):
     return changed
 
 
-def generate_for_user(username, use_llm=True, league_ids=None):
+def generate_for_user(username, use_llm=True, league_ids=None, numbers_only=False):
     """Compute and store insights for every league of a Sleeper user, or
     only for league_ids when given (a freshly drafted league gets its note
-    without rewriting the others). Returns the list of payloads."""
+    without rewriting the others). numbers_only recomputes the lineup card,
+    the wire, the phones and the inbox from fresh projections for leagues
+    that already have a note and keeps the GM's prose as printed (the row
+    keeps its generated_at; payload.numbers_at says when the numbers ran).
+    Returns the list of payloads."""
     st = sleeper.state()
     season = int(st.get('season'))
     week = int(st.get('week') or 1) or 1
@@ -409,8 +414,28 @@ def generate_for_user(username, use_llm=True, league_ids=None):
         history[row.league_id] = prev[-HISTORY_KEEP:]
     out = []
     wanted = set(league_ids) if league_ids else None
+    existing = {row.league_id: row for row in FantasyInsight.objects.filter(sleeper_user_id=user_id)}
     for lg in sleeper.leagues(user_id, season)[:MAX_LEAGUES]:
         if wanted is not None and lg['league_id'] not in wanted:
+            continue
+        if numbers_only:
+            old_row = existing.get(lg['league_id'])
+            op = (old_row.payload or {}) if old_row else {}
+            if not old_row or op.get('status') in PRE_DRAFT or lg.get('status') in PRE_DRAFT or op.get('error'):
+                continue  # no note yet (the draft watch prints it) or nothing to refresh
+            try:
+                payload = league_insight(base, lg, user_id, use_llm=False)
+            except Exception as e:
+                logger.exception(f'numbers refresh failed for league {lg.get("league_id")}: {e}')
+                continue
+            payload['narrative'] = op.get('narrative') or payload.get('narrative')
+            payload['narrative_source'] = op.get('narrative_source', 'template')
+            payload['narrative_history'] = op.get('narrative_history') or []
+            payload['generated_at'] = op.get('generated_at') or timezone.now().isoformat()
+            payload['numbers_at'] = timezone.now().isoformat()
+            # update() leaves generated_at (auto_now) alone: it is the prose's time
+            FantasyInsight.objects.filter(pk=old_row.pk).update(payload=payload, season=season, week=week)
+            out.append(payload)
             continue
         try:
             payload = league_insight(base, lg, user_id, use_llm=use_llm,
@@ -423,6 +448,7 @@ def generate_for_user(username, use_llm=True, league_ids=None):
                        'narrative': 'The Week Room could not build this report; it will retry at the next refresh.',
                        'narrative_source': 'template'}
         payload['generated_at'] = timezone.now().isoformat()
+        payload['numbers_at'] = payload['generated_at']
         FantasyInsight.objects.update_or_create(
             sleeper_user_id=user_id, league_id=lg['league_id'],
             defaults={'username': username, 'season': season, 'week': week, 'payload': payload})

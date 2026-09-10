@@ -3,6 +3,7 @@
     manage.py fantasy_insights --username tswayze        # one Sleeper handle
     manage.py fantasy_insights --all                      # every known handle
     manage.py fantasy_insights --username x --no-llm      # template prose only
+    manage.py fantasy_insights --all --numbers            # fresh numbers, prose as printed
 """
 import logging
 
@@ -24,6 +25,8 @@ class Command(BaseCommand):
         parser.add_argument('--no-llm', action='store_true')
         parser.add_argument('--drafted', action='store_true',
                             help='only leagues that drafted since their note was printed')
+        parser.add_argument('--numbers', action='store_true',
+                            help='recompute the lineup card, wire and phones; keep the prose')
 
     def handle(self, *args, **opts):
         if opts['drafted']:
@@ -48,7 +51,7 @@ class Command(BaseCommand):
             return
         for name in todo[:MAX_USERS]:
             try:
-                out = fi.generate_for_user(name, use_llm=not opts['no_llm'])
+                out = fi.generate_for_user(name, use_llm=not opts['no_llm'], numbers_only=opts['numbers'])
             except Exception as e:
                 self.stderr.write(f'{name}: FAILED {e}')
                 continue

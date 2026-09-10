@@ -164,7 +164,9 @@ def _facts(p):
         'watch': [{'name': f['name'], 'flags': f['flags']} for f in (p.get('flags') or [])[:4]],
         'waivers': [{'add': brief(w['add']), 'drop': brief(w['drop']), 'ros_gain_per_week': r1(w['gain']),
                      'this_week_gain': r1(w.get('week_gain')),
-                     'trending_adds': w.get('trending'), 'reason': w.get('reason')} for w in (p.get('waivers') or [])[:3]],
+                     'trending_adds': w.get('trending'), 'reason': w.get('reason'),
+                     'best_this_week': bool(w.get('best_week')), 'best_for_the_season': bool(w.get('best_season'))}
+                    for w in (p.get('waivers') or [])[:3]],
         'waiver_rules': p.get('waiver'),
         'inbox': [{'partner': pr.get('partner'), 'they_offer': [brief(x) for x in (pr.get('get') or [])],
                    'they_want': [brief(x) for x in (pr.get('send') or [])], 'verdict': pr.get('verdict'),

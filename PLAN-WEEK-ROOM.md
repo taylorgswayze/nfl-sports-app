@@ -308,3 +308,34 @@ The Fantasy tab is three views under the masthead sub-index (`/leagues`,
 * TRADE EVALUATOR: the four-step desk from section 10 as its own page
   (league, partner, players on each side, verdict), replacing the
   per-league toggle.
+
+## 12. The wire, the numbers cadence, and how the bench is valued (2026-09-10)
+
+Why a +2 this-week pickup went unprinted: the wire evaluated the free-agent
+quarterback and he cleared the floor, but a tidy-up rule kept one line per
+released player and the cheapest release (a benched kicker, cost zero) was
+the same for every candidate, so only the top line by season gain survived.
+The wire also ranked by season gain alone.
+
+Now: `waiver_report` prints at most `WAIVER_LINES` (3) claims ordered by
+season gain, guarantees the best claim for this week a line, and re-pairs a
+claim whose release is already spoken for with the next cheapest release
+instead of discarding it. Each line carries `best_week` / `best_season`
+flags; the table is one row per move (pick up, drop, this week, season).
+
+Cadence: `WeekRoomNumbers` (every 3 h, `fantasy_insights --all --numbers`)
+recomputes the lineup card, the wire, the phones, the inbox and the
+matchup from fresh projections for every printed note and keeps the GM's
+prose, its `generated_at` and its history; `payload.numbers_at` says when
+the numbers ran and the page prints both times. The current week's
+projection cache lives 2 hours (`PROJ_TTL_LIVE`); other weeks 6 hours.
+
+How the bench is valued today: ROS lineup value = the optimal lineup on
+each player's average remaining weekly projection, plus `BENCH_W` (0.15)
+x that average for every benched QB/RB/WR/TE (K/DEF bench counts zero).
+The 15% is a flat stand-in for the chance a bench player starts (injury
+cover, bye-week fill-ins, matchup swaps); it is not computed week by week.
+Sleeper publishes every remaining week's projection, so a week-by-week
+valuation (sum over remaining weeks of each week's optimal lineup total)
+is the natural upgrade: it would value depth by the weeks it actually
+starts and retire the flat weight. Not built yet.

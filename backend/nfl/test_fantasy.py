@@ -172,6 +172,28 @@ class WaiverAndTradeTests(TestCase):
         self.assertGreater(lines[0]['gain'], fe.WAIVER_FLOOR)
         self.assertAlmostEqual(lines[0]['week_gain'], 14 - 11)  # fa1 replaces w2 in this week's lineup
 
+    def test_second_claim_is_repaired_with_the_next_cheapest_release(self):
+        # both free agents would release the benched DEF; the second line
+        # takes the next cheapest release instead of vanishing
+        fa = {'fa1': V('fa1', 'WR', 14, team='MIA'), 'fa2': V('fa2', 'WR', 13, team='MIA')}
+        lines = fe.waiver_report(SLOTS, self.roster, self.values, ['fa1', 'fa2'], fa, protected=['d1'])
+        self.assertEqual([l['add']['player_id'] for l in lines], ['fa1', 'fa2'])
+        self.assertEqual(lines[0]['drop']['player_id'], 'd2')
+        self.assertEqual(lines[1]['drop']['player_id'], 'w3')
+        self.assertTrue(lines[0].get('best_season'))
+
+    def test_wire_caps_at_three_and_keeps_the_best_this_week(self):
+        # four season-value claims; the fourth is the best play this week
+        fa = {f'fa{i}': V(f'fa{i}', 'WR', 12.5 + i * 0.1, ros=16 - i, team='MIA') for i in range(1, 4)}
+        fa['fa4'] = V('fa4', 'WR', 18, ros=12.6, team='MIA')
+        lines = fe.waiver_report(SLOTS, self.roster, self.values, list(fa), fa, protected=['d1'])
+        self.assertEqual(len(lines), 3)
+        ids = [l['add']['player_id'] for l in lines]
+        self.assertIn('fa4', ids)
+        self.assertEqual(ids[0], 'fa1')                      # ordered by season gain
+        self.assertTrue(next(l for l in lines if l['add']['player_id'] == 'fa4').get('best_week'))
+        self.assertEqual(len({l['drop']['player_id'] for l in lines}), 3)   # three different releases
+
     def test_weak_free_agent_is_not_a_claim(self):
         fa = {'fa1': V('fa1', 'WR', 2, team='MIA')}
         self.assertEqual(fe.waiver_report(SLOTS, self.roster, self.values, ['fa1'], fa), [])
@@ -563,3 +585,38 @@ class TradeDeskViewTests(TestCase):
         self.assertEqual(ev['partner'], 'Rival')
         self.assertGreater(ev['my_ros_delta'], 0)
         self.assertLess(ev['their_ros_delta'], 0)
+
+
+class NumbersRefreshTests(TestCase):
+    """The 3-hour numbers pass rewrites the tables and keeps the prose."""
+
+    @mock.patch('nfl.fantasy_insights.league_insight')
+    @mock.patch('nfl.fantasy_insights.build_base_context', return_value={'season': 2026, 'week': 1})
+    @mock.patch('nfl.fantasy_insights.sleeper.leagues', return_value=[{'league_id': 'L1', 'name': 'One', 'status': 'in_season'},
+                                                                      {'league_id': 'L2', 'name': 'Two', 'status': 'in_season'}])
+    @mock.patch('nfl.fantasy_insights.sleeper.user', return_value={'user_id': 'u1'})
+    @mock.patch('nfl.fantasy_insights.sleeper.state', return_value={'season': '2026', 'week': 1})
+    def test_numbers_only_keeps_the_prose_and_its_time(self, _st, _user, _leagues, _base, insight):
+        insight.side_effect = lambda base, lg, uid, use_llm=True, previous=None: {
+            'league_id': lg['league_id'], 'name': lg['name'], 'status': 'in_season', 'week': 1,
+            'waivers': [{'add': {'name': 'New Guy'}}], 'narrative': 'template prose', 'narrative_source': 'template'}
+        row = FantasyInsight.objects.create(sleeper_user_id='u1', username='x', league_id='L1', season=2026, week=1,
+                                            payload={'league_id': 'L1', 'status': 'in_season', 'narrative': 'the GM said so',
+                                                     'narrative_source': 'xai:grok-4.5', 'narrative_history': ['older'],
+                                                     'generated_at': '2026-09-10T04:00:00+00:00', 'waivers': []})
+        stamp = FantasyInsight.objects.get(pk=row.pk).generated_at
+        out = fi.generate_for_user('x', numbers_only=True)
+        self.assertEqual([p['league_id'] for p in out], ['L1'])     # L2 has no note yet: left to the draft watch
+        fresh = FantasyInsight.objects.get(pk=row.pk)
+        self.assertEqual(fresh.payload['narrative'], 'the GM said so')
+        self.assertEqual(fresh.payload['narrative_source'], 'xai:grok-4.5')
+        self.assertEqual(fresh.payload['narrative_history'], ['older'])
+        self.assertEqual(fresh.payload['generated_at'], '2026-09-10T04:00:00+00:00')
+        self.assertEqual(fresh.payload['waivers'][0]['add']['name'], 'New Guy')
+        self.assertIn('numbers_at', fresh.payload)
+        self.assertEqual(fresh.generated_at, stamp)
+        self.assertFalse(insight.call_args_list[0].kwargs.get('use_llm', True))
+
+    def test_numbers_job_is_scheduled(self):
+        from django.conf import settings
+        self.assertIn('nfl.cron.WeekRoomNumbers', settings.CRON_CLASSES)

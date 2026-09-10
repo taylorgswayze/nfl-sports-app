@@ -25,6 +25,7 @@ DATA_DIR = Path(__file__).resolve().parent.parent / 'data'
 PLAYERS_CACHE = DATA_DIR / 'sleeper_players_v2.json'
 PLAYERS_TTL = 24 * 3600
 PROJ_TTL = 6 * 3600
+PROJ_TTL_LIVE = 2 * 3600   # the current week's projections move with the injury reports
 STATS_TTL = 12 * 3600
 SEASON_PROJ_TTL = 24 * 3600
 POSITIONS = ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')
@@ -156,8 +157,12 @@ def weekly_projections(season, week, keep=True):
                 'opp': r.get('opponent'), 'injury': p.get('injury_status'),
             }
         return out
-    return _disk_cached(DATA_DIR / f'proj_{season}_w{week}.json', PROJ_TTL, fetch,
-                        mem_ttl=3600 if keep else 0)
+    try:
+        live = int((state() or {}).get('week') or 0) == int(week)
+    except Exception:
+        live = False
+    return _disk_cached(DATA_DIR / f'proj_{season}_w{week}.json', PROJ_TTL_LIVE if live else PROJ_TTL, fetch,
+                        mem_ttl=(1800 if live else 3600) if keep else 0)
 
 
 def ros_projections(season, week, last=ROS_LAST_WEEK):
